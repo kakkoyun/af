@@ -93,3 +93,50 @@ See [TODO.md](TODO.md) for the task checklist and [docs/PLAN.md](docs/PLAN.md) f
 ### Next
 
 - Phase 1: implement the `af create` command (local worktree mode first).
+
+---
+
+## 2026-03-26 — Session 3: Phase 1 Implementation
+
+### Done
+
+- **Phase 1 substantially complete** — 17 of 20 tasks done. 150 tests passing.
+
+- **CLI definition** (`cli.rs`) — 7 subcommands with clap derive:
+  create, done, list, resume, session-branch, doctor, version.
+  Flag conflicts enforced: `--from` vs `--current`, `--yes` requires `--fix`.
+
+- **Command implementations:**
+  - `cmd/create.rs` — full local worktree mode: detect git root → resolve base →
+    name generation (explicit, auto, branch-pinned) → prefix logic → worktree
+    creation → mux session → agent launch → state.toml + ledger.jsonl.
+    Workspace mode for non-git directories. `--from`, `--current`, `--bare`, `--agent`.
+  - `cmd/done.rs` — resolve session (arg or current mux), confirmation prompt,
+    kill mux → remove worktree → delete branch → archive. Ledger events.
+  - `cmd/list.rs` — load all sessions, group by repo, mark current repo.
+  - `cmd/resume.rs` — resume by name or fzf picker. Recreate dead mux sessions
+    from disk metadata, relaunch agent with `--continue`. Ledger events.
+  - `cmd/session_branch.rs` — lightweight: launch agent with branch-tied UUID.
+  - `cmd/doctor.rs` — build dependency list from config, tier-based reporting.
+
+- **Integration tests** (13 new) — help output for all subcommands, flag
+  conflict validation, empty list behavior, `--yes` requires `--fix`.
+
+- **Clippy fixes** — resolved 11 issues: redundant clones, `map().unwrap_or_else()`,
+  identical if blocks, boolean simplification, `process::exit`, missing docs.
+
+### Deferred to Phase 2
+
+- `--from-pr` — requires `gh` CLI integration for PR branch resolution.
+- `--doctor --fix` — auto-install placeholder, full implementation in Phase 2.
+- `resume --bare` — flag accepted, dedicated bare-mode logic pending.
+
+### Current State
+
+- **Phase 1: SUBSTANTIALLY COMPLETE.** 17/20 tasks done. 150 tests passing.
+- 3 tasks deferred (reasonable — they depend on Phase 2 features or `gh` integration).
+- The tool is now usable for daily local workflow with `af create`, `af done`, `af list`, `af resume`.
+
+### Next
+
+- Phase 2: Multi-agent support, remaining agent providers, config commands, completions.

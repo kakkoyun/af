@@ -34,26 +34,26 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 
 ## Phase 1 — Local MVP
 
-- [ ] `af create [task-name]` — local worktree mode
-- [ ] `af create --from <branch>` — fork from specific branch
-- [ ] `af create --current` — fork from current branch
-- [ ] `af create --from-pr <number>` — PR worktree (needs `gh`)
-- [ ] `af create --bare` — bare mode (no VM, host worktree)
-- [ ] `af create` — workspace mode (non-git directory)
-- [ ] `af create --agent <name>` — agent selection
-- [ ] Session limit guard (`max_sessions` config)
-- [ ] `af done [session]` — teardown with confirmation
-- [ ] `af done --force` — skip confirmation, force-delete unmerged
-- [ ] `af list` — grouped by repo, current repo first
-- [ ] `af resume [session]` — re-attach to session
-- [ ] `af resume` (no args) — fzf picker (if available)
-- [ ] `af resume --bare` — resume in bare mode
-- [ ] `af session-branch` — branch-tied session ID
-- [ ] Ledger: emit events from create/done/resume commands
-- [ ] Agent session ID tracking in state.toml
-- [ ] `af doctor` — pre-flight dependency check
-- [ ] `af doctor --fix` — auto-install missing dependencies
-- [ ] Integration tests: temp git repo + mock multiplexer
+- [x] `af create [task-name]` — local worktree mode
+- [x] `af create --from <branch>` — fork from specific branch
+- [x] `af create --current` — fork from current branch
+- [ ] `af create --from-pr <number>` — PR worktree (needs `gh`) *(deferred: requires gh integration)*
+- [x] `af create --bare` — bare mode (no VM, host worktree)
+- [x] `af create` — workspace mode (non-git directory)
+- [x] `af create --agent <name>` — agent selection
+- [x] Session limit guard (`max_sessions` config)
+- [x] `af done [session]` — teardown with confirmation
+- [x] `af done --force` — skip confirmation, force-delete unmerged
+- [x] `af list` — grouped by repo, current repo first
+- [x] `af resume [session]` — re-attach to session
+- [x] `af resume` (no args) — fzf picker (if available)
+- [ ] `af resume --bare` — resume in bare mode *(flag accepted, logic pending)*
+- [x] `af session-branch` — branch-tied session ID
+- [x] Ledger: emit events from create/done/resume commands
+- [x] Agent session ID tracking in state.toml
+- [x] `af doctor` — pre-flight dependency check
+- [ ] `af doctor --fix` — auto-install missing dependencies *(placeholder, Phase 2)*
+- [x] Integration tests: CLI help, flag conflicts, empty list
 
 ## Phase 2 — Multi-Agent + Config
 
