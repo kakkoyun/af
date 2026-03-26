@@ -5,3 +5,5 @@
 
 pub mod branch;
 pub mod remote;
+pub mod resolve;
+pub mod worktree;

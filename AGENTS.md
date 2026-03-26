@@ -140,25 +140,23 @@ Each entry corresponds to a version tag. Unreleased changes accumulate under `##
 
 ## Subagent Coordination
 
-When spawning subagents for parallel work:
+**Default: do the work yourself.** Only spawn subagents when there are genuinely independent,
+non-overlapping modules that benefit from parallelism. Two tasks? Do them sequentially.
 
-1. **Each subagent gets a clear, scoped task** — one module, one trait, one set of tests.
-2. **No subagent modifies shared files** (`Cargo.toml`, `cli.rs`, `lib.rs`) without
-   coordination. Only the lead agent modifies shared files.
-3. **Subagents write their module + tests**, then report back.
-4. **Integration is the lead agent's job** — wiring modules together, resolving conflicts.
+When spawning subagents:
 
-### Task boundaries for subagents (Phase 0 example)
-
-| Task | Scope | Shared deps |
-|---|---|---|
-| UUID v5 + naming | `src/util/uuid.rs`, `src/session/naming.rs` | None |
-| Config system | `src/config/` | `serde`, `toml` in Cargo.toml |
-| Session store | `src/session/store.rs` | `serde`, `toml` in Cargo.toml |
-| Git helpers | `src/git/` | None (shells out to `git`) |
-| Platform detection | `src/platform/` | None |
-| Multiplexer trait + tmux | `src/mux/` | None (shells out to `tmux`) |
-| Agent trait + Claude | `src/agent/` | `which` in Cargo.toml |
+1. **Commit all pending work first.** Subagents can overwrite uncommitted files.
+   This is not theoretical — it happened in Phase 0 (ledger.rs was overwritten).
+2. **Each subagent works on a branch**, not directly on `main`. The lead reviews
+   and merges. This prevents file conflicts and enforces review.
+3. **Each subagent gets a clear, scoped task** — one module, one trait, one set of tests.
+4. **No subagent modifies shared files** (`Cargo.toml`, `cli.rs`, `lib.rs`, `mod.rs` parent
+   declarations) without coordination. Only the lead agent modifies shared files.
+5. **Subagents write their module + tests**, then report back.
+6. **Integration is the lead agent's job** — wiring modules together, fixing lint
+   violations, resolving conflicts.
+7. **The lead runs `just check` after integration** — subagent code is not trusted to
+   be lint-clean until verified in the full crate context.
 
 ---
 

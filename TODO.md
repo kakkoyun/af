@@ -19,10 +19,10 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] Session event ledger: JSONL append/read (`ledger.jsonl`)
 - [x] Ledger event types: created, agent_launched, resumed, completed, error
 - [x] Version pinning: record af version + agent config hash at session creation
-- [ ] Git helpers: worktree create/remove, branch create/delete
+- [x] Git helpers: worktree create/remove, branch create/delete
 - [x] Git helpers: main branch detection (main/master/trunk)
 - [x] Git helpers: org detection from remote URL (SSH + HTTPS)
-- [ ] Git helpers: fetch + resolve base branch (upstream preferred)
+- [x] Git helpers: fetch + resolve base branch (upstream preferred)
 - [x] Branch prefix logic (fork detection via `upstream` remote)
 - [x] Platform detection (macOS, Arch, Debian)
 - [x] Package manager abstraction (brew, pacman, apt)
