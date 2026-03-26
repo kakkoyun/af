@@ -323,12 +323,12 @@ fn guard_session_limit(cfg: &config::Config, store: &SessionStore) -> Result<()>
 
 /// Resolve an agent provider by name.
 fn resolve_agent(name: &str) -> Result<Box<dyn crate::agent::AgentProvider>> {
-    match name {
-        "claude" => Ok(Box::new(crate::agent::claude::ClaudeProvider)),
-        other => bail!(
-            "unknown agent '{other}'. Supported: claude. (pi, codex, gemini, amp coming in Phase 2)"
-        ),
-    }
+    crate::agent::resolve(name).ok_or_else(|| {
+        anyhow::anyhow!(
+            "unknown agent '{name}'. Supported: {}",
+            crate::agent::KNOWN_AGENTS.join(", ")
+        )
+    })
 }
 
 /// Expand `~` at the start of a path to the home directory.

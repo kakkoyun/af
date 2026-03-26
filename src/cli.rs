@@ -40,6 +40,10 @@ pub enum Commands {
     Resume(ResumeArgs),
     /// Launch agent with a session ID tied to the current branch.
     SessionBranch,
+    /// Generate shell completions.
+    Completions(CompletionsArgs),
+    /// Manage configuration.
+    Config(ConfigArgs),
     /// Check dependencies, optionally install missing ones.
     Doctor(DoctorArgs),
     /// Print version and build information.
@@ -96,6 +100,31 @@ pub struct ResumeArgs {
     pub bare: bool,
 }
 
+/// Arguments for `af completions`.
+#[derive(Debug, clap::Args)]
+pub struct CompletionsArgs {
+    /// Shell to generate completions for.
+    #[arg(value_enum)]
+    pub shell: clap_complete::Shell,
+}
+
+/// Arguments for `af config`.
+#[derive(Debug, clap::Args)]
+pub struct ConfigArgs {
+    /// Config action to perform.
+    #[command(subcommand)]
+    pub action: ConfigAction,
+}
+
+/// Config subcommands.
+#[derive(Debug, Subcommand)]
+pub enum ConfigAction {
+    /// Dump the effective configuration.
+    Show,
+    /// Create a default config file.
+    Init,
+}
+
 /// Arguments for `af doctor`.
 #[derive(Debug, clap::Args)]
 pub struct DoctorArgs {
@@ -117,6 +146,12 @@ impl Cli {
             Commands::List => crate::cmd::list::run(),
             Commands::Resume(args) => crate::cmd::resume::run(args),
             Commands::SessionBranch => crate::cmd::session_branch::run(),
+            Commands::Completions(args) => {
+                let mut cmd = <Self as clap::CommandFactory>::command();
+                clap_complete::generate(args.shell, &mut cmd, "af", &mut std::io::stdout());
+                Ok(())
+            }
+            Commands::Config(args) => crate::cmd::config_cmd::run(args),
             Commands::Doctor(args) => crate::cmd::doctor::run(args),
             Commands::Version => {
                 #[allow(clippy::print_stdout)]

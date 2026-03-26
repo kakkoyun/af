@@ -53,11 +53,9 @@ pub fn run(args: &ResumeArgs) -> Result<()> {
 
         // Relaunch agent with --continue.
         if let Some(agent) = state.agents.first() {
-            let agent_provider = match agent.provider.as_str() {
-                "claude" => Box::new(crate::agent::claude::ClaudeProvider)
-                    as Box<dyn crate::agent::AgentProvider>,
-                _ => bail!("cannot resume agent '{}'", agent.provider),
-            };
+            let agent_provider = crate::agent::resolve(&agent.provider)
+                .ok_or_else(|| anyhow::anyhow!("unknown agent '{}'", agent.provider))?;
+            let agent_provider: Box<dyn crate::agent::AgentProvider> = agent_provider;
             let resume_opts = crate::agent::ResumeOpts { yolo: false };
             let cmd_parts = agent_provider.resume_cmd(&resume_opts);
             mux.send_keys(&session_name, &format!("{}\n", cmd_parts.join(" ")))?;

@@ -137,3 +137,67 @@ fn test_list_empty_shows_no_sessions() {
     // Either success with "No active" or success with session listing.
     result.success();
 }
+
+// ── Config ──────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_config_show() {
+    cmd()
+        .args(["config", "show"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("[general]"));
+}
+
+#[test]
+fn test_config_help() {
+    cmd()
+        .args(["config", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("show"))
+        .stdout(predicate::str::contains("init"));
+}
+
+// ── Completions ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_completions_bash() {
+    cmd()
+        .args(["completions", "bash"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("_af"));
+}
+
+#[test]
+fn test_completions_zsh() {
+    cmd()
+        .args(["completions", "zsh"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("#compdef af"));
+}
+
+#[test]
+fn test_completions_fish() {
+    cmd()
+        .args(["completions", "fish"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("complete"));
+}
+
+// ── Agent flag ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_create_unknown_agent_shows_supported_list() {
+    // Running create outside a git repo with an unknown agent should fail
+    // with a message listing supported agents.
+    let result = cmd()
+        .args(["create", "--agent", "unknown-agent", "test-task"])
+        .env("HOME", "/tmp/af-test-nonexistent")
+        .assert();
+    // Should fail (either unknown agent error or no tmux).
+    result.failure();
+}

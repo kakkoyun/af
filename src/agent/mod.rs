@@ -4,7 +4,11 @@
 //! (launch commands, session resumption, permission bypass). Built-in providers:
 //! Claude Code, pi, Codex, Gemini CLI, Amp.
 
+pub mod amp;
 pub mod claude;
+pub mod codex;
+pub mod gemini;
+pub mod pi;
 
 use std::path::{Path, PathBuf};
 
@@ -52,4 +56,35 @@ pub trait AgentProvider {
     /// Locate the agent's own session log files for a given session ID.
     /// Used for analysis — af never deletes these files.
     fn session_log_paths(&self, session_id: &str, project_path: &Path) -> Vec<PathBuf>;
+}
+
+/// All known agent provider names.
+pub const KNOWN_AGENTS: &[&str] = &["claude", "pi", "codex", "gemini", "amp"];
+
+/// Resolve an agent provider by name.
+///
+/// Returns `None` if the name is not recognized.
+pub fn resolve(name: &str) -> Option<Box<dyn AgentProvider>> {
+    match name {
+        "claude" => Some(Box::new(claude::ClaudeProvider)),
+        "pi" => Some(Box::new(pi::PiProvider)),
+        "codex" => Some(Box::new(codex::CodexProvider)),
+        "gemini" => Some(Box::new(gemini::GeminiProvider)),
+        "amp" => Some(Box::new(amp::AmpProvider)),
+        _ => None,
+    }
+}
+
+/// Find the first available agent from a priority list.
+///
+/// Default priority: claude > pi > codex > gemini > amp.
+pub fn first_available() -> Option<Box<dyn AgentProvider>> {
+    for &name in KNOWN_AGENTS {
+        if let Some(provider) = resolve(name) {
+            if provider.is_available() {
+                return Some(provider);
+            }
+        }
+    }
+    None
 }

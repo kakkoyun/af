@@ -31,10 +31,8 @@ pub fn run() -> Result<()> {
 
     // Resolve agent.
     let agent_name = &cfg.general.default_agent;
-    let agent: Box<dyn crate::agent::AgentProvider> = match agent_name.as_str() {
-        "claude" => Box::new(crate::agent::claude::ClaudeProvider),
-        other => bail!("unknown agent '{other}'"),
-    };
+    let agent = crate::agent::resolve(agent_name)
+        .ok_or_else(|| anyhow::anyhow!("unknown agent '{agent_name}'"))?;
 
     let opts = crate::agent::LaunchOpts {
         session_id: sid.to_string(),
