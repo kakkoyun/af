@@ -607,6 +607,9 @@ af gc [options]                     # cfgc
 af editor [options] [session-name]  # cf-open-editor
 af auth [setup|reroll|status|clear] # cfauth
 af session-branch                   # csb
+af agent add [--slot name] [--agent] # new: add agent to workstream
+af agent stop [slot]                # new: stop an agent in a slot
+af agent list                       # new: list agents in workstream
 af config [show|init]               # new: config management
 af doctor [--fix] [--yes]           # new: dependency check + install
 af note [session]                   # new: Obsidian integration

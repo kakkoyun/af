@@ -69,10 +69,31 @@ mode = "local"
 multiplexer = "tmux"
 multiplexer_session = "kakkoyun--issue-42"
 
-[agent]
+# Multiple agents can run concurrently on the same workstream.
+# Each entry is keyed by a slot name (user-chosen or auto-assigned).
+# A workstream always has a "primary" agent launched at creation time;
+# additional agents can be added via `af agent add`.
+
+[[agents]]
+slot = "primary"
 provider = "claude"
-# References to agent's own session files (af never deletes these)
 session_ids = ["550e8400-e29b-41d4-a716-446655440000"]
+pane = "0"                     # multiplexer pane ID (for send-keys / reconnect)
+status = "running"             # running | stopped | crashed
+
+[[agents]]
+slot = "review"
+provider = "pi"
+session_ids = ["7a1b2c3d-..."]
+pane = "1"
+status = "running"
+
+# [[agents]]
+# slot = "test-runner"
+# provider = "codex"
+# session_ids = []
+# pane = "2"
+# status = "stopped"
 
 [pr]
 number = 0                     # 0 = no PR yet
@@ -99,35 +120,42 @@ agent_config_hash = "a1b2c3d4" # SHA256 prefix of agent settings at creation tim
 One JSON object per line, chronologically ordered. Never edited, only appended.
 
 ```jsonl
-{"ts":"2026-03-26T14:30:00Z","event":"session_created","af_version":"0.1.0","agent":"claude","mode":"local","branch":"kakkoyun/issue-42","base":"upstream/main"}
-{"ts":"2026-03-26T14:30:01Z","event":"agent_launched","agent":"claude","session_id":"550e8400-...","cmd":"claude --session-id 550e8400-..."}
-{"ts":"2026-03-26T15:45:00Z","event":"agent_resumed","agent":"claude","cmd":"claude --continue"}
-{"ts":"2026-03-26T16:00:00Z","event":"agent_switched","from":"claude","to":"pi","reason":"manual"}
-{"ts":"2026-03-26T16:00:01Z","event":"agent_launched","agent":"pi","cmd":"pi"}
+{"ts":"2026-03-26T14:30:00Z","event":"session_created","af_version":"0.1.0","agents":["claude"],"mode":"local","branch":"kakkoyun/issue-42","base":"upstream/main"}
+{"ts":"2026-03-26T14:30:01Z","event":"agent_launched","slot":"primary","agent":"claude","session_id":"550e8400-...","pane":"0","cmd":"claude --session-id 550e8400-..."}
+{"ts":"2026-03-26T15:00:00Z","event":"agent_added","slot":"review","agent":"pi","pane":"1","cmd":"pi"}
+{"ts":"2026-03-26T15:00:01Z","event":"agent_launched","slot":"review","agent":"pi","session_id":"7a1b2c3d-...","pane":"1","cmd":"pi"}
+{"ts":"2026-03-26T15:45:00Z","event":"agent_resumed","slot":"primary","agent":"claude","cmd":"claude --continue"}
+{"ts":"2026-03-26T16:30:00Z","event":"agent_stopped","slot":"review","agent":"pi","reason":"user_request"}
+{"ts":"2026-03-26T17:00:00Z","event":"agent_added","slot":"tests","agent":"codex","pane":"2","cmd":"codex --full-auto"}
+{"ts":"2026-03-26T17:00:01Z","event":"agent_launched","slot":"tests","agent":"codex","session_id":"c0d3x-...","pane":"2","cmd":"codex --full-auto"}
 {"ts":"2026-03-26T17:30:00Z","event":"pr_opened","number":142,"url":"https://github.com/org/repo/pull/142"}
-{"ts":"2026-03-26T18:00:00Z","event":"session_paused","reason":"user_detached"}
+{"ts":"2026-03-26T18:00:00Z","event":"session_paused","reason":"user_detached","active_agents":["claude","codex"]}
 {"ts":"2026-03-27T09:00:00Z","event":"session_resumed","recovery":"metadata_restore"}
 {"ts":"2026-03-27T12:00:00Z","event":"pr_merged","number":142}
-{"ts":"2026-03-27T12:05:00Z","event":"session_completed","duration_hours":21.58}
+{"ts":"2026-03-27T12:05:00Z","event":"session_completed","duration_hours":21.58,"agents_used":["claude","pi","codex"]}
 ```
 
 #### Event types
 
+Every agent event carries a `slot` field to identify which agent instance is affected.
+
 | Event | When | Key fields |
 |---|---|---|
-| `session_created` | `af create` | agent, mode, branch, base, af_version |
-| `agent_launched` | Agent process started | agent, session_id, cmd |
-| `agent_resumed` | Agent reattached | agent, cmd |
-| `agent_switched` | User switches agent mid-stream | from, to, reason |
-| `mux_reconnected` | tmux session recovered | recovery method |
+| `session_created` | `af create` | agents (initial list), mode, branch, base, af_version |
+| `agent_launched` | Agent process started | **slot**, agent, session_id, pane, cmd |
+| `agent_added` | Additional agent joined workstream | **slot**, agent, pane, cmd |
+| `agent_resumed` | Agent reattached | **slot**, agent, cmd |
+| `agent_stopped` | Agent intentionally stopped | **slot**, agent, reason |
+| `agent_crashed` | Agent process died unexpectedly | **slot**, agent, exit_code |
+| `mux_reconnected` | Multiplexer session recovered | recovery method |
 | `remote_reconnected` | SSH/VM reconnection | host, attempt |
 | `sandbox_respawned` | Dead VM replaced | old_vm, new_vm |
 | `pr_opened` | PR created from branch | number, url |
 | `pr_merged` | PR merged | number |
 | `pr_closed` | PR closed without merge | number |
-| `session_paused` | User detached | reason |
+| `session_paused` | User detached | reason, active_agents |
 | `session_resumed` | User reattached | recovery method |
-| `session_completed` | `af done` | duration_hours |
+| `session_completed` | `af done` | duration_hours, agents_used |
 | `session_abandoned` | `af done --force` on unmerged | reason |
 | `error` | Any recoverable error | message, context |
 

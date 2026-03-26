@@ -62,12 +62,34 @@ pub trait AgentProvider {
 | `gemini` | `gemini` | *(tbd)* | *(tbd)* | *(tbd)* |
 | `amp` | `amp` | *(tbd)* | *(tbd)* | *(tbd)* |
 
-### Selection order
+### Multi-agent model
+
+A workstream can run **multiple agents concurrently**, each in its own multiplexer pane.
+Agents are identified by a **slot name** (user-chosen or auto-assigned).
+
+```
+af create fix-bug                        # launches primary agent (from config)
+af agent add --slot review --agent pi    # adds pi in a new pane
+af agent add --slot tests --agent codex  # adds codex in another pane
+af agent stop review                     # stops the pi instance
+af agent list                            # show all agents in the workstream
+```
+
+#### Primary agent selection
 
 1. `af create --agent codex` — explicit per-session flag
 2. Project config (`.af/config.toml` → `agent = "pi"`)
 3. User config (`~/.config/af/config.toml` → `default_agent = "claude"`)
 4. First available from a priority list: `claude > pi > codex > gemini > amp`
+
+#### Slot model
+
+- Each slot maps to one agent provider + one multiplexer pane
+- The `primary` slot is created by `af create`
+- Additional slots are created by `af agent add`
+- Each agent has its own session IDs, tracked independently in `state.toml`
+- All agents share the same worktree, branch, and multiplexer session
+- `af done` tears down all agents in all slots
 
 ## Consequences
 
@@ -75,3 +97,6 @@ pub trait AgentProvider {
 - Agents that don't support session IDs will get a degraded experience (no deterministic resume).
 - The trait boundary keeps agent-specific logic contained — new agents are a struct + trait impl.
 - `--yolo` semantics vary per agent; we abstract it as "unattended mode" in the trait.
+- Multi-agent adds complexity to resume (must restore each pane) and teardown (must stop all).
+- The slot model avoids conflicts — each agent has its own pane, its own session state.
+- Ledger events carry `slot` to distinguish which agent did what (see [ADR-011](011-workstream-lifecycle.md)).
