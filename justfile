@@ -11,7 +11,7 @@ default:
 # ── Quality ────────────────────────────────────────────────────────────────────
 
 # Run all checks (what CI runs)
-check: fmt-check lint test deny
+check: fmt-check lint test deny doc-check
 
 # Format code
 fmt:
@@ -82,6 +82,10 @@ update:
 # Clean build artifacts
 clean:
     cargo clean
+
+# Build docs (warnings are errors)
+doc-check:
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 
 # Generate and open docs
 doc:

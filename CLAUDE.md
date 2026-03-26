@@ -19,23 +19,30 @@ Every new session, before writing any code:
 
 ## Documentation
 
+**README.md is the contract.** It shows the target UX. If the implementation doesn't
+match the README, the implementation is wrong. Update README.md whenever user-facing
+behaviour changes. See `AGENTS.md` → "Documentation Standards" for the full rules.
+
 | File | Purpose |
 |---|---|
-| `AGENTS.md` | **Working agreement** — TDD, quality standards, process |
+| `README.md` | **User-facing quickstart** — must match reality, update with every feature |
+| `AGENTS.md` | **Working agreement** — TDD, quality standards, documentation rules, process |
 | `PROGRESS.md` | Narrative log of what was done, blockers, decisions |
 | `TODO.md` | Checkbox task list by phase |
 | `docs/SPEC.md` | Full specification (immutable reference) |
 | `docs/PLAN.md` | Implementation plan with architecture diagram (immutable) |
 | `docs/adr/` | Architecture Decision Records (11 ADRs) |
+| [GitHub Pages](https://kakkoyun.github.io/af/) | API docs + user guide (deployed from CI) |
 
 ## Build & Test
 
 ```bash
-just check          # Run all checks (fmt, lint, test, deny) — MUST pass before commit
+just check          # Run all checks (fmt, lint, test, deny, doc) — MUST pass before commit
 just fmt            # Format code
 just lint           # Run clippy (pedantic)
 just test           # Run tests
 just deny           # License/advisory/ban checks
+just doc            # Build rustdoc (warnings are errors)
 just build          # Debug build
 just build-release  # Release build
 just run <args>     # Run the CLI

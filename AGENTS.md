@@ -88,6 +88,56 @@ Ground rules for all agents (human and AI) working on this project.
 
 ---
 
+## Documentation Standards
+
+Documentation is not an afterthought — it ships with the code.
+
+### README.md is the contract
+
+`README.md` shows the **target user experience**. Every command example in the README must
+work (or be clearly marked as `🔜 Planned`). If the implementation doesn't match the README,
+the implementation is wrong, not the README.
+
+**Update README.md when:**
+
+- A new command is implemented (add usage example)
+- A command's flags change
+- A new agent or provider is added
+- Installation instructions change
+
+### Rustdoc
+
+- `cargo doc` must build without warnings (`RUSTDOCFLAGS="-D warnings"`).
+- Every public type, function, trait, and module has a `///` doc comment.
+- Doc comments include **examples** where the API is non-obvious.
+- `//!` module-level docs explain the module's role in the architecture.
+
+### GitHub Pages (docs site)
+
+The project deploys documentation to GitHub Pages via a CI workflow:
+
+- **Rustdoc API reference** — auto-generated from source
+- **User guide** — `docs/guide/` (mdBook or similar, set up when content warrants it)
+- **ADRs** — linked from the guide
+
+The docs site is the canonical URL for non-developers. README links to it.
+
+### Doc update rule
+
+Every PR that changes user-facing behaviour must update:
+
+1. `README.md` — if the command surface changes
+2. Rustdoc — if the public API changes
+3. `docs/SPEC.md` — only via ADR (immutable reference)
+4. Relevant ADR — if a design decision changes
+
+### Changelog
+
+We'll maintain `CHANGELOG.md` (Keep a Changelog format) starting from the first release.
+Each entry corresponds to a version tag. Unreleased changes accumulate under `## [Unreleased]`.
+
+---
+
 ## Subagent Coordination
 
 When spawning subagents for parallel work:
@@ -120,6 +170,8 @@ A task is "done" when:
 - [ ] Clippy is clean (`just lint`)
 - [ ] Formatting is clean (`just fmt-check`)
 - [ ] Doc comments are complete for all public items
+- [ ] `cargo doc` builds without warnings
+- [ ] README.md is updated if user-facing behaviour changed
 - [ ] PROGRESS.md is updated
 - [ ] TODO.md checkbox is checked
 - [ ] Code is committed with a proper commit message

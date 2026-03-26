@@ -119,6 +119,9 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] Man page generation
 - [ ] Comprehensive `--help` text for all commands
 - [ ] Error messages with actionable suggestions
+- [ ] CHANGELOG.md (Keep a Changelog format)
+- [ ] User guide (mdBook or similar, deployed to GitHub Pages)
+- [ ] README.md final polish — remove all 🔜, all examples work
 
 ---
 
