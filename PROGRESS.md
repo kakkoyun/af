@@ -45,3 +45,48 @@ See [TODO.md](TODO.md) for the task checklist and [docs/PLAN.md](docs/PLAN.md) f
 ### Next
 
 - Begin Phase 0 implementation: core types, UUID v5, session name sanitization.
+
+---
+
+## 2026-03-26 — Session 2: Phase 0 Implementation
+
+### Done
+
+- **Phase 0 nearly complete** — 18 of 20 tasks done. 122 tests passing.
+  Spawned 4 subagents in parallel for independent modules, integrated their work.
+
+- **Modules implemented:**
+  - `config/mod.rs` (13 tests) — Layered TOML: defaults → user → project. Load, merge, roundtrip.
+  - `session/types.rs` (6 tests) — SessionState schema: multi-agent slots, PR tracking, version pins.
+  - `session/store.rs` (10 tests) — File-per-session TOML store: save/load/delete/list/archive.
+  - `session/ledger.rs` (10 tests) — Append-only JSONL event log with builder pattern.
+  - `session/naming.rs` (13 tests) — Sanitization (/.: → --), prefix logic.
+  - `util/uuid.rs` (6 tests) — UUID v5, verified against Python output.
+  - `git/branch.rs` (6 tests) — Main branch detection (main/master/trunk).
+  - `git/remote.rs` (10 tests) — Org + repo name parsing for SSH and HTTPS URLs.
+  - `platform/mod.rs` (14 tests) — Platform enum, os-release parsing, package manager.
+  - `platform/deps.rs` (6 tests) — Dependency tier system (Must/Should/Nice).
+  - `mux/mod.rs` + `mux/tmux.rs` (5 tests) — Multiplexer trait, full tmux implementation.
+  - `agent/mod.rs` + `agent/claude.rs` (9 tests) — Agent trait, Claude provider.
+
+- **Subagent coordination:** 4 parallel agents (uuid-naming, git-helpers, platform, traits).
+  One agent overwrote a file I'd written (ledger.rs) — lesson learned: commit before spawning
+  agents that could touch overlapping paths. Fixed by restoring my version post-integration.
+
+- **Clippy fixes during integration:** `str_to_string`, `derivable_impls`, `doc_markdown`,
+  `must_use` — all resolved. Full `just check` (fmt + clippy + test + deny + doc-check) green.
+
+### Remaining Phase 0
+
+- Git helpers: worktree create/remove (shells out to git)
+- Git helpers: fetch + resolve base branch (upstream preferred)
+
+### Current State
+
+- 122 tests passing. All CI checks green.
+- Phase 0 nearly complete, ready to start Phase 1 (local MVP commands).
+
+### Next
+
+- Complete remaining 2 Phase 0 git helper tasks.
+- Begin Phase 1: `af create`, `af done`, `af list`, `af resume`.

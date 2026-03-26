@@ -11,26 +11,26 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] Specification document (docs/SPEC.md)
 - [x] Architecture Decision Records (docs/adr/)
 - [x] Implementation plan (docs/PLAN.md)
-- [ ] Core types: `SessionId`, `SessionName`, `BranchName`, `WorktreePath`
-- [ ] UUID v5 generation (replace Python dependency)
-- [ ] Session name sanitization (`/.:` → `--`)
-- [ ] Configuration system: load + merge (user → project → env → CLI)
-- [ ] Session state store: TOML read/write/list/delete (`state.toml`)
-- [ ] Session event ledger: JSONL append/read (`ledger.jsonl`)
-- [ ] Ledger event types: created, agent_launched, resumed, completed, error
-- [ ] Version pinning: record af version + agent config hash at session creation
+- [x] Core types: `SessionId`, `SessionName`, `BranchName`, `WorktreePath`
+- [x] UUID v5 generation (replace Python dependency)
+- [x] Session name sanitization (`/.:` → `--`)
+- [x] Configuration system: load + merge (user → project → env → CLI)
+- [x] Session state store: TOML read/write/list/delete (`state.toml`)
+- [x] Session event ledger: JSONL append/read (`ledger.jsonl`)
+- [x] Ledger event types: created, agent_launched, resumed, completed, error
+- [x] Version pinning: record af version + agent config hash at session creation
 - [ ] Git helpers: worktree create/remove, branch create/delete
-- [ ] Git helpers: main branch detection (main/master/trunk)
-- [ ] Git helpers: org detection from remote URL (SSH + HTTPS)
+- [x] Git helpers: main branch detection (main/master/trunk)
+- [x] Git helpers: org detection from remote URL (SSH + HTTPS)
 - [ ] Git helpers: fetch + resolve base branch (upstream preferred)
-- [ ] Branch prefix logic (fork detection via `upstream` remote)
-- [ ] Platform detection (macOS, Arch, Debian)
-- [ ] Package manager abstraction (brew, pacman, apt)
-- [ ] Dependency table with tier system (Must/Should/Nice)
-- [ ] Multiplexer trait definition
-- [ ] tmux implementation (create/kill/attach/env/send-keys)
-- [ ] Agent provider trait definition
-- [ ] Claude Code agent provider (launch/resume/pr commands)
+- [x] Branch prefix logic (fork detection via `upstream` remote)
+- [x] Platform detection (macOS, Arch, Debian)
+- [x] Package manager abstraction (brew, pacman, apt)
+- [x] Dependency table with tier system (Must/Should/Nice)
+- [x] Multiplexer trait definition
+- [x] tmux implementation (create/kill/attach/env/send-keys)
+- [x] Agent provider trait definition
+- [x] Claude Code agent provider (launch/resume/pr commands)
 
 ## Phase 1 — Local MVP
 
