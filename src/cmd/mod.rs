@@ -7,6 +7,8 @@ pub mod config_cmd;
 pub mod create;
 pub mod doctor;
 pub mod done;
+pub mod editor;
+pub mod gc;
 pub mod list;
 pub mod resume;
 pub mod session_branch;

@@ -34,6 +34,10 @@ pub enum Commands {
     Create(CreateArgs),
     /// Tear down a workstream.
     Done(DoneArgs),
+    /// Open codebase in an editor.
+    Editor(EditorArgs),
+    /// Garbage collect merged/closed workstreams.
+    Gc(GcArgs),
     /// List active workstreams.
     List,
     /// Re-attach to an existing workstream.
@@ -100,6 +104,33 @@ pub struct ResumeArgs {
     pub bare: bool,
 }
 
+/// Arguments for `af editor`.
+#[derive(Debug, clap::Args)]
+pub struct EditorArgs {
+    /// Session name. Defaults to the current session.
+    pub session: Option<String>,
+
+    /// Open in terminal editor (`$EDITOR` in a tmux split).
+    #[arg(long, short = 't')]
+    pub terminal: bool,
+
+    /// Open in visual editor (VS Code or Zed).
+    #[arg(long, conflicts_with = "terminal")]
+    pub visual: bool,
+}
+
+/// Arguments for `af gc`.
+#[derive(Debug, clap::Args)]
+pub struct GcArgs {
+    /// List candidates without cleaning.
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Clean all merged/closed without prompting.
+    #[arg(long)]
+    pub all: bool,
+}
+
 /// Arguments for `af completions`.
 #[derive(Debug, clap::Args)]
 pub struct CompletionsArgs {
@@ -143,6 +174,8 @@ impl Cli {
         match &self.command {
             Commands::Create(args) => crate::cmd::create::run(args),
             Commands::Done(args) => crate::cmd::done::run(args),
+            Commands::Editor(args) => crate::cmd::editor::run(args),
+            Commands::Gc(args) => crate::cmd::gc::run(args),
             Commands::List => crate::cmd::list::run(),
             Commands::Resume(args) => crate::cmd::resume::run(args),
             Commands::SessionBranch => crate::cmd::session_branch::run(),

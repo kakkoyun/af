@@ -4,6 +4,7 @@
 //! This avoids linking `libgit2` and ensures behaviour matches the user's installed git.
 
 pub mod branch;
+pub mod gc;
 pub mod remote;
 pub mod resolve;
 pub mod worktree;
