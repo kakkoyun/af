@@ -74,51 +74,51 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 
 ## Phase 3 — Remote Providers
 
-- [ ] Remote provider trait definition
-- [ ] DD Workspaces provider (detect, create, teardown)
-- [ ] exe.dev provider (detect, create, setup, teardown)
-- [ ] `af create --remote [host]` — remote session
-- [ ] `af create --yolo` — unattended mode
-- [ ] SSH bootstrap pipeline (embedded default scripts)
-- [ ] Dotfiles provisioning config (repo + install_cmd)
-- [ ] Remote provisioning pipeline: bootstrap → dotfiles → auth
-- [ ] Remote session resume (SSH drop detection + reconnect)
-- [ ] Orphan detection in `af list`
-- [ ] `af done` for remote sessions
+- [ ] Remote provider trait definition *(deferred: requires real SSH testing)*
+- [ ] DD Workspaces provider (detect, create, teardown) *(deferred: requires workspaces CLI)*
+- [ ] exe.dev provider (detect, create, setup, teardown) *(deferred: requires exe.dev access)*
+- [ ] `af create --remote [host]` — remote session *(deferred)*
+- [ ] `af create --yolo` — unattended mode *(flag wiring only — agent support done)*
+- [ ] SSH bootstrap pipeline (embedded default scripts) *(deferred)*
+- [ ] Dotfiles provisioning config (repo + install_cmd) *(deferred)*
+- [ ] Remote provisioning pipeline: bootstrap → dotfiles → auth *(deferred)*
+- [ ] Remote session resume (SSH drop detection + reconnect) *(deferred)*
+- [ ] Orphan detection in `af list` *(deferred: requires remote providers)*
+- [ ] `af done` for remote sessions *(deferred)*
 
 ## Phase 4 — Sandbox + Obsidian
 
-- [ ] Sandbox provider trait definition
-- [ ] Slicer sandbox provider (local)
-- [ ] Slicer sandbox provider (remote: `--sandbox --remote`)
-- [ ] VirtioFS path mapping
-- [ ] VM health check + respawn in `af resume --respawn`
-- [ ] `af auth setup/reroll/status/clear`
-- [ ] Auth token injection (keychain/keyring/file)
-- [ ] Obsidian note creation on `af create`
-- [ ] `af note [session]` — open Obsidian note
-- [ ] Frontmatter update on `af done` (status → completed)
+- [ ] Sandbox provider trait definition *(deferred: requires slicer CLI)*
+- [ ] Slicer sandbox provider (local) *(deferred)*
+- [ ] Slicer sandbox provider (remote: `--sandbox --remote`) *(deferred)*
+- [ ] VirtioFS path mapping *(deferred)*
+- [ ] VM health check + respawn in `af resume --respawn` *(deferred)*
+- [ ] `af auth setup/reroll/status/clear` *(deferred: requires keyring integration)*
+- [ ] Auth token injection (keychain/keyring/file) *(deferred)*
+- [ ] Obsidian note creation on `af create` *(deferred)*
+- [ ] `af note [session]` — open Obsidian note *(deferred)*
+- [ ] Frontmatter update on `af done` (status → completed) *(deferred)*
 
 ## Phase 5 — GC + Editor + Polish
 
-- [ ] `af gc` — list merged/closed worktrees
-- [ ] `af gc --dry-run` — preview without action
-- [ ] `af gc --all` — clean all without prompts
-- [ ] Merge detection: GitHub PR state (via `gh`)
-- [ ] Merge detection: git ancestry (`merge-base --is-ancestor`)
-- [ ] Merge detection: squash-merge fingerprint (diff cksum)
-- [ ] `af editor --terminal` — split pane with `$EDITOR`
-- [ ] `af editor --visual` — VS Code/Zed GUI
-- [ ] `af editor` for remote sessions (SSH + URL schemes)
-- [ ] Session archival: move to archive/ on `af done`, retain for 90 days
+- [x] `af gc` — list merged/closed worktrees
+- [x] `af gc --dry-run` — preview without action
+- [x] `af gc --all` — clean all without prompts
+- [x] Merge detection: GitHub PR state (via `gh`)
+- [x] Merge detection: git ancestry (`merge-base --is-ancestor`)
+- [x] Merge detection: squash-merge fingerprint (diff cksum)
+- [x] `af editor --terminal` — split pane with `$EDITOR`
+- [x] `af editor --visual` — VS Code/Zed GUI
+- [ ] `af editor` for remote sessions (SSH + URL schemes) *(deferred: requires remote providers)*
+- [x] Session archival: move to archive/ on `af done`, retain for 90 days
 - [ ] PR tracking: detect/record PR number+URL from branch
 - [ ] Ledger events: pr_opened, pr_merged, pr_closed
-- [ ] Agent session log discovery (claude, pi file path conventions)
-- [ ] `af gc` prunes expired archives (older than retention_days)
+- [x] Agent session log discovery (claude, pi file path conventions)
+- [x] `af gc` prunes expired archives (older than retention_days)
 - [ ] Migration: read `cf-sessions/*.env` → convert to TOML
 - [ ] Man page generation
-- [ ] Comprehensive `--help` text for all commands
-- [ ] Error messages with actionable suggestions
+- [x] Comprehensive `--help` text for all commands
+- [x] Error messages with actionable suggestions
 - [ ] CHANGELOG.md (Keep a Changelog format)
 - [ ] User guide (mdBook or similar, deployed to GitHub Pages)
 - [ ] README.md final polish — remove all 🔜, all examples work

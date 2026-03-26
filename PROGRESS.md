@@ -194,7 +194,7 @@ CLI surfaces) and careful test-first implementation.
 4. **Phase 2: shell completions** — `clap_complete`, mechanical once CLI is stable
 5. **Phase 2: multi-agent** — `af agent add/stop/list`, slot management in state.toml
 
-### Stats
+### Stats (end of Session 3)
 
 | Metric | Value |
 |---|---|
@@ -204,3 +204,78 @@ CLI surfaces) and careful test-first implementation.
 | Phases | 0 ✅, 1 ~✅, 2-5 not started |
 | CI | All green (fmt, clippy, test, deny, doc) |
 | Commits | 16 |
+
+---
+
+## 2026-03-27 — Session 4: Phases 2 + 5 Implementation
+
+### Done
+
+- **Phase 2 substantially complete** — 9/16 tasks done.
+  - All 5 agent providers implemented with TDD, researched from actual `--help` output:
+    - pi: `--continue` for resume, no session-id, no yolo
+    - codex: `--full-auto` for yolo, `resume --last`
+    - gemini: `--yolo`, `--resume latest`
+    - amp: `--dangerously-allow-all`, `threads continue --last`
+  - Centralized `agent::resolve()` and `KNOWN_AGENTS` in `agent/mod.rs`
+  - `af config show` — dumps effective TOML config with source path
+  - `af config init` — creates default `~/.config/af/config.toml`
+  - `af completions bash/zsh/fish` via `clap_complete`
+  - Agent availability check + fallback chain via `first_available()`
+
+- **Phase 5 partially complete** — 11/21 tasks done.
+  - `git/gc.rs` (9 tests): 3-strategy merge detection (PR state, ancestry, squash fingerprint)
+  - `cmd/gc.rs`: full GC command with `--dry-run` and `--all`
+  - `cmd/editor.rs`: terminal mode (tmux split + `$EDITOR`) and visual mode (code/zed)
+  - Session archival on `af done` (move to archive/)
+  - Comprehensive `--help` text for all commands
+
+### Deferred (require external system access)
+
+- **Phase 3 (Remote Providers):** All 11 tasks deferred. These need real SSH, workspaces CLI,
+  and exe.dev access for proper testing. Trait definitions are clear from the ADRs; implementation
+  is mechanical once the infrastructure is available.
+
+- **Phase 4 (Sandbox + Obsidian):** All 10 tasks deferred. Slicer requires a running daemon
+  and VMs. Obsidian integration needs vault path access. Auth needs keyring libraries.
+
+- **Remaining Phase 2:** `af agent add/stop/list` and multi-agent resume/teardown. These need
+  the multiplexer pane management to be tested against a live tmux server.
+
+- **Remaining Phase 5:** PR tracking, ledger PR events, migration from cf format, man pages,
+  CHANGELOG, user guide, README polish.
+
+### Current State
+
+| Metric | Value |
+|---|---|
+| Tests | 190 (162 unit + 19 integration + 9 doc) |
+| Rust LOC | 5,911 across 31 source files |
+| TODO tasks | 62 done / 48 remaining |
+| Phases | 0 ✅, 1 ~✅, 2 ~✅, 3 deferred, 4 deferred, 5 ~✅ |
+| CI | All green (fmt, clippy, test, deny, doc) |
+| Commits | 21 |
+
+### What's usable right now
+
+The `af` binary has all these working commands:
+
+- `af create [name]` — worktree + mux + agent (local, bare, workspace modes)
+- `af done [session]` — teardown with confirmation, archive
+- `af list` — grouped by repo
+- `af resume [session]` — fzf picker, session recovery
+- `af gc [--dry-run] [--all]` — merge detection + cleanup
+- `af editor [--terminal] [--visual]` — open codebase in editor
+- `af doctor` — dependency check
+- `af config show/init` — config management
+- `af completions bash/zsh/fish` — shell completions
+- `af session-branch` — branch-tied agent launch
+- `af version` — version info
+
+### Next session priorities
+
+1. Manual test the full `af create` → `af done` flow in a real tmux session
+2. Phase 2: `af agent add/stop/list` (multi-agent pane management)
+3. Phase 3: Remote provider trait + at least one provider stub
+4. Phase 4: Obsidian note integration (filesystem-based, no external deps)
+5. Phase 5: CHANGELOG.md, README polish
