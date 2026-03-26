@@ -140,3 +140,67 @@ See [TODO.md](TODO.md) for the task checklist and [docs/PLAN.md](docs/PLAN.md) f
 ### Next
 
 - Phase 2: Multi-agent support, remaining agent providers, config commands, completions.
+
+---
+
+## 2026-03-26 — Session 3 Cont: Honest Assessment
+
+### What's solid
+
+- **Phase 0: 100% complete.** 20/20 tasks. All core abstractions have tests.
+- **Phase 1: 85% complete.** 17/20 tasks. The tool compiles, CLI works, all
+  subcommands are wired. 150 tests pass. `just check` (fmt+clippy+test+deny+doc) green.
+
+### What needs real-world testing
+
+The Phase 1 commands (`af create`, `af done`, `af list`, `af resume`) are implemented
+against real `git` and `tmux` CLIs — they can't be fully integration-tested without
+a live tmux server. The TDD tests cover:
+
+- All pure logic (naming, prefix, UUID, config, types)
+- CLI parsing and flag validation (integration tests against the binary)
+- Git operations on real temp repos (worktree, branch, resolve)
+
+What's NOT tested end-to-end (requires live tmux):
+
+- `af create` actually creating a tmux session and launching an agent
+- `af done` killing a running tmux session
+- `af resume` re-attaching to a tmux session
+
+This is intentional per AGENTS.md: "No test depends on external state."
+Manual testing is needed before declaring Phase 1 battle-ready.
+
+### Phases 2-5: NOT started
+
+69 tasks remain across Phases 2-5. These involve:
+
+- Phase 2: 5 agent provider implementations (need to research each CLI), multi-agent
+  slot management, `af config show/init`, shell completions, `doctor --fix`
+- Phase 3: Remote providers (SSH, workspaces CLI, exe.dev API) — heavy external deps
+- Phase 4: Sandbox provider (slicer), Obsidian integration, auth management
+- Phase 5: GC squash-merge detection, editor integration, migration, man pages
+
+**These were not attempted tonight.** Attempting to rush them would violate the TDD
+and no-corners-cut principles. Each phase needs proper research (especially agent
+CLI surfaces) and careful test-first implementation.
+
+### Recommended next session priorities
+
+1. **Manual test Phase 1** — run `af create test-task` in a real tmux session,
+   verify the full flow works, fix any issues discovered
+2. **Phase 2: agent providers** — research pi, codex, gemini, amp CLI flags and
+   implement with TDD. These are mostly command-generation logic (testable).
+3. **Phase 2: `af config show/init`** — straightforward, builds on config module
+4. **Phase 2: shell completions** — `clap_complete`, mechanical once CLI is stable
+5. **Phase 2: multi-agent** — `af agent add/stop/list`, slot management in state.toml
+
+### Stats
+
+| Metric | Value |
+|---|---|
+| Tests | 150 (128 unit + 13 integration + 9 doc) |
+| Rust LOC | 4,563 across 21 source files |
+| TODO tasks | 41 done / 69 remaining |
+| Phases | 0 ✅, 1 ~✅, 2-5 not started |
+| CI | All green (fmt, clippy, test, deny, doc) |
+| Commits | 16 |
