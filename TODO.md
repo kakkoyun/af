@@ -15,7 +15,10 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] UUID v5 generation (replace Python dependency)
 - [ ] Session name sanitization (`/.:` → `--`)
 - [ ] Configuration system: load + merge (user → project → env → CLI)
-- [ ] Session metadata store: TOML read/write/list/delete
+- [ ] Session state store: TOML read/write/list/delete (`state.toml`)
+- [ ] Session event ledger: JSONL append/read (`ledger.jsonl`)
+- [ ] Ledger event types: created, agent_launched, resumed, completed, error
+- [ ] Version pinning: record af version + agent config hash at session creation
 - [ ] Git helpers: worktree create/remove, branch create/delete
 - [ ] Git helpers: main branch detection (main/master/trunk)
 - [ ] Git helpers: org detection from remote URL (SSH + HTTPS)
@@ -46,6 +49,8 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] `af resume` (no args) — fzf picker (if available)
 - [ ] `af resume --bare` — resume in bare mode
 - [ ] `af session-branch` — branch-tied session ID
+- [ ] Ledger: emit events from create/done/resume commands
+- [ ] Agent session ID tracking in state.toml
 - [ ] `af doctor` — pre-flight dependency check
 - [ ] `af doctor --fix` — auto-install missing dependencies
 - [ ] Integration tests: temp git repo + mock multiplexer
@@ -99,6 +104,11 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] `af editor --terminal` — split pane with `$EDITOR`
 - [ ] `af editor --visual` — VS Code/Zed GUI
 - [ ] `af editor` for remote sessions (SSH + URL schemes)
+- [ ] Session archival: move to archive/ on `af done`, retain for 90 days
+- [ ] PR tracking: detect/record PR number+URL from branch
+- [ ] Ledger events: pr_opened, pr_merged, pr_closed
+- [ ] Agent session log discovery (claude, pi file path conventions)
+- [ ] `af gc` prunes expired archives (older than retention_days)
 - [ ] Migration: read `cf-sessions/*.env` → convert to TOML
 - [ ] Man page generation
 - [ ] Comprehensive `--help` text for all commands
@@ -115,4 +125,6 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] `af sync` — sync remote sandbox with local worktree
 - [ ] Dataview dashboard template for Obsidian
 - [ ] `af doctor --verbose` — detailed version/path info for debugging
+- [ ] `af stats` — workstream analytics from ledger data (duration, agent usage, etc.)
+- [ ] `af export` — export ledger data for external analysis
 - [ ] Workspace template support (pre-configured sessions per project)

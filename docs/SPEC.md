@@ -571,6 +571,7 @@ Detailed decisions are captured in [Architecture Decision Records](adr/):
 | [008](adr/008-phased-delivery.md) | Phased delivery — 6 phases, each producing a usable binary |
 | [009](adr/009-provisioning.md) | Provisioning — dotfiles-as-config, bootstrap pipeline |
 | [010](adr/010-platform-deps.md) | Platform-aware dependency management — macOS, Arch, Debian |
+| [011](adr/011-workstream-lifecycle.md) | Workstream lifecycle — event ledger, agent session tracking, PR association, retention |
 
 ### 10.1 What to Keep
 

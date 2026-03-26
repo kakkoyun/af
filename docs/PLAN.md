@@ -55,7 +55,9 @@ src/
 │   └── dotfiles.rs      # Dotfiles clone + install_cmd execution
 ├── session/
 │   ├── mod.rs           # Session types, SessionId, metadata
-│   ├── store.rs         # TOML persistence (read/write/list/delete)
+│   ├── store.rs         # TOML state persistence (read/write/list/delete)
+│   ├── ledger.rs        # JSONL event log (append-only, per-session)
+│   ├── lifecycle.rs     # Archive, retention, expiry (ADR-011)
 │   └── naming.rs        # Name sanitization, branch prefix logic
 ├── git/
 │   ├── mod.rs           # Git operations (worktree, branch, remote)

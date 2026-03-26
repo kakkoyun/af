@@ -15,3 +15,4 @@ Each decision is numbered and immutable once accepted. Superseded decisions link
 | [008](008-phased-delivery.md) | Phased Delivery Strategy | Accepted |
 | [009](009-provisioning.md) | Provisioning System | Accepted |
 | [010](010-platform-deps.md) | Platform-Aware Dependency Management | Accepted |
+| [011](011-workstream-lifecycle.md) | Workstream Lifecycle & Session Ledger | Accepted |

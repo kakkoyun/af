@@ -26,7 +26,7 @@ Every new session, before writing any code:
 | `TODO.md` | Checkbox task list by phase |
 | `docs/SPEC.md` | Full specification (immutable reference) |
 | `docs/PLAN.md` | Implementation plan with architecture diagram (immutable) |
-| `docs/adr/` | Architecture Decision Records (10 ADRs) |
+| `docs/adr/` | Architecture Decision Records (11 ADRs) |
 
 ## Build & Test
 

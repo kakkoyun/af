@@ -45,6 +45,10 @@ pub trait AgentProvider {
 
     /// Build the command for a PR-review session (if supported)
     fn pr_cmd(&self, pr_number: u64, opts: &LaunchOpts) -> Option<Vec<String>>;
+
+    /// Locate the agent's own session log files for a given session ID.
+    /// Used for analysis — af never deletes these files. (See ADR-011)
+    fn session_log_paths(&self, session_id: &str, project_path: &Path) -> Vec<PathBuf>;
 }
 ```
 

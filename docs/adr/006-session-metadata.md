@@ -1,6 +1,6 @@
 # ADR-006: Session Metadata & Persistence
 
-**Status:** Accepted
+**Status:** Accepted (amended by [ADR-011](011-workstream-lifecycle.md))
 **Date:** 2026-03-26
 
 ## Context
