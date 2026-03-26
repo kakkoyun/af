@@ -76,17 +76,20 @@ See [TODO.md](TODO.md) for the task checklist and [docs/PLAN.md](docs/PLAN.md) f
 - **Clippy fixes during integration:** `str_to_string`, `derivable_impls`, `doc_markdown`,
   `must_use` — all resolved. Full `just check` (fmt + clippy + test + deny + doc-check) green.
 
-### Remaining Phase 0
+- **Phase 0 completed** — final 2 git tasks done sequentially (no subagents).
+  - `git/worktree.rs` (7 tests) — create/remove worktrees, delete branches. Real temp git repos.
+  - `git/resolve.rs` (12 tests) — preferred_remote, has_upstream, fetch, list_local_branches,
+    detect_main_branch_local, resolve_base_branch, fetch_and_resolve_base. Uses cloned bare repos
+    for remote-tracking ref tests.
 
-- Git helpers: worktree create/remove (shells out to git)
-- Git helpers: fetch + resolve base branch (upstream preferred)
+- **AGENTS.md updated retrospectively** — subagent coordination rules tightened:
+  commit before spawning, subagents work on branches not main, lead reviews.
 
 ### Current State
 
-- 122 tests passing. All CI checks green.
-- Phase 0 nearly complete, ready to start Phase 1 (local MVP commands).
+- **Phase 0: COMPLETE.** All 20 tasks checked off. 141 tests passing. All CI green.
+- Ready for Phase 1: `af create`, `af done`, `af list`, `af resume`.
 
 ### Next
 
-- Complete remaining 2 Phase 0 git helper tasks.
-- Begin Phase 1: `af create`, `af done`, `af list`, `af resume`.
+- Phase 1: implement the `af create` command (local worktree mode first).
