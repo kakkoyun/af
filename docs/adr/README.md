@@ -13,3 +13,5 @@ Each decision is numbered and immutable once accepted. Superseded decisions link
 | [006](006-session-metadata.md) | Session Metadata & Persistence | Accepted |
 | [007](007-obsidian-integration.md) | Workstream Documentation (Obsidian) | Accepted |
 | [008](008-phased-delivery.md) | Phased Delivery Strategy | Accepted |
+| [009](009-provisioning.md) | Provisioning System | Accepted |
+| [010](010-platform-deps.md) | Platform-Aware Dependency Management | Accepted |

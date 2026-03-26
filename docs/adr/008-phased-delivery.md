@@ -22,6 +22,9 @@ that's strictly more capable than the previous one.
 - [ ] Core types: `SessionId`, `BranchName`, `SessionName`, `WorktreePath`
 - [ ] Configuration system (ADR-003): load/merge user + project config
 - [ ] Session metadata store (ADR-006): TOML read/write/list
+- [ ] Platform detection: macOS, Arch, Debian (ADR-010)
+- [ ] Package manager abstraction: brew, pacman, apt (ADR-010)
+- [ ] Dependency table with tier system: Must/Should/Nice (ADR-009)
 - [ ] Multiplexer trait + tmux implementation (ADR-002): create/kill/attach/env
 - [ ] Agent provider trait + Claude implementation (ADR-001): launch/resume commands
 - [ ] Git helpers: worktree create/remove, branch ops, main branch detection, org detection
@@ -45,6 +48,8 @@ Replace the core `cf` / `cfd` / `cfl` / `cfr` workflow.
 - [ ] Workspace mode (non-git directories)
 - [ ] `--bare` mode
 - [ ] `af session-branch` (csb equivalent)
+- [ ] `af doctor` — pre-flight dependency check (ADR-009, ADR-010)
+- [ ] `af doctor --fix` — auto-install missing dependencies
 
 **Tests:** Integration tests using temp git repos + tmux.
 **Milestone:** Can use `af` for daily local workflow.
@@ -71,7 +76,9 @@ Replace the core `cf` / `cfd` / `cfl` / `cfr` workflow.
 - [ ] Remote provider trait + routing logic
 - [ ] DD Workspaces provider
 - [ ] exe.dev provider
-- [ ] SSH bootstrap pipeline
+- [ ] SSH bootstrap pipeline (embedded defaults)
+- [ ] Dotfiles provisioning config: repo + install_cmd (ADR-009)
+- [ ] Remote provisioning pipeline: bootstrap → dotfiles → auth
 - [ ] Remote session resume (reconnect on SSH drop)
 - [ ] Orphan detection for remote environments
 - [ ] `--yolo` flag (unattended mode)

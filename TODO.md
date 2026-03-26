@@ -21,6 +21,9 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] Git helpers: org detection from remote URL (SSH + HTTPS)
 - [ ] Git helpers: fetch + resolve base branch (upstream preferred)
 - [ ] Branch prefix logic (fork detection via `upstream` remote)
+- [ ] Platform detection (macOS, Arch, Debian)
+- [ ] Package manager abstraction (brew, pacman, apt)
+- [ ] Dependency table with tier system (Must/Should/Nice)
 - [ ] Multiplexer trait definition
 - [ ] tmux implementation (create/kill/attach/env/send-keys)
 - [ ] Agent provider trait definition
@@ -43,6 +46,8 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] `af resume` (no args) — fzf picker (if available)
 - [ ] `af resume --bare` — resume in bare mode
 - [ ] `af session-branch` — branch-tied session ID
+- [ ] `af doctor` — pre-flight dependency check
+- [ ] `af doctor --fix` — auto-install missing dependencies
 - [ ] Integration tests: temp git repo + mock multiplexer
 
 ## Phase 2 — Multi-Agent + Config
@@ -64,6 +69,8 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] `af create --remote [host]` — remote session
 - [ ] `af create --yolo` — unattended mode
 - [ ] SSH bootstrap pipeline (embedded default scripts)
+- [ ] Dotfiles provisioning config (repo + install_cmd)
+- [ ] Remote provisioning pipeline: bootstrap → dotfiles → auth
 - [ ] Remote session resume (SSH drop detection + reconnect)
 - [ ] Orphan detection in `af list`
 - [ ] `af done` for remote sessions
@@ -107,5 +114,5 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] `af pr` — create PR from session branch
 - [ ] `af sync` — sync remote sandbox with local worktree
 - [ ] Dataview dashboard template for Obsidian
-- [ ] `af doctor` — validate environment (git, tmux, agent, etc.)
+- [ ] `af doctor --verbose` — detailed version/path info for debugging
 - [ ] Workspace template support (pre-configured sessions per project)

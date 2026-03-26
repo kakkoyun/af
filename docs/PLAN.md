@@ -45,6 +45,14 @@ src/
 ├── config/
 │   ├── mod.rs           # Config loading, merging, types
 │   └── defaults.rs      # Compiled-in defaults
+├── platform/
+│   ├── mod.rs           # Platform detection (macOS, Arch, Debian)
+│   ├── deps.rs          # Dependency table, tier system, package name mapping
+│   └── pkg.rs           # Package manager abstraction (brew, pacman, apt)
+├── provision/
+│   ├── mod.rs           # Provisioning pipeline orchestrator
+│   ├── bootstrap.rs     # Embedded default bootstrap scripts
+│   └── dotfiles.rs      # Dotfiles clone + install_cmd execution
 ├── session/
 │   ├── mod.rs           # Session types, SessionId, metadata
 │   ├── store.rs         # TOML persistence (read/write/list/delete)
@@ -81,6 +89,7 @@ src/
 │   ├── editor.rs        # af editor
 │   ├── auth.rs          # af auth
 │   ├── config_cmd.rs    # af config
+│   ├── doctor.rs        # af doctor (pre-flight checks + --fix)
 │   └── note.rs          # af note
 └── util/
     ├── mod.rs           # Shared utilities
