@@ -1,19 +1,24 @@
 # af — Specification
 
+> **af** (agentic-flow / automatic-flow / as-fuck) — a Rust CLI that manages isolated
+> development sessions for AI coding agents.
+>
 > Reverse-engineered from the `cf` (Claude Focus) implementation in
 > [kakkoyun/dotfiles](https://github.com/kakkoyun/dotfiles) (`macos/.zsh/aliases/claude.zsh`
 > and supporting scripts/plugins). This document captures the complete behaviour of `cf` as
-> a specification for the Rust rewrite `af`.
+> a specification for the Rust rewrite.
+>
+> See also: [PLAN.md](PLAN.md) for phased delivery, [adr/](adr/) for architecture decisions.
 
 ---
 
 ## 1. Overview
 
-`cf` is a CLI workflow that creates **isolated development sessions** using:
+`af` creates **isolated development sessions** using:
 
 - **Git worktrees** — each session gets a dedicated branch + working directory
-- **tmux** — each session is a named tmux session
-- **Claude Code** — an AI coding agent is launched inside the session with a deterministic session ID
+- **Terminal multiplexer** — each session is a named multiplexer session (tmux now, zellij later — see [ADR-002](adr/002-multiplexer-abstraction.md))
+- **AI coding agent** — any supported agent is launched with a deterministic session ID (Claude Code, pi, Codex, Gemini, Amp — see [ADR-001](adr/001-agent-provider.md))
 
 The tool supports multiple execution environments:
 
@@ -552,28 +557,43 @@ Tests mirror GC helpers:
 
 ## 10. Design Decisions for the Rust Rewrite
 
+Detailed decisions are captured in [Architecture Decision Records](adr/):
+
+| ADR | Decision |
+|---|---|
+| [001](adr/001-agent-provider.md) | Agent Provider trait — support Claude, pi, Codex, Gemini, Amp |
+| [002](adr/002-multiplexer-abstraction.md) | Multiplexer trait — tmux now, zellij later |
+| [003](adr/003-configuration-system.md) | Layered TOML config — user + project + env + CLI |
+| [004](adr/004-remote-provider.md) | Remote Provider trait — workspaces, exe.dev, extensible |
+| [005](adr/005-sandbox-provider.md) | Sandbox Provider trait — slicer, composable with remote |
+| [006](adr/006-session-metadata.md) | Session metadata — TOML files as source of truth, mux env as cache |
+| [007](adr/007-obsidian-integration.md) | Obsidian integration — per-workstream notes with frontmatter |
+| [008](adr/008-phased-delivery.md) | Phased delivery — 6 phases, each producing a usable binary |
+
 ### 10.1 What to Keep
 
-- **Core workflow:** worktree + tmux + Claude session isolation
+- **Core workflow:** worktree + multiplexer + agent session isolation
 - **Deterministic session IDs** (UUID v5)
 - **Branch prefix logic** for fork repos
 - **Squash-merge detection** heuristic
 - **Metadata persistence** to disk
-- **Provider plugin system** (but as compiled-in providers, not shell scripts)
+- **Provider system** (compiled-in providers with trait boundaries)
 
 ### 10.2 What to Improve
 
-- **Cross-platform:** Support Linux natively (not just macOS-centric zsh)
-- **Error handling:** Proper error types instead of bash exit codes
-- **Configuration:** TOML/YAML config file instead of scattered env vars
-- **Provider extensibility:** Trait-based provider interface
-- **Auth management:** Platform-native keyring (macOS Keychain, Linux secret-service) instead of hardcoded `security` commands
-- **Shell completions:** Generate for bash, zsh, fish via `clap_complete`
-- **Testing:** Unit tests for all logic (not mirrored test doubles)
-- **Performance:** No Python dependency for UUID v5 generation
-- **Single binary:** All functionality in one binary with subcommands
+- **Agent-agnostic:** Support 5+ AI agents, not just Claude
+- **Multiplexer-agnostic:** tmux now, zellij experimentable later
+- **Cross-platform:** Linux (Arch, Debian) + macOS as first-class citizens
+- **Configuration:** Layered TOML config instead of scattered shell env vars
+- **Error handling:** Typed errors with actionable user messages
+- **Auth management:** Platform-native keyring (macOS Keychain, Linux secret-service)
+- **Shell completions:** bash, zsh, fish via `clap_complete`
+- **Testing:** Real unit tests, not mirrored shell test doubles
+- **Performance:** Native UUID v5 (no Python subprocess)
+- **Single binary:** All functionality in one `af` binary with subcommands
+- **Obsidian integration:** Per-workstream documents for knowledge management
 
-### 10.3 Proposed CLI Surface
+### 10.3 CLI Surface
 
 ```
 af create [options] [task-name]     # cf
@@ -584,6 +604,8 @@ af gc [options]                     # cfgc
 af editor [options] [session-name]  # cf-open-editor
 af auth [setup|reroll|status|clear] # cfauth
 af session-branch                   # csb
+af config [show|init]               # new: config management
+af note [session]                   # new: Obsidian integration
 ```
 
 ### 10.4 External Dependencies
@@ -591,8 +613,8 @@ af session-branch                   # csb
 | Dependency | Required | Purpose |
 |---|---|---|
 | `git` | Yes | Worktree management, branch ops |
-| `tmux` | Yes | Session management |
-| `claude` | Yes | AI agent (launched inside sessions) |
+| `tmux` or `zellij` | Yes (one) | Session management |
+| Any AI agent | Yes (one) | Claude, pi, Codex, Gemini, or Amp |
 | `gh` | Optional | PR state queries, auth forwarding |
 | `fzf` | Optional | Session picker in `resume` |
 | `slicer` | Optional | Firecracker sandbox support |
