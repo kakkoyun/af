@@ -21,6 +21,8 @@
 //! See `docs/PLAN.md` for the full module map and `docs/adr/` for architecture decisions.
 
 pub mod agent;
+pub mod cli;
+pub mod cmd;
 pub mod config;
 pub mod git;
 pub mod mux;

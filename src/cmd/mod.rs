@@ -1,0 +1,11 @@
+//! Subcommand implementations.
+//!
+//! Each subcommand has its own module with a `run()` entry point.
+//! The CLI definition in `cli.rs` dispatches to these handlers.
+
+pub mod create;
+pub mod doctor;
+pub mod done;
+pub mod list;
+pub mod resume;
+pub mod session_branch;

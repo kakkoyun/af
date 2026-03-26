@@ -93,6 +93,11 @@ impl SessionStore {
         self.sessions_dir.join(name)
     }
 
+    /// Public accessor for the session directory path (used by ledger).
+    pub fn session_dir_path(&self, name: &str) -> PathBuf {
+        self.session_dir(name)
+    }
+
     /// Path to an archived session's directory.
     fn archive_session_dir(&self, name: &str) -> PathBuf {
         self.archive_dir.join(name)

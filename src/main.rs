@@ -5,8 +5,6 @@
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
 
-mod cli;
-
 fn main() -> anyhow::Result<()> {
     // Initialize tracing (respects RUST_LOG env var).
     tracing_subscriber::fmt()
@@ -16,6 +14,6 @@ fn main() -> anyhow::Result<()> {
         .with_writer(std::io::stderr)
         .init();
 
-    let cli = cli::Cli::parse();
+    let cli = af::cli::Cli::parse();
     cli.run()
 }
