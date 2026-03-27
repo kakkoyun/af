@@ -33,6 +33,11 @@ pub fn run(args: &ResumeArgs) -> Result<()> {
         bail!("session '{session_name}' not found. Use 'af list' to see active sessions.");
     }
 
+    // Bare mode: skip mux, run agent directly in the current terminal.
+    if args.bare {
+        return run_bare(&session_name, &store);
+    }
+
     // If mux session is gone, recreate it from stored metadata.
     if !mux.session_exists(&session_name) {
         let mut state = store.load(&session_name)?;
@@ -101,6 +106,74 @@ pub fn run(args: &ResumeArgs) -> Result<()> {
 
     mux.attach_or_switch(&session_name)
         .context("failed to attach to session")?;
+
+    Ok(())
+}
+
+/// Resume in bare mode: run the agent directly in the current terminal.
+///
+/// Skips the multiplexer entirely. The agent's resume command runs as a
+/// child process, inheriting stdin/stdout/stderr.
+fn run_bare(session_name: &str, store: &SessionStore) -> Result<()> {
+    let state = store.load(session_name)?;
+
+    let cwd = match state.worktree.as_ref() {
+        Some(wt) => std::path::PathBuf::from(&wt.path),
+        None => std::env::current_dir().unwrap_or_default(),
+    };
+
+    if !cwd.exists() {
+        bail!(
+            "worktree path {} no longer exists. Session cannot be recovered.",
+            cwd.display()
+        );
+    }
+
+    // Find the primary (or first running) agent.
+    let agent = state
+        .agents
+        .iter()
+        .find(|a| a.status != AgentStatus::Stopped)
+        .or_else(|| state.agents.first())
+        .ok_or_else(|| anyhow::anyhow!("no agents in session '{session_name}'"))?;
+
+    let agent_provider = crate::agent::resolve(&agent.provider)
+        .ok_or_else(|| anyhow::anyhow!("unknown agent '{}'", agent.provider))?;
+
+    let resume_opts = crate::agent::ResumeOpts { yolo: false };
+    let cmd_parts = agent_provider.resume_cmd(&resume_opts);
+
+    if cmd_parts.is_empty() {
+        bail!("agent '{}' returned empty resume command", agent.provider);
+    }
+
+    // Log the event.
+    let session_dir = store.session_dir_path(session_name);
+    let ledger = Ledger::new(&session_dir);
+    let _ = ledger.append(
+        &LedgerEvent::new("session_resumed")
+            .with_field("mode", "bare")
+            .with_field("agent", &agent.provider),
+    );
+
+    #[allow(clippy::print_stderr)]
+    {
+        eprintln!(
+            "Resuming session '{session_name}' in bare mode ({})...",
+            agent.provider
+        );
+    }
+
+    // Run the agent directly, inheriting the terminal.
+    let status = std::process::Command::new(&cmd_parts[0])
+        .args(&cmd_parts[1..])
+        .current_dir(&cwd)
+        .status()
+        .with_context(|| format!("failed to run {}", cmd_parts[0]))?;
+
+    if !status.success() {
+        bail!("agent exited with status {status}");
+    }
 
     Ok(())
 }
