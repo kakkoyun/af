@@ -50,6 +50,8 @@ pub enum Commands {
     Config(ConfigArgs),
     /// Manage agents within a workstream.
     Agent(AgentArgs),
+    /// Open a visual diff of the workstream changes.
+    Diff(DiffArgs),
     /// Check dependencies, optionally install missing ones.
     Doctor(DoctorArgs),
     /// Generate man page and write to stdout.
@@ -161,6 +163,29 @@ pub enum ConfigAction {
     Init,
 }
 
+/// Arguments for `af diff`.
+#[derive(Debug, clap::Args)]
+pub struct DiffArgs {
+    /// Session name. Defaults to the current multiplexer session.
+    pub session: Option<String>,
+
+    /// Base ref to compare from (defaults to session's base branch).
+    #[arg(long)]
+    pub base: Option<String>,
+
+    /// Open in dark mode.
+    #[arg(long)]
+    pub dark: bool,
+
+    /// Open in unified view (default: split).
+    #[arg(long)]
+    pub unified: bool,
+
+    /// Do not open browser automatically.
+    #[arg(long)]
+    pub no_open: bool,
+}
+
 /// Arguments for `af agent`.
 #[derive(Debug, clap::Args)]
 pub struct AgentArgs {
@@ -238,6 +263,7 @@ impl Cli {
             }
             Commands::Config(args) => crate::cmd::config_cmd::run(args),
             Commands::Agent(args) => crate::cmd::agent::run(args),
+            Commands::Diff(args) => crate::cmd::diff::run(args),
             Commands::Doctor(args) => crate::cmd::doctor::run(args),
             Commands::Mangen => {
                 let cmd = <Self as clap::CommandFactory>::command();

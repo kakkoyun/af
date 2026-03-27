@@ -6,6 +6,7 @@
 pub mod agent;
 pub mod config_cmd;
 pub mod create;
+pub mod diff;
 pub mod doctor;
 pub mod done;
 pub mod editor;

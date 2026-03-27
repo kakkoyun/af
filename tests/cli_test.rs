@@ -240,6 +240,20 @@ fn test_agent_no_subcommand_shows_help() {
         .stderr(predicate::str::contains("Usage"));
 }
 
+// ── Diff subcommand ────────────────────────────────────────────────────────
+
+#[test]
+fn test_diff_help_shows_flags() {
+    cmd()
+        .args(["diff", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--base"))
+        .stdout(predicate::str::contains("--dark"))
+        .stdout(predicate::str::contains("--unified"))
+        .stdout(predicate::str::contains("--no-open"));
+}
+
 // ── Man page ───────────────────────────────────────────────────────────────
 
 #[test]
