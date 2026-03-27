@@ -85,9 +85,27 @@ pub fn run(args: &DoneArgs) -> Result<()> {
         }
     }
 
-    // Write ledger events for each running agent.
+    // Detect PR state and emit ledger event (best-effort).
     let session_dir = store.session_dir_path(&session_name);
     let ledger = Ledger::new(&session_dir);
+    if let Some(ref wt) = state.worktree {
+        let git_root = std::path::Path::new(&wt.git_root);
+        if let Ok(Some(pr_info)) = crate::git::pr::find_pr_for_branch(&wt.branch, git_root) {
+            let event_name = match pr_info.state.as_str() {
+                "MERGED" => "pr_merged",
+                "CLOSED" => "pr_closed",
+                _ => "pr_opened",
+            };
+            let _ = ledger.append(
+                &LedgerEvent::new(event_name)
+                    .with_field("number", &pr_info.number.to_string())
+                    .with_field("url", &pr_info.url)
+                    .with_field("state", &pr_info.state),
+            );
+        }
+    }
+
+    // Write ledger events for each running agent.
     for agent in &state.agents {
         if agent.status == crate::session::types::AgentStatus::Running {
             let _ = ledger.append(
