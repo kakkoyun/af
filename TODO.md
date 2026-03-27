@@ -47,7 +47,7 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] `af list` — grouped by repo, current repo first
 - [x] `af resume [session]` — re-attach to session
 - [x] `af resume` (no args) — fzf picker (if available)
-- [ ] `af resume --bare` — resume in bare mode *(flag accepted, logic pending)*
+- [x] `af resume --bare` — resume in bare mode (runs agent directly in terminal)
 - [x] `af session-branch` — branch-tied session ID
 - [x] Ledger: emit events from create/done/resume commands
 - [x] Agent session ID tracking in state.toml
@@ -76,7 +76,7 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 
 - [x] Remote provider trait definition + stubs (workspaces, exedev, slicer)
 - [ ] DD Workspaces provider (detect, create, teardown) *(deferred: requires workspaces CLI)*
-- [ ] exe.dev provider (detect, create, setup, teardown) *(deferred: requires exe.dev access)*
+- [x] exe.dev provider (detect, create, setup, teardown via SSH)
 - [ ] `af create --remote [host]` — remote session *(deferred)*
 - [ ] `af create --yolo` — unattended mode *(flag wiring only — agent support done)*
 - [ ] SSH bootstrap pipeline (embedded default scripts) *(deferred)*
@@ -88,10 +88,10 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 
 ## Phase 4 — Sandbox + Obsidian
 
-- [ ] Sandbox provider trait definition *(deferred: requires slicer CLI)*
-- [ ] Slicer sandbox provider (local) *(deferred)*
+- [x] Sandbox provider trait definition
+- [x] Slicer sandbox provider (local) — vm lifecycle + agent sandbox commands
 - [ ] Slicer sandbox provider (remote: `--sandbox --remote`) *(deferred)*
-- [ ] VirtioFS path mapping *(deferred)*
+- [x] VirtioFS path mapping (slicer map_path)
 - [ ] VM health check + respawn in `af resume --respawn` *(deferred)*
 - [ ] `af auth setup/reroll/status/clear` *(deferred: requires keyring integration)*
 - [ ] Auth token injection (keychain/keyring/file) *(deferred)*
@@ -112,7 +112,7 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] `af editor` for remote sessions (SSH + URL schemes) *(deferred: requires remote providers)*
 - [x] Session archival: move to archive/ on `af done`, retain for 90 days
 - [x] PR tracking: detect/record PR number+URL from branch
-- [ ] Ledger events: pr_opened, pr_merged, pr_closed *(helpers done, event emission pending)*
+- [x] Ledger events: pr_opened, pr_merged, pr_closed (emitted on af done)
 - [x] Agent session log discovery (claude, pi file path conventions)
 - [x] `af gc` prunes expired archives (older than retention_days)
 - [x] Migration: read `cf-sessions/*.env` → convert to TOML
@@ -127,9 +127,9 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 
 ## Backlog (unscheduled)
 
-- [ ] Remote control: superterm + inlet integration for remote terminal access
-- [ ] Diff provider trait + `af diff` subcommand (diffty, VS Code diff, etc.)
-- [ ] Configurable editor per context: remote (nvim, vim, vscode) vs local (nvim, vscode, zed)
+- [x] Remote control: superterm notification integration (notify on create/done, agent-hook stop)
+- [x] `af diff` subcommand — visual diff via diffity with delta/git-diff fallback
+- [x] Configurable editor per context: config.editor.terminal/visual with priority chain
 - [ ] Local multiplexer providers: Ghostty, cmux (beyond tmux/zellij)
 - [ ] Obsidian + Claude Code working documents (shared context/notes during sessions)
 - [ ] Zellij multiplexer implementation

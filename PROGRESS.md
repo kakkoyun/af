@@ -412,3 +412,78 @@ The `af` binary has all these working commands:
 2. Phase 5: Ledger PR events, user guide
 3. Phase 3: Wire --remote/--yolo flags to provider trait
 4. Phase 4: Obsidian note integration (filesystem-only parts)
+
+---
+
+## 2026-03-27 — Session 6: Real Providers, Diff, Superterm, Bare Resume
+
+### Done
+
+- **Real slicer sandbox provider** — replaced stub with full implementation:
+  prepare (daemon health check), create (vm add with af-session tag),
+  teardown (vm delete), list (vm list parsing), is_healthy (vm health),
+  map_path (VirtioFS ~/Workspace → /home/ubuntu/host), agent_sandbox_cmd
+  (maps agent names to slicer claude/codex/amp/workspace).
+
+- **Real exe.dev remote provider** — replaced stub with SSH-based implementation:
+  detect (ssh exe.dev whoami), create (ssh exe.dev new), teardown (ssh exe.dev rm),
+  list (ssh exe.dev ls with output parsing), setup (git clone via SSH).
+
+- **`af diff` subcommand** — visual diff via diffity with delta/git-diff fallback.
+  Uses session metadata to determine base branch. Flags: --dark, --unified,
+  --no-open, --base.
+
+- **Superterm notification integration** — `superterm notify` on af create
+  (session started) and af done (session torn down). `superterm agent-hook stop`
+  per agent on teardown. Graceful fallback if superterm not installed.
+
+- **`af resume --bare`** — run agent directly in current terminal without
+  multiplexer. Useful for SSH sessions or environments without tmux.
+
+- **Ledger PR events** — af done now detects PR state via `gh pr list` and
+  emits pr_opened/pr_merged/pr_closed ledger events with number, URL, state.
+
+- **Editor fix** — wrapped env var mutation in tests with unsafe blocks for
+  Rust edition 2024 compatibility.
+
+### Current State
+
+| Metric | Value |
+|---|---|
+| Tests | 305 (270 unit + 26 integration + 9 doc) |
+| Rust LOC | ~10,500 across 40 source files |
+| TODO tasks | 88 done / 22 remaining |
+| Phases | 0 ✅, 1 ✅, 2 ✅, 3 ~✅, 4 ~✅, 5 ~✅ |
+| CI | All green (fmt, clippy, test) |
+| Commits | 39 |
+
+### What's left
+
+**Phase 3** (7 remaining):
+- DD Workspaces provider (needs workspaces CLI)
+- `af create --remote/--yolo` flag wiring
+- SSH bootstrap pipeline, dotfiles provisioning
+- Remote session resume, orphan detection
+
+**Phase 4** (6 remaining):
+- Slicer remote sandbox (`--sandbox --remote`)
+- `af auth` subcommand (needs keyring)
+- `af note` / Obsidian integration (needs vault)
+- VM health check + respawn in `af resume --respawn`
+
+**Phase 5** (2 remaining):
+- User guide (mdBook, deployed to GitHub Pages)
+- `af editor` for remote sessions (SSH + URL schemes)
+
+**Backlog** (12 items):
+- Remote control: superterm + inlet for full remote terminal access
+- Local multiplexers (Ghostty, cmux)
+- Obsidian + Claude Code working documents
+- Zellij multiplexer, Docker sandbox, and more
+
+### Next session priorities
+
+1. Manual test full flow in live tmux
+2. Wire --sandbox and --remote flags into af create
+3. Phase 4: Obsidian note integration
+4. Phase 3: SSH bootstrap pipeline
