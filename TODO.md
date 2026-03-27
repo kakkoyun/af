@@ -127,6 +127,11 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 
 ## Backlog (unscheduled)
 
+- [ ] Remote control: superterm + inlet integration for remote terminal access
+- [ ] Diff provider trait + `af diff` subcommand (diffty, VS Code diff, etc.)
+- [ ] Configurable editor per context: remote (nvim, vim, vscode) vs local (nvim, vscode, zed)
+- [ ] Local multiplexer providers: Ghostty, cmux (beyond tmux/zellij)
+- [ ] Obsidian + Claude Code working documents (shared context/notes during sessions)
 - [ ] Zellij multiplexer implementation
 - [ ] Docker-based sandbox provider
 - [ ] `af log` — append to session log (Obsidian note)
