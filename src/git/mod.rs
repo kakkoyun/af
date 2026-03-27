@@ -5,6 +5,7 @@
 
 pub mod branch;
 pub mod gc;
+pub mod pr;
 pub mod remote;
 pub mod resolve;
 pub mod worktree;

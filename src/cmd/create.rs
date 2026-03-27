@@ -270,6 +270,15 @@ fn resolve_base_branch(args: &CreateArgs, git_root: &std::path::Path) -> Result<
         Ok(branch)
     } else if let Some(ref from) = args.from {
         Ok(from.clone())
+    } else if let Some(pr_number) = args.from_pr {
+        let pr_info = crate::git::pr::resolve_pr_branches(pr_number, git_root)
+            .with_context(|| format!("failed to resolve PR #{pr_number}"))?;
+        // Fetch the PR's head branch so it's available locally.
+        let _ = std::process::Command::new("git")
+            .args(["fetch", "origin", &pr_info.head_branch])
+            .current_dir(git_root)
+            .status();
+        Ok(pr_info.base_branch)
     } else {
         resolve::fetch_and_resolve_base(git_root).context("failed to resolve base branch")
     }
@@ -286,6 +295,13 @@ fn resolve_task_name(
 ) -> (String, bool) {
     if let Some(ref name) = args.name {
         return (name.clone(), false);
+    }
+
+    // --from-pr: default name to the PR's head branch.
+    if let Some(pr_number) = args.from_pr {
+        if let Ok(pr_info) = crate::git::pr::resolve_pr_branches(pr_number, git_root) {
+            return (pr_info.head_branch, true);
+        }
     }
 
     // --from with an existing local branch: default name to that branch.

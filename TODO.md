@@ -37,7 +37,7 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] `af create [task-name]` — local worktree mode
 - [x] `af create --from <branch>` — fork from specific branch
 - [x] `af create --current` — fork from current branch
-- [ ] `af create --from-pr <number>` — PR worktree (needs `gh`) *(deferred: requires gh integration)*
+- [x] `af create --from-pr <number>` — PR worktree (needs `gh`)
 - [x] `af create --bare` — bare mode (no VM, host worktree)
 - [x] `af create` — workspace mode (non-git directory)
 - [x] `af create --agent <name>` — agent selection
@@ -111,8 +111,8 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] `af editor --visual` — VS Code/Zed GUI
 - [ ] `af editor` for remote sessions (SSH + URL schemes) *(deferred: requires remote providers)*
 - [x] Session archival: move to archive/ on `af done`, retain for 90 days
-- [ ] PR tracking: detect/record PR number+URL from branch
-- [ ] Ledger events: pr_opened, pr_merged, pr_closed
+- [x] PR tracking: detect/record PR number+URL from branch
+- [ ] Ledger events: pr_opened, pr_merged, pr_closed *(helpers done, event emission pending)*
 - [x] Agent session log discovery (claude, pi file path conventions)
 - [x] `af gc` prunes expired archives (older than retention_days)
 - [ ] Migration: read `cf-sessions/*.env` → convert to TOML
