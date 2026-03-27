@@ -48,6 +48,8 @@ pub enum Commands {
     Completions(CompletionsArgs),
     /// Manage configuration.
     Config(ConfigArgs),
+    /// Manage agents within a workstream.
+    Agent(AgentArgs),
     /// Check dependencies, optionally install missing ones.
     Doctor(DoctorArgs),
     /// Print version and build information.
@@ -156,6 +158,53 @@ pub enum ConfigAction {
     Init,
 }
 
+/// Arguments for `af agent`.
+#[derive(Debug, clap::Args)]
+pub struct AgentArgs {
+    /// Agent action to perform.
+    #[command(subcommand)]
+    pub action: AgentAction,
+}
+
+/// Agent management subcommands.
+#[derive(Debug, Subcommand)]
+pub enum AgentAction {
+    /// Add an agent to the current workstream in a new pane.
+    Add(AgentAddArgs),
+    /// Stop an agent running in a slot.
+    Stop(AgentStopArgs),
+    /// List agents in the current workstream.
+    List,
+}
+
+/// Arguments for `af agent add`.
+#[derive(Debug, clap::Args)]
+pub struct AgentAddArgs {
+    /// Slot name for the new agent (e.g., "review", "tests").
+    /// Auto-generated if omitted.
+    #[arg(long, value_name = "NAME")]
+    pub slot: Option<String>,
+
+    /// Agent provider to launch (e.g., "claude", "pi", "codex").
+    #[arg(long, value_name = "PROVIDER")]
+    pub agent: Option<String>,
+
+    /// Session name. Defaults to the current multiplexer session.
+    #[arg(long)]
+    pub session: Option<String>,
+}
+
+/// Arguments for `af agent stop`.
+#[derive(Debug, clap::Args)]
+pub struct AgentStopArgs {
+    /// Slot name of the agent to stop.
+    pub slot: String,
+
+    /// Session name. Defaults to the current multiplexer session.
+    #[arg(long)]
+    pub session: Option<String>,
+}
+
 /// Arguments for `af doctor`.
 #[derive(Debug, clap::Args)]
 pub struct DoctorArgs {
@@ -185,6 +234,7 @@ impl Cli {
                 Ok(())
             }
             Commands::Config(args) => crate::cmd::config_cmd::run(args),
+            Commands::Agent(args) => crate::cmd::agent::run(args),
             Commands::Doctor(args) => crate::cmd::doctor::run(args),
             Commands::Version => {
                 #[allow(clippy::print_stdout)]

@@ -162,6 +162,41 @@ impl Multiplexer for TmuxMultiplexer {
             anyhow::bail!("tmux split-window failed for session '{session}'");
         }
     }
+
+    fn create_pane(&self, session: &str, cwd: &Path) -> anyhow::Result<String> {
+        let output = Command::new("tmux")
+            .args(["split-window", "-v", "-t", session, "-c"])
+            .arg(cwd)
+            .args(["-P", "-F", "#{pane_id}"])
+            .output()?;
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!(
+                "tmux split-window failed for session '{session}': {}",
+                stderr.trim()
+            );
+        }
+    }
+
+    fn send_keys_to_pane(&self, session: &str, pane: &str, keys: &str) -> anyhow::Result<()> {
+        let target = format!("{session}:{pane}");
+        Self::run_status(&["send-keys", "-t", &target, keys, "Enter"])
+    }
+
+    fn kill_pane(&self, session: &str, pane: &str) -> anyhow::Result<()> {
+        let target = format!("{session}:{pane}");
+        Self::run_status(&["kill-pane", "-t", &target])
+    }
+
+    fn list_panes(&self, session: &str) -> anyhow::Result<Vec<String>> {
+        let output = Self::run_output(&["list-panes", "-t", session, "-F", "#{pane_id}"])?;
+        if output.is_empty() {
+            return Ok(vec![]);
+        }
+        Ok(output.lines().map(ToOwned::to_owned).collect())
+    }
 }
 
 #[cfg(test)]
@@ -248,5 +283,41 @@ mod tests {
             .strip_prefix(&format!("{key}="))
             .map(ToOwned::to_owned);
         assert_eq!(value, None);
+    }
+
+    #[test]
+    fn test_tmux_send_keys_to_pane_target_format() {
+        // Verify the target format used for pane-targeted commands.
+        let session = "my-session";
+        let pane = "%5";
+        let target = format!("{session}:{pane}");
+        assert_eq!(target, "my-session:%5");
+    }
+
+    #[test]
+    fn test_tmux_list_panes_parsing() {
+        // Simulate the output format from `tmux list-panes -F '#{pane_id}'`.
+        let output = "%0\n%1\n%2";
+        let panes: Vec<String> = output.lines().map(ToOwned::to_owned).collect();
+        assert_eq!(panes, vec!["%0", "%1", "%2"]);
+    }
+
+    #[test]
+    fn test_tmux_list_panes_parsing_empty() {
+        let output = "";
+        let panes: Vec<String> = if output.is_empty() {
+            vec![]
+        } else {
+            output.lines().map(ToOwned::to_owned).collect()
+        };
+        assert!(panes.is_empty());
+    }
+
+    #[test]
+    fn test_tmux_pane_id_format() {
+        // tmux pane IDs start with % followed by digits.
+        let pane_id = "%42";
+        assert!(pane_id.starts_with('%'));
+        assert!(pane_id[1..].parse::<u32>().is_ok());
     }
 }

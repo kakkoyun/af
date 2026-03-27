@@ -275,7 +275,51 @@ The `af` binary has all these working commands:
 ### Next session priorities
 
 1. Manual test the full `af create` → `af done` flow in a real tmux session
-2. Phase 2: `af agent add/stop/list` (multi-agent pane management)
-3. Phase 3: Remote provider trait + at least one provider stub
-4. Phase 4: Obsidian note integration (filesystem-based, no external deps)
-5. Phase 5: CHANGELOG.md, README polish
+2. Phase 3: Remote provider trait + at least one provider stub
+3. Phase 4: Obsidian note integration (filesystem-based, no external deps)
+4. Phase 5: CHANGELOG.md, README polish
+
+---
+
+## 2026-03-27 — Session 5: Phase 2 Multi-Agent Commands
+
+### Done
+
+- **Phase 2 multi-agent commands complete** — 5 tasks done.
+  - `af agent add --slot <name> --agent <provider>` — splits a new tmux pane, launches
+    agent, records slot in state.toml + ledger. Auto-generates slot name from provider
+    if omitted (e.g., "pi", "pi-2").
+  - `af agent stop <slot>` — kills the pane, updates status to stopped, writes ledger event.
+  - `af agent list` — tabular output of slot, agent, status, pane for current session.
+  - Multi-agent resume: `af resume` now restores all running agent panes (not just primary).
+    Creates split panes for non-primary agents, updates stored pane IDs.
+  - Multi-agent teardown: `af done` now logs individual `agent_stopped` ledger events for
+    each running agent before the session teardown event.
+
+- **Multiplexer trait extended** with 4 new methods:
+  - `create_pane()` — vertical split, returns tmux pane ID (`%N` format)
+  - `send_keys_to_pane()` — target a specific pane
+  - `kill_pane()` — kill a specific pane
+  - `list_panes()` — enumerate pane IDs in a session
+
+- **Tests: 203 total** (170 unit + 24 integration + 9 doc). 13 new tests:
+  - 4 unit tests for `auto_slot_name` logic
+  - 4 unit tests for tmux pane parsing/targeting
+  - 5 integration tests for `af agent` CLI parsing
+
+### Current State
+
+| Metric | Value |
+|---|---|
+| Tests | 203 (170 unit + 24 integration + 9 doc) |
+| Rust LOC | ~6,300 across 32 source files |
+| TODO tasks | 67 done / 43 remaining |
+| Phases | 0 ✅, 1 ~✅, 2 ✅, 3 deferred, 4 deferred, 5 ~✅ |
+| CI | All green (fmt, clippy, test) |
+
+### Next session priorities
+
+1. Manual test `af create` → `af agent add` → `af agent list` → `af done` in live tmux
+2. Phase 5: PR tracking, CHANGELOG.md, README polish
+3. Phase 3: Remote provider trait + stub
+4. Phase 4: Obsidian note integration

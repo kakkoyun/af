@@ -188,6 +188,58 @@ fn test_completions_fish() {
         .stdout(predicate::str::contains("complete"));
 }
 
+// ── Agent subcommand ───────────────────────────────────────────────────────
+
+#[test]
+fn test_agent_help_shows_subcommands() {
+    cmd()
+        .args(["agent", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("add"))
+        .stdout(predicate::str::contains("stop"))
+        .stdout(predicate::str::contains("list"));
+}
+
+#[test]
+fn test_agent_add_help_shows_flags() {
+    cmd()
+        .args(["agent", "add", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--slot"))
+        .stdout(predicate::str::contains("--agent"))
+        .stdout(predicate::str::contains("--session"));
+}
+
+#[test]
+fn test_agent_stop_help_shows_slot() {
+    cmd()
+        .args(["agent", "stop", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("slot"))
+        .stdout(predicate::str::contains("--session"));
+}
+
+#[test]
+fn test_agent_stop_requires_slot_arg() {
+    cmd()
+        .args(["agent", "stop"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("<SLOT>").or(predicate::str::contains("required")));
+}
+
+#[test]
+fn test_agent_no_subcommand_shows_help() {
+    cmd()
+        .arg("agent")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Usage"));
+}
+
 // ── Agent flag ──────────────────────────────────────────────────────────────
 
 #[test]

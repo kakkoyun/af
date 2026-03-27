@@ -62,11 +62,11 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] Gemini agent provider
 - [x] Amp agent provider
 - [x] Multi-agent slot model in state.toml (primary + named slots) *(schema done in Phase 0)*
-- [ ] `af agent add --slot <name> --agent <provider>` — add agent to workstream pane
-- [ ] `af agent stop <slot>` — stop an agent in a slot
-- [ ] `af agent list` — show agents in current workstream
-- [ ] Multi-agent resume: restore all agent panes on `af resume`
-- [ ] Multi-agent teardown: stop all agents on `af done`
+- [x] `af agent add --slot <name> --agent <provider>` — add agent to workstream pane
+- [x] `af agent stop <slot>` — stop an agent in a slot
+- [x] `af agent list` — show agents in current workstream
+- [x] Multi-agent resume: restore all agent panes on `af resume`
+- [x] Multi-agent teardown: stop all agents on `af done`
 - [x] `af config show` — dump effective configuration
 - [x] `af config init` — create default config file
 - [x] Shell completions: bash, zsh, fish

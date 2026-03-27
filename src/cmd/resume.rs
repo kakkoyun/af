@@ -10,6 +10,7 @@ use crate::mux::Multiplexer;
 use crate::mux::tmux::TmuxMultiplexer;
 use crate::session::ledger::{Ledger, LedgerEvent};
 use crate::session::store::SessionStore;
+use crate::session::types::AgentStatus;
 
 /// Execute the `af resume` command.
 pub fn run(args: &ResumeArgs) -> Result<()> {
@@ -34,7 +35,7 @@ pub fn run(args: &ResumeArgs) -> Result<()> {
 
     // If mux session is gone, recreate it from stored metadata.
     if !mux.session_exists(&session_name) {
-        let state = store.load(&session_name)?;
+        let mut state = store.load(&session_name)?;
         let cwd = match state.worktree.as_ref() {
             Some(wt) => std::path::PathBuf::from(&wt.path),
             None => std::env::current_dir().unwrap_or_default(),
@@ -51,15 +52,44 @@ pub fn run(args: &ResumeArgs) -> Result<()> {
             .context("failed to recreate multiplexer session")?;
         mux.set_option(&session_name, "@AF_SESSION", "1")?;
 
-        // Relaunch agent with --continue.
-        if let Some(agent) = state.agents.first() {
-            let agent_provider = crate::agent::resolve(&agent.provider)
-                .ok_or_else(|| anyhow::anyhow!("unknown agent '{}'", agent.provider))?;
-            let agent_provider: Box<dyn crate::agent::AgentProvider> = agent_provider;
-            let resume_opts = crate::agent::ResumeOpts { yolo: false };
+        // Restore all running agents. The primary agent gets the initial pane;
+        // additional agents each get a new split pane.
+        let resume_opts = crate::agent::ResumeOpts { yolo: false };
+        let mut pane_updates: Vec<(usize, String)> = Vec::new();
+        let mut is_first = true;
+
+        for (idx, agent) in state.agents.iter().enumerate() {
+            if agent.status == AgentStatus::Stopped {
+                continue;
+            }
+
+            let Some(agent_provider) = crate::agent::resolve(&agent.provider) else {
+                continue;
+            };
+
             let cmd_parts = agent_provider.resume_cmd(&resume_opts);
-            mux.send_keys(&session_name, &format!("{}\n", cmd_parts.join(" ")))?;
+            let cmd_str = cmd_parts.join(" ");
+
+            if is_first {
+                // Primary agent uses the initial pane.
+                let _ = mux.send_keys(&session_name, &format!("{cmd_str}\n"));
+                is_first = false;
+            } else {
+                // Additional agents get new panes.
+                if let Ok(pane_id) = mux.create_pane(&session_name, &cwd) {
+                    let _ = mux.send_keys_to_pane(&session_name, &pane_id, &cmd_str);
+                    pane_updates.push((idx, pane_id));
+                }
+            }
         }
+
+        // Apply pane ID updates (couldn't mutate during iteration).
+        for (idx, pane_id) in pane_updates {
+            state.agents[idx].pane = pane_id;
+        }
+
+        // Persist updated pane IDs.
+        let _ = store.save(&state);
 
         // Log recovery event.
         let session_dir = store.session_dir_path(&session_name);

@@ -85,18 +85,32 @@ pub fn run(args: &DoneArgs) -> Result<()> {
         }
     }
 
-    // Write ledger event.
+    // Write ledger events for each running agent.
     let session_dir = store.session_dir_path(&session_name);
     let ledger = Ledger::new(&session_dir);
-    let event = if args.force {
+    for agent in &state.agents {
+        if agent.status == crate::session::types::AgentStatus::Running {
+            let _ = ledger.append(
+                &LedgerEvent::new("agent_stopped")
+                    .with_field("slot", &agent.slot)
+                    .with_field("agent", &agent.provider)
+                    .with_field("reason", "session_teardown"),
+            );
+        }
+    }
+
+    let session_event = if args.force {
         LedgerEvent::new("session_abandoned").with_field("reason", "force")
     } else {
         LedgerEvent::new("session_completed")
     };
-    let _ = ledger.append(&event);
+    let _ = ledger.append(&session_event);
 
-    // Update status and archive.
+    // Update all agent statuses and session status, then archive.
     let mut final_state = state;
+    for agent in &mut final_state.agents {
+        agent.status = crate::session::types::AgentStatus::Stopped;
+    }
     final_state.session.status = if args.force {
         SessionStatus::Abandoned
     } else {

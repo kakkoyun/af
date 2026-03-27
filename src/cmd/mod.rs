@@ -3,6 +3,7 @@
 //! Each subcommand has its own module with a `run()` entry point.
 //! The CLI definition in `cli.rs` dispatches to these handlers.
 
+pub mod agent;
 pub mod config_cmd;
 pub mod create;
 pub mod doctor;

@@ -60,4 +60,17 @@ pub trait Multiplexer {
 
     /// Split window horizontally with a command.
     fn split_horizontal(&self, session: &str, cmd: &str, cwd: &Path) -> anyhow::Result<()>;
+
+    /// Create a new pane by splitting the window vertically.
+    /// Returns the pane identifier (e.g., tmux pane ID like `%5`).
+    fn create_pane(&self, session: &str, cwd: &Path) -> anyhow::Result<String>;
+
+    /// Send keystrokes to a specific pane within a session.
+    fn send_keys_to_pane(&self, session: &str, pane: &str, keys: &str) -> anyhow::Result<()>;
+
+    /// Kill a specific pane within a session.
+    fn kill_pane(&self, session: &str, pane: &str) -> anyhow::Result<()>;
+
+    /// List all pane identifiers in a session.
+    fn list_panes(&self, session: &str) -> anyhow::Result<Vec<String>>;
 }
