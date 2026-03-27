@@ -55,8 +55,7 @@ af done
 | `af editor` | Open codebase in editor (terminal or GUI) |
 | `af doctor` | Check dependencies, optionally install them |
 | `af config` | Show or initialize configuration |
-| `af auth` | Manage agent credentials for sandboxes |
-| `af note` | Open the Obsidian note for a workstream |
+| `af completions` | Generate shell completions (bash/zsh/fish) |
 | `af session-branch` | Launch agent tied to current branch |
 
 ### `af create` options
@@ -66,12 +65,16 @@ af create fix-bug                    # Fork from main, launch default agent
 af create --agent pi fix-bug         # Use pi instead of claude
 af create --from develop hotfix      # Fork from a specific branch
 af create --current spike            # Fork from current branch
-af create --from-pr 42               # Work on an existing PR
-af create --bare review-pr           # No sandbox, agent on bare metal
+af create --from-pr 42               # Work on an existing PR (requires gh CLI)
+af create --bare review-pr           # Run agent on host worktree (no VM)
+```
+
+Planned (not yet implemented):
+
+```bash
 af create --remote fix-infra         # Agent runs on a remote VM
 af create --sandbox untrusted-code   # Agent runs in a Firecracker VM
-af create --sandbox --remote host x  # Firecracker VM on a remote host
-af create --yolo --sandbox fast-fix  # Skip permission prompts (sandbox only)
+af create --yolo --sandbox fast-fix  # Skip permission prompts
 ```
 
 ### `af done` options
@@ -80,7 +83,6 @@ af create --yolo --sandbox fast-fix  # Skip permission prompts (sandbox only)
 af done                    # Tear down current workstream (with confirmation)
 af done fix-bug            # Tear down a named workstream
 af done --force fix-bug    # Skip confirmation, force-delete unmerged branch
-af done --vm fix-bug       # Destroy sandbox VM only, keep worktree
 ```
 
 ## Multi-Agent Workstreams
@@ -104,9 +106,9 @@ and independent session state.
 |---|---|---|
 | [Claude Code](https://claude.ai) | `claude` | ✅ Default |
 | [pi](https://github.com/mariozechner/pi-coding-agent) | `pi` | ✅ Supported |
-| [Codex](https://openai.com/codex) | `codex` | 🔜 Planned |
-| [Gemini CLI](https://ai.google.dev) | `gemini` | 🔜 Planned |
-| [Amp](https://amp.dev) | `amp` | 🔜 Planned |
+| [Codex](https://openai.com/codex) | `codex` | ✅ Supported |
+| [Gemini CLI](https://ai.google.dev) | `gemini` | ✅ Supported |
+| [Amp](https://amp.dev) | `amp` | ✅ Supported |
 
 ## Configuration
 
@@ -134,10 +136,6 @@ visual = ""          # auto-detect: code > zed
 
 [lifecycle]
 retention_days = 90
-
-[provisioning.dotfiles]
-repo = "https://github.com/you/dotfiles.git"
-install_cmd = "./install.sh --minimal"
 ```
 
 Project-level overrides go in `<repo>/.af/config.toml`.
@@ -199,15 +197,17 @@ af create fix-bug
 
 ## Development
 
-Requires: Rust 1.85+, [`just`](https://github.com/casey/just)
+Requires: Rust 1.85+ (edition 2024)
 
 ```bash
-just install-tools    # cargo-deny, cargo-nextest, etc.
-just install-hooks    # Git pre-commit hook (fmt + clippy)
+# With just (recommended)
 just check            # fmt + clippy + test + deny (run before every commit)
 just test             # Run tests
 just lint             # Run clippy (pedantic)
 just doc              # Generate and open rustdoc
+
+# Without just (raw cargo)
+cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 ```
 
 See [`AGENTS.md`](AGENTS.md) for the full working agreement (TDD workflow, code standards).

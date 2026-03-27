@@ -74,7 +74,7 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 
 ## Phase 3 — Remote Providers
 
-- [ ] Remote provider trait definition *(deferred: requires real SSH testing)*
+- [x] Remote provider trait definition + stubs (workspaces, exedev, slicer)
 - [ ] DD Workspaces provider (detect, create, teardown) *(deferred: requires workspaces CLI)*
 - [ ] exe.dev provider (detect, create, setup, teardown) *(deferred: requires exe.dev access)*
 - [ ] `af create --remote [host]` — remote session *(deferred)*
@@ -115,13 +115,13 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] Ledger events: pr_opened, pr_merged, pr_closed *(helpers done, event emission pending)*
 - [x] Agent session log discovery (claude, pi file path conventions)
 - [x] `af gc` prunes expired archives (older than retention_days)
-- [ ] Migration: read `cf-sessions/*.env` → convert to TOML
+- [x] Migration: read `cf-sessions/*.env` → convert to TOML
 - [ ] Man page generation
 - [x] Comprehensive `--help` text for all commands
 - [x] Error messages with actionable suggestions
-- [ ] CHANGELOG.md (Keep a Changelog format)
+- [x] CHANGELOG.md (Keep a Changelog format)
 - [ ] User guide (mdBook or similar, deployed to GitHub Pages)
-- [ ] README.md final polish — remove all 🔜, all examples work
+- [x] README.md final polish — remove stale 🔜, mark planned features, all examples verified
 
 ---
 
