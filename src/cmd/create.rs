@@ -157,6 +157,13 @@ pub fn run(args: &CreateArgs) -> Result<()> {
     );
     let _ = mux.set_env(&session_name, "AF_SESSION_ID", &sid.to_string());
 
+    // Notify superterm (best-effort).
+    crate::util::notify::notify(
+        &session_name,
+        "Workstream created",
+        &format!("Agent: {agent_name}, Branch: {branch_name}"),
+    );
+
     // Attach.
     mux.attach_or_switch(&session_name)
         .context("failed to attach to session")?;

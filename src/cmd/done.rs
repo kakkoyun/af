@@ -119,6 +119,12 @@ pub fn run(args: &DoneArgs) -> Result<()> {
     let _ = store.save(&final_state);
     let _ = store.archive(&session_name);
 
+    // Notify superterm (best-effort).
+    crate::util::notify::notify(&session_name, "Workstream torn down", "");
+    for agent in &final_state.agents {
+        crate::util::notify::agent_hook_stop(&agent.provider);
+    }
+
     #[allow(clippy::print_stderr)]
     {
         eprintln!("Session '{session_name}' cleaned up.");
