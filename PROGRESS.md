@@ -323,3 +323,92 @@ The `af` binary has all these working commands:
 2. Phase 5: PR tracking, CHANGELOG.md, README polish
 3. Phase 3: Remote provider trait + stub
 4. Phase 4: Obsidian note integration
+
+---
+
+## 2026-03-27 — Session 5 Cont: Comprehensive Implementation Push
+
+### Done
+
+- **Phase 1 complete** — `af create --from-pr <number>` implemented via `gh pr view`.
+  Resolves head/base branch, fetches PR branch, creates worktree from it.
+
+- **Phase 2 multi-agent complete** — `af agent add/stop/list` commands.
+  Multiplexer trait extended with 4 new pane management methods.
+  Multi-agent resume restores all running agent panes.
+  Multi-agent teardown logs individual agent stop events.
+
+- **Phase 3 started** — Remote + sandbox provider traits defined (ADR-004, ADR-005).
+  `RemoteProvider` trait: detect, create, setup, teardown, list.
+  `SandboxProvider` trait: is_available, create, is_healthy, teardown, list.
+  Stub implementations: workspaces, exedev, slicer.
+
+- **Phase 5 substantially complete** — 8 tasks done this session:
+  - PR tracking helpers (`git/pr.rs`): resolve branches, find PR for branch, JSON parsing.
+  - `cf-sessions/*.env` migration (`session/migrate.rs`): parse env files, convert to TOML.
+  - CHANGELOG.md created (Keep a Changelog format).
+  - Man page generation (`af mangen` hidden subcommand via `clap_mangen`).
+  - Editor selection made configurable: config.editor.terminal/visual with priority chain.
+  - README.md polished: 7 discrepancies fixed (found by verifier agent).
+
+- **Project constitution** codified in CLAUDE.md: 8 non-negotiable principles
+  surviving context compaction and session boundaries.
+
+- **Backlog updated** with 5 new items from the user:
+  remote control (superterm+inlet), diff provider, configurable editor per context,
+  local multiplexers (ghostty, cmux), obsidian+claude code working documents.
+
+### Verification
+
+- Dedicated verifier agent confirmed: fmt clean, clippy clean, 213 tests passing, docs build.
+- Dedicated README validator found 7 discrepancies — all fixed.
+- Final state: 268 tests, all checks green.
+
+### Current State
+
+| Metric | Value |
+|---|---|
+| Tests | 268 (234 unit + 25 integration + 9 doc) |
+| Rust LOC | ~8,200 across 38 source files |
+| TODO tasks | 78 done / 32 remaining |
+| Phases | 0 ✅, 1 ✅, 2 ✅, 3 trait+stubs, 4 deferred, 5 ~✅ |
+| CI | All green (fmt, clippy, test) |
+| Commits | 31 |
+
+### What's left
+
+**Phase 1** (1 deferred):
+- `af resume --bare` — flag accepted, logic pending
+
+**Phase 3** (10 deferred):
+- DD Workspaces provider (needs workspaces CLI)
+- exe.dev provider (needs exe.dev access)
+- `af create --remote/--yolo` flag wiring
+- SSH bootstrap pipeline, dotfiles provisioning
+- Remote session resume, orphan detection
+
+**Phase 4** (10 deferred):
+- Sandbox provider (slicer, needs running daemon)
+- `af auth` subcommand (needs keyring)
+- `af note` / Obsidian integration (needs vault)
+- VirtioFS path mapping, VM health check
+
+**Phase 5** (4 remaining):
+- Ledger events: pr_opened, pr_merged, pr_closed (helpers done, emission pending)
+- User guide (mdBook, deployed to GitHub Pages)
+- `af editor` for remote sessions (SSH + URL schemes)
+
+**Backlog** (15 items):
+- Remote control (superterm + inlet)
+- Diff provider + subcommand
+- Configurable editor per context (remote vs local)
+- Local multiplexers (Ghostty, cmux)
+- Obsidian + Claude Code working documents
+- Zellij multiplexer, Docker sandbox, and more
+
+### Next session priorities
+
+1. Manual test full flow in live tmux: create → agent add → agent list → done
+2. Phase 5: Ledger PR events, user guide
+3. Phase 3: Wire --remote/--yolo flags to provider trait
+4. Phase 4: Obsidian note integration (filesystem-only parts)
