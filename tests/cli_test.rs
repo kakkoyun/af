@@ -240,6 +240,18 @@ fn test_agent_no_subcommand_shows_help() {
         .stderr(predicate::str::contains("Usage"));
 }
 
+// ── Man page ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_mangen_produces_roff_output() {
+    cmd()
+        .arg("mangen")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(".TH"))
+        .stdout(predicate::str::contains("af"));
+}
+
 // ── Agent flag ──────────────────────────────────────────────────────────────
 
 #[test]

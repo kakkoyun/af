@@ -116,7 +116,7 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] Agent session log discovery (claude, pi file path conventions)
 - [x] `af gc` prunes expired archives (older than retention_days)
 - [x] Migration: read `cf-sessions/*.env` → convert to TOML
-- [ ] Man page generation
+- [x] Man page generation (`af mangen` hidden subcommand)
 - [x] Comprehensive `--help` text for all commands
 - [x] Error messages with actionable suggestions
 - [x] CHANGELOG.md (Keep a Changelog format)

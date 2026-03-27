@@ -52,6 +52,9 @@ pub enum Commands {
     Agent(AgentArgs),
     /// Check dependencies, optionally install missing ones.
     Doctor(DoctorArgs),
+    /// Generate man page and write to stdout.
+    #[command(hide = true)]
+    Mangen,
     /// Print version and build information.
     Version,
 }
@@ -236,6 +239,12 @@ impl Cli {
             Commands::Config(args) => crate::cmd::config_cmd::run(args),
             Commands::Agent(args) => crate::cmd::agent::run(args),
             Commands::Doctor(args) => crate::cmd::doctor::run(args),
+            Commands::Mangen => {
+                let cmd = <Self as clap::CommandFactory>::command();
+                let man = clap_mangen::Man::new(cmd);
+                man.render(&mut std::io::stdout())?;
+                Ok(())
+            }
             Commands::Version => {
                 #[allow(clippy::print_stdout)]
                 {
