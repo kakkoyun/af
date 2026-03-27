@@ -27,6 +27,7 @@ pub mod config;
 pub mod git;
 pub mod mux;
 pub mod platform;
+pub mod provider;
 pub mod session;
 pub mod util;
 
