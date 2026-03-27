@@ -2,11 +2,55 @@
 
 Rust CLI application — `af` (agentic-flow, automatic-flow, or as-fuck).
 Workflow tooling for agentic/automatic programming.
+Owner: @kakkoyun. Single-crate Rust project, edition 2024, MSRV 1.85.
 
-## ⚠️  Read Before Writing Code
+## Constitution
 
-**Read `AGENTS.md` first.** It contains the working agreement: TDD workflow, code quality
-standards, commit conventions, and the definition of done. Violating it will be caught in review.
+These rules are non-negotiable. They survive context compaction and session boundaries.
+
+### 1. TDD — No Exceptions
+
+Write the test first. Watch it fail. Implement. Watch it pass. Refactor.
+Never commit code without tests. Never skip the red step.
+See `AGENTS.md` for the full TDD workflow.
+
+### 2. Unverified Work Is Unfinished Work
+
+Run `cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test` before
+every commit. If it doesn't pass, it's not done. Use `tracing::debug!` to log assumptions
+and verify them at runtime.
+
+### 3. Documentation Is the Spec
+
+User-facing documentation (`README.md`, `CHANGELOG.md`, `--help` text) is the contract.
+If the code doesn't match the docs, the code is wrong. Update docs with every feature change.
+
+### 4. Immutable References
+
+`docs/PLAN.md` and `docs/SPEC.md` are **immutable**. Never modify them.
+To change a design decision, create a new ADR in `docs/adr/` for review.
+
+### 5. Progress Tracking Is Mandatory
+
+- `PROGRESS.md` — append-only narrative log. Write after every work session.
+- `TODO.md` — checkbox task list by phase. Check off as completed. Add blockers.
+- Use Claude Code Tasks for in-session tracking (resilient to context compaction).
+- Commit after every small achievement, not in large batches.
+
+### 6. No Corners Cut
+
+Every public item gets a doc comment. Every error path gets a test. Clippy pedantic is on.
+`unsafe` is forbidden. No `todo!()` in committed code. No `unwrap()` in library code.
+
+### 7. Tight Commit Discipline
+
+Format: `<type>(<scope>): <description>`. Stage specific files, never `git add .`.
+One logical change per commit. Never commit interim files (plans, scratch notes).
+
+### 8. Blockers Are Documented, Not Hidden
+
+If blocked, record the blocker in `PROGRESS.md` and mark the TODO item with a note.
+Move on to the next task. Never silently skip work.
 
 ## Session Start Protocol
 
@@ -14,38 +58,43 @@ Every new session, before writing any code:
 
 1. Read `PROGRESS.md` — understand what was done and what's next
 2. Read `TODO.md` — find the current phase and next unchecked task
-3. Run `just check` — verify the project is green before making changes
-4. Follow the TDD workflow in `AGENTS.md`
+3. Run `cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test`
+4. Verify baseline is green before making changes
+5. Follow the TDD workflow in `AGENTS.md`
 
-## Documentation
+Note: `just` may not be available in all environments. Use raw `cargo` commands as fallback.
 
-**README.md is the contract.** It shows the target UX. If the implementation doesn't
-match the README, the implementation is wrong. Update README.md whenever user-facing
-behaviour changes. See `AGENTS.md` → "Documentation Standards" for the full rules.
+## Documentation Hierarchy
 
-| File | Purpose |
-|---|---|
-| `README.md` | **User-facing quickstart** — must match reality, update with every feature |
-| `AGENTS.md` | **Working agreement** — TDD, quality standards, documentation rules, process |
-| `PROGRESS.md` | Narrative log of what was done, blockers, decisions |
-| `TODO.md` | Checkbox task list by phase |
-| `docs/SPEC.md` | Full specification (immutable reference) |
-| `docs/PLAN.md` | Implementation plan with architecture diagram (immutable) |
-| `docs/adr/` | Architecture Decision Records (11 ADRs) |
-| [GitHub Pages](https://kakkoyun.github.io/af/) | API docs + user guide (deployed from CI) |
+| File | Purpose | Mutability |
+|---|---|---|
+| `CLAUDE.md` | **Constitution** — rules, context, build commands | Update when process changes |
+| `AGENTS.md` | **Working agreement** — TDD, quality standards, process | Update when process changes |
+| `README.md` | **User-facing contract** — must match reality | Update with every feature |
+| `CHANGELOG.md` | **Release notes** — Keep a Changelog format | Update with every feature |
+| `PROGRESS.md` | **Narrative log** — what was done, blockers, decisions | Append after each session |
+| `TODO.md` | **Task list** — checkbox items by phase + backlog | Check off / add as needed |
+| `docs/SPEC.md` | Full specification | **IMMUTABLE** |
+| `docs/PLAN.md` | Implementation plan with architecture diagram | **IMMUTABLE** |
+| `docs/adr/` | Architecture Decision Records (11 ADRs) | Add new, never modify existing |
 
 ## Build & Test
 
 ```bash
-just check          # Run all checks (fmt, lint, test, deny, doc) — MUST pass before commit
-just fmt            # Format code
-just lint           # Run clippy (pedantic)
-just test           # Run tests
-just deny           # License/advisory/ban checks
-just doc            # Build rustdoc (warnings are errors)
-just build          # Debug build
-just build-release  # Release build
-just run <args>     # Run the CLI
+cargo fmt --check       # Check formatting
+cargo fmt               # Auto-format
+cargo clippy --all-targets -- -D warnings  # Lint (pedantic, warnings=errors)
+cargo test              # Run all tests
+cargo build             # Debug build
+cargo build --release   # Release build
+cargo run -- <args>     # Run the CLI
+cargo doc               # Build rustdoc (RUSTDOCFLAGS="-D warnings")
+```
+
+If `just` is available:
+```bash
+just check              # fmt + lint + test + deny + doc — MUST pass before commit
+just deny               # License/advisory/ban checks
 ```
 
 ## Architecture
@@ -55,32 +104,45 @@ See `docs/PLAN.md` for the full module map. Key layout:
 ```
 src/
 ├── main.rs          # Thin: parse args, init tracing, dispatch
-├── cli.rs           # Clap derive definitions
+├── cli.rs           # Clap derive definitions (all subcommands)
 ├── lib.rs           # Library crate — all core logic
 ├── config/          # TOML config system (ADR-003)
 ├── platform/        # OS detection, deps, package managers (ADR-009, ADR-010)
-├── provision/       # Bootstrap + dotfiles pipeline (ADR-009)
-├── session/         # Session types, metadata store (ADR-006)
-├── git/             # Worktree, branch, remote helpers
+├── session/         # Session types, metadata store, ledger (ADR-006, ADR-011)
+├── git/             # Worktree, branch, remote, PR helpers
 ├── mux/             # Multiplexer trait + tmux (ADR-002)
-├── agent/           # Agent provider trait + impls (ADR-001)
-├── provider/        # Remote + sandbox providers (ADR-004, ADR-005)
-├── obsidian/        # Workstream notes (ADR-007)
-├── cmd/             # Subcommand implementations
+├── agent/           # Agent provider trait + 5 impls (ADR-001)
+├── provider/        # Remote + sandbox provider traits (ADR-004, ADR-005)
+├── cmd/             # Subcommand implementations (create, done, list, resume, agent, gc, editor, config, doctor)
 └── util/            # UUID v5, shared utilities
+```
+
+## Working Commands (current state)
+
+```
+af create [name]        # worktree + mux + agent (local, bare, workspace, --from-pr)
+af done [session]       # teardown with confirmation, archive
+af list                 # grouped by repo
+af resume [session]     # fzf picker, multi-agent session recovery
+af agent add/stop/list  # multi-agent pane management
+af gc [--dry-run] [--all]  # merge detection + cleanup
+af editor [--terminal] [--visual]  # open codebase in editor
+af doctor               # dependency check
+af config show/init     # config management
+af completions bash/zsh/fish  # shell completions
+af session-branch       # branch-tied agent launch
+af version              # version info
 ```
 
 ## Conventions
 
-- **TDD** — test first, implement second. See `AGENTS.md` for the full workflow.
 - **Edition 2024**, MSRV 1.85. Phased delivery per `docs/adr/008-phased-delivery.md`.
-- **Clippy pedantic** is on with `-D warnings` in CI. Fix every warning.
-- `unsafe` is **forbidden** (`#[forbid(unsafe_code)]` in Cargo.toml).
+- **Clippy pedantic** with `-D warnings`. Fix every warning.
+- `unsafe` is **forbidden** (`#[forbid(unsafe_code)]`).
 - `print_stdout` / `print_stderr` / `dbg_macro` are warnings — use `tracing` in library code.
 - Use `anyhow::Result` in the binary, `thiserror` for typed errors in the library.
 - All public items require doc comments (`missing_docs = "warn"`).
-- Run `just check` before every commit. Green CI is non-negotiable.
-- Commit format: `<scope>: <what changed>` (see `AGENTS.md` for scopes).
+- Commit format: `<type>(<scope>): <description>` (see `AGENTS.md` for scopes).
 
 ## Release
 
