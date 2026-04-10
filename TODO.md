@@ -80,12 +80,12 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] `af create --remote [host]` — remote session via exe.dev/SSH
 - [x] `af create --yolo` — unattended mode (passes through to agent LaunchOpts)
 - [x] `af create --sandbox` — sandbox mode via slicer
-- [ ] SSH bootstrap pipeline (embedded default scripts) *(deferred)*
-- [ ] Dotfiles provisioning config (repo + install_cmd) *(deferred)*
-- [ ] Remote provisioning pipeline: bootstrap → dotfiles → auth *(deferred)*
+- [x] SSH bootstrap pipeline (embedded default scripts via include_str!)
+- [x] Dotfiles provisioning config (repo + install_cmd)
+- [x] Remote provisioning pipeline: bootstrap → dotfiles → auth
 - [ ] Remote session resume (SSH drop detection + reconnect) *(deferred)*
-- [ ] Orphan detection in `af list` *(deferred: requires remote providers)*
-- [ ] `af done` for remote sessions *(deferred)*
+- [ ] Orphan detection in `af list` *(deferred)*
+- [x] `af done` for remote sessions (exe.dev teardown)
 
 ## Phase 4 — Sandbox + Obsidian
 
@@ -93,12 +93,12 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] Slicer sandbox provider (local) — vm lifecycle + agent sandbox commands
 - [ ] Slicer sandbox provider (remote: `--sandbox --remote`) *(deferred)*
 - [x] VirtioFS path mapping (slicer map_path)
-- [ ] VM health check + respawn in `af resume --respawn` *(deferred)*
+- [x] VM health check + respawn in `af resume --respawn`
 - [ ] `af auth setup/reroll/status/clear` *(deferred: requires keyring integration)*
 - [ ] Auth token injection (keychain/keyring/file) *(deferred)*
-- [ ] Obsidian note creation on `af create` *(deferred)*
-- [ ] `af note [session]` — open Obsidian note *(deferred)*
-- [ ] Frontmatter update on `af done` (status → completed) *(deferred)*
+- [x] Obsidian note creation on `af create`
+- [x] `af note [session]` — open Obsidian note
+- [x] Frontmatter update on `af done` (status → completed)
 
 ## Phase 5 — GC + Editor + Polish
 
@@ -139,7 +139,7 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] `af pr` — create PR from session branch (via gh pr create)
 - [ ] `af sync` — sync remote sandbox with local worktree
 - [ ] Dataview dashboard template for Obsidian
-- [ ] `af doctor --verbose` — detailed version/path info for debugging
+- [x] `af doctor --verbose` — detailed version/path info for debugging
 - [x] `af stats` — workstream analytics from ledger data (agent usage, event counts)
-- [ ] `af export` — export ledger data for external analysis
+- [x] `af export` — export ledger data as JSON/CSV
 - [ ] Workspace template support (pre-configured sessions per project)

@@ -582,3 +582,61 @@ The `af` binary has all these working commands:
 2. Phase 3: SSH bootstrap pipeline, dotfiles provisioning
 3. Phase 4: Obsidian note integration, af auth
 4. Phase 5: User guide (mdBook)
+
+---
+
+## 2026-04-10 — Session 8: Obsidian, Provisioning, Respawn, Export
+
+### Done
+
+- **Obsidian integration (Phase 4)** — 3 tasks complete:
+  - Note creation on `af create` with YAML frontmatter (session, branch, repo, agent, status)
+  - `af note [session]` — opens note in Obsidian (URI scheme) or $EDITOR
+  - Frontmatter update on `af done` (status → completed/abandoned, completed_at timestamp)
+  - Configurable via `[obsidian]` section: vault path, folder, enabled flag
+
+- **SSH bootstrap + dotfiles provisioning (Phase 3)** — 3 tasks complete:
+  - Embedded bootstrap scripts for Debian and Arch (via `include_str!()`)
+  - Remote platform detection (pacman vs apt-get) selects correct script
+  - Dotfiles provisioning: clone repo + run install_cmd via SSH
+  - Configurable via `[provisioning.dotfiles]` section
+
+- **VM health check + `af resume --respawn` (Phase 4)** — checks slicer VM health,
+  creates new VM if dead and `--respawn` is set
+
+- **Remote session teardown (Phase 3)** — `af done` calls exe.dev teardown when
+  session mode is Remote. Non-fatal on failure.
+
+- **`af doctor --verbose`** — shows binary path and version for each dependency
+
+- **`af export`** — dumps ledger data as JSON or CSV to stdout
+
+- **Config extensions** — added `[provisioning]` and `[obsidian]` sections with
+  serde(default) for backwards compatibility
+
+### Current State
+
+| Metric | Value |
+|---|---|
+| Tests | 356 (315 unit + 32 integration + 9 doc) |
+| All passing | 356/356 |
+| Clippy | 0 warnings |
+| Formatting | clean |
+| Rust LOC | ~13,000 across 52 source files |
+| TODO tasks | 103 done / 7 remaining |
+| Phases | 0 ✅, 1 ✅, 2 ✅, 3 ~90%, 4 ~80%, 5 ~95% |
+| Commits | 51 |
+
+### What remains (7 tasks)
+
+- Phase 3: DD Workspaces provider (needs CLI), remote session resume, orphan detection
+- Phase 4: Remote sandbox (`--sandbox --remote`), af auth (keyring)
+- Phase 5: User guide (mdBook), remote editor
+- Backlog: Ghostty/cmux, Zellij, Docker sandbox, af log, af sync, templates
+
+### Next session priorities
+
+1. Manual test full flow in live tmux
+2. Docker sandbox provider (research + implement)
+3. Phase 5: User guide (mdBook)
+4. Remaining backlog items
