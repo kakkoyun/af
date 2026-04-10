@@ -487,3 +487,55 @@ The `af` binary has all these working commands:
 2. Wire --sandbox and --remote flags into af create
 3. Phase 4: Obsidian note integration
 4. Phase 3: SSH bootstrap pipeline
+
+---
+
+## 2026-04-10 — Session 7: Full Status Audit + Test Fix
+
+### Done
+
+- **Fixed 10 failing tests** — root cause: global git config `commit.gpgsign=true`
+  caused `git commit` in temp repos to fail (signing server rejects test commits).
+  Fix: added `git config commit.gpgsign false` to all 4 `init_repo()` helpers
+  across `worktree.rs`, `resolve.rs`, and `gc.rs`.
+
+- **Full status audit** — verified every claim in PROGRESS.md and TODO.md against
+  reality. Confirmed phase completion counts, identified honest gaps.
+
+### Audit Results
+
+| Phase | Status | Verified |
+|---|---|---|
+| 0 — Foundation | 24/24 ✅ | All tasks confirmed implemented |
+| 1 — Local MVP | 19/20 | `doctor --fix` is placeholder (prints "not implemented") |
+| 2 — Multi-Agent | 14/14 ✅ | All tasks confirmed implemented |
+| 3 — Remote | 3/11 | Traits + exe.dev done; 8 items need real infra |
+| 4 — Sandbox | 3/10 | Traits + slicer local done; 7 items deferred |
+| 5 — Polish | 19/21 | User guide + remote editor deferred |
+| Backlog | 4/15 | superterm, diff, editor config done |
+
+### Blockers
+
+- No tmux in CI/web env → can't integration-test full create→done flow
+- No `gh` CLI in CI → PR detection tested via mock only
+- Signing server → fixed by disabling gpgsign in test repos
+- Remote/sandbox infra → deferred items genuinely need workspaces/exe.dev/slicer access
+
+### Current State
+
+| Metric | Value |
+|---|---|
+| Tests | 305 (270 unit + 26 integration + 9 doc) |
+| All passing | ✅ 305/305 |
+| Clippy | ✅ 0 warnings |
+| Formatting | ✅ clean |
+| Rust LOC | ~10,500 across 46 source files |
+| TODO tasks | 86 done / 24 remaining |
+| Commits | 40 |
+
+### Next session priorities
+
+1. Manual test full flow in live tmux
+2. Wire --sandbox and --remote flags into af create
+3. Phase 4: Obsidian note integration
+4. Phase 3: SSH bootstrap pipeline
