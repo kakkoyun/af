@@ -52,6 +52,9 @@ pub fn run(args: &DoctorArgs) -> Result<()> {
         #[allow(clippy::print_stdout)]
         if satisfied {
             println!("  {symbol} {:<14} found", dep.name);
+            if args.verbose {
+                print_verbose_info(dep);
+            }
         } else {
             println!("  {symbol} {:<14} not found", dep.name);
             if !satisfied {
@@ -165,6 +168,31 @@ pub fn run(args: &DoctorArgs) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Print verbose path and version information for a satisfied dependency.
+fn print_verbose_info(dep: &Dependency) {
+    let binary = match &dep.check {
+        CheckMethod::Binary(b) => b.as_str(),
+    };
+
+    #[allow(clippy::print_stdout)]
+    if let Ok(path) = which::which(binary) {
+        println!("    path: {}", path.display());
+    }
+
+    #[allow(clippy::print_stdout)]
+    if let Ok(output) = std::process::Command::new(binary).arg("--version").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        // Some tools print version to stdout, others to stderr.
+        let version_line = stdout
+            .lines()
+            .next()
+            .or_else(|| stderr.lines().next())
+            .unwrap_or("unknown");
+        println!("    version: {version_line}");
+    }
 }
 
 /// Build the dependency list based on current configuration.

@@ -26,8 +26,10 @@ pub mod cmd;
 pub mod config;
 pub mod git;
 pub mod mux;
+pub mod obsidian;
 pub mod platform;
 pub mod provider;
+pub mod provision;
 pub mod session;
 pub mod util;
 
