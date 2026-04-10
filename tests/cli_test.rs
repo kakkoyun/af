@@ -80,6 +80,15 @@ fn test_resume_help_shows_bare() {
 }
 
 #[test]
+fn test_resume_help_shows_respawn() {
+    cmd()
+        .args(["resume", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--respawn"));
+}
+
+#[test]
 fn test_doctor_help_shows_fix() {
     cmd()
         .args(["doctor", "--help"])
@@ -304,4 +313,35 @@ fn test_create_unknown_agent_shows_supported_list() {
         .assert();
     // Should fail (either unknown agent error or no tmux).
     result.failure();
+}
+
+// ── Export subcommand ─────────────────────────────────────────────────────
+
+#[test]
+fn test_export_help_shows_format() {
+    cmd()
+        .args(["export", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--format"));
+}
+
+#[test]
+fn test_export_help_shows_session() {
+    cmd()
+        .args(["export", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("session"));
+}
+
+// ── Doctor --verbose ──────────────────────────────────────────────────────
+
+#[test]
+fn test_doctor_help_shows_verbose() {
+    cmd()
+        .args(["doctor", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--verbose"));
 }

@@ -4,13 +4,16 @@
 //! Falls back to listing available sessions.
 
 use anyhow::{Context, Result, bail};
+use tracing::debug;
 
 use crate::cli::ResumeArgs;
 use crate::mux::Multiplexer;
 use crate::mux::tmux::TmuxMultiplexer;
+use crate::provider::SandboxProvider;
+use crate::provider::slicer::SlicerProvider;
 use crate::session::ledger::{Ledger, LedgerEvent};
 use crate::session::store::SessionStore;
-use crate::session::types::AgentStatus;
+use crate::session::types::{AgentStatus, ExecutionMode};
 
 /// Execute the `af resume` command.
 pub fn run(args: &ResumeArgs) -> Result<()> {
@@ -51,6 +54,12 @@ pub fn run(args: &ResumeArgs) -> Result<()> {
                 "worktree path {} no longer exists. Session cannot be recovered.",
                 cwd.display()
             );
+        }
+
+        // Sandbox health check: if this was a sandbox session, verify the VM
+        // is still alive before recreating the mux session.
+        if state.execution.mode == ExecutionMode::Sandbox {
+            check_sandbox_health(&session_name, args.respawn)?;
         }
 
         mux.create_session(&session_name, &cwd)
@@ -173,6 +182,58 @@ fn run_bare(session_name: &str, store: &SessionStore) -> Result<()> {
 
     if !status.success() {
         bail!("agent exited with status {status}");
+    }
+
+    Ok(())
+}
+
+/// Check sandbox VM health and optionally respawn a dead VM.
+///
+/// Constructs a [`SandboxHandle`] from the session name and delegates to
+/// [`SlicerProvider::is_healthy`]. When the VM is dead and `respawn` is true,
+/// a new VM is created via [`SlicerProvider::create`].
+fn check_sandbox_health(session_name: &str, respawn: bool) -> Result<()> {
+    let slicer = SlicerProvider;
+    let handle = crate::provider::SandboxHandle {
+        id: session_name.to_owned(),
+        hostname: session_name.to_owned(),
+        provider: "slicer".to_owned(),
+    };
+
+    debug!(session = session_name, "checking sandbox VM health");
+
+    if slicer.is_healthy(&handle) {
+        debug!(session = session_name, "sandbox VM is healthy");
+        return Ok(());
+    }
+
+    debug!(session = session_name, "sandbox VM is dead");
+
+    if respawn {
+        #[allow(clippy::print_stderr)]
+        {
+            eprintln!("Sandbox VM for '{session_name}' is dead. Respawning...");
+        }
+        let new_handle = slicer
+            .create(session_name, None)
+            .context("failed to respawn sandbox VM")?;
+        debug!(
+            session = session_name,
+            hostname = new_handle.hostname.as_str(),
+            "sandbox VM respawned"
+        );
+        #[allow(clippy::print_stderr)]
+        {
+            eprintln!("Sandbox VM respawned: hostname={}", new_handle.hostname);
+        }
+    } else {
+        #[allow(clippy::print_stderr)]
+        {
+            eprintln!(
+                "Warning: sandbox VM for '{session_name}' is dead. \
+                 Use --respawn to create a new VM."
+            );
+        }
     }
 
     Ok(())

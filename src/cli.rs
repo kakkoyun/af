@@ -54,8 +54,12 @@ pub enum Commands {
     Diff(DiffArgs),
     /// Create a GitHub PR from the current workstream.
     Pr(PrArgs),
+    /// Open the Obsidian note for a workstream.
+    Note(NoteArgs),
     /// Show workstream analytics from ledger data.
     Stats,
+    /// Export ledger data for external analysis.
+    Export(ExportArgs),
     /// Check dependencies, optionally install missing ones.
     Doctor(DoctorArgs),
     /// Generate man page and write to stdout.
@@ -126,6 +130,10 @@ pub struct ResumeArgs {
     /// Resume in bare mode (skip VM, run agent locally).
     #[arg(long)]
     pub bare: bool,
+
+    /// Respawn dead sandbox VMs instead of failing.
+    #[arg(long)]
+    pub respawn: bool,
 }
 
 /// Arguments for `af editor`.
@@ -201,6 +209,13 @@ pub struct DiffArgs {
     /// Do not open browser automatically.
     #[arg(long)]
     pub no_open: bool,
+}
+
+/// Arguments for `af note`.
+#[derive(Debug, clap::Args)]
+pub struct NoteArgs {
+    /// Session name. Defaults to the current multiplexer session.
+    pub session: Option<String>,
 }
 
 /// Arguments for `af pr`.
@@ -279,6 +294,21 @@ pub struct DoctorArgs {
     /// Skip confirmation prompts (use with --fix).
     #[arg(long, requires = "fix")]
     pub yes: bool,
+
+    /// Show detailed version and path information for each dependency.
+    #[arg(long)]
+    pub verbose: bool,
+}
+
+/// Arguments for `af export`.
+#[derive(Debug, clap::Args)]
+pub struct ExportArgs {
+    /// Output format.
+    #[arg(long, default_value = "json")]
+    pub format: String,
+
+    /// Session name. If omitted, exports all sessions.
+    pub session: Option<String>,
 }
 
 impl Cli {
@@ -300,8 +330,10 @@ impl Cli {
             Commands::Config(args) => crate::cmd::config_cmd::run(args),
             Commands::Agent(args) => crate::cmd::agent::run(args),
             Commands::Diff(args) => crate::cmd::diff::run(args),
+            Commands::Note(args) => crate::cmd::note::run(args),
             Commands::Pr(args) => crate::cmd::pr::run(args),
             Commands::Stats => crate::cmd::stats::run(),
+            Commands::Export(args) => crate::cmd::export::run(args),
             Commands::Doctor(args) => crate::cmd::doctor::run(args),
             Commands::Mangen => {
                 let cmd = <Self as clap::CommandFactory>::command();
