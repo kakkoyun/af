@@ -100,6 +100,27 @@ af agent stop review                 # Stop pi, keep others
 All agents share the same worktree and branch. Each gets its own multiplexer pane
 and independent session state.
 
+## Three-Layer Architecture
+
+`af` composes three independent concerns:
+
+| Layer | What it does | Options |
+|---|---|---|
+| **Agent** | The AI coding agent | claude, pi, codex, gemini, amp, copilot |
+| **Remote** | Where the machine lives | local (default), exe.dev, DD Workspaces |
+| **Sandbox** | Isolation around the agent | none (default), slicer (Firecracker), docker (sbx) |
+
+These compose orthogonally:
+
+```bash
+af create task                              # local + no sandbox + claude
+af create --agent codex task                # local + no sandbox + codex
+af create --sandbox task                    # local + slicer sandbox + claude
+af create --remote task                     # exe.dev remote + no sandbox + claude
+af create --remote --sandbox task           # exe.dev remote + slicer sandbox + claude
+af create --remote host --agent pi task     # specific remote + no sandbox + pi
+```
+
 ## Supported Agents
 
 | Agent | Binary | Status |
@@ -109,6 +130,21 @@ and independent session state.
 | [Codex](https://openai.com/codex) | `codex` | ✅ Supported |
 | [Gemini CLI](https://ai.google.dev) | `gemini` | ✅ Supported |
 | [Amp](https://amp.dev) | `amp` | ✅ Supported |
+| [Copilot CLI](https://githubnext.com/projects/copilot-cli) | `copilot` | ✅ Supported |
+
+## Sandbox Providers
+
+| Provider | Binary | Isolation | Status |
+|---|---|---|---|
+| [Slicer](https://slicervm.com) | `slicer` | Firecracker microVM | ✅ Supported |
+| [Docker AI Sandboxes](https://docs.docker.com/ai/sandboxes/) | `sbx` | microVM + Docker daemon | ✅ Supported |
+
+## Remote Providers
+
+| Provider | Access | Status |
+|---|---|---|
+| [exe.dev](https://exe.dev) | `ssh exe.dev` | ✅ Supported |
+| DD Workspaces | `workspaces` CLI | Planned |
 
 ## Configuration
 

@@ -99,7 +99,13 @@ just deny               # License/advisory/ban checks
 
 ## Architecture
 
-See `docs/PLAN.md` for the full module map. Key layout:
+See `docs/PLAN.md` for the full module map. Three orthogonal layers:
+
+- **Agent layer** (`agent/`) — 7 providers: claude, pi, codex, gemini, amp, copilot
+- **Remote layer** (`provider/exedev`, `provider/workspaces`) — where the machine lives
+- **Sandbox layer** (`provider/slicer`, `provider/docker`) — isolation around the agent
+
+These compose: `--remote --sandbox --agent codex` = remote machine + sandbox + codex inside.
 
 ```
 src/
@@ -111,23 +117,30 @@ src/
 ├── session/         # Session types, metadata store, ledger (ADR-006, ADR-011)
 ├── git/             # Worktree, branch, remote, PR helpers
 ├── mux/             # Multiplexer trait + tmux (ADR-002)
-├── agent/           # Agent provider trait + 5 impls (ADR-001)
-├── provider/        # Remote + sandbox provider traits (ADR-004, ADR-005)
-├── cmd/             # Subcommand implementations (create, done, list, resume, agent, gc, editor, config, doctor)
-└── util/            # UUID v5, shared utilities
+├── agent/           # Agent providers: claude, pi, codex, gemini, amp, copilot (ADR-001)
+├── provider/        # Remote (exedev, workspaces) + sandbox (slicer, docker) (ADR-004, ADR-005)
+├── provision/       # SSH bootstrap + dotfiles pipeline (ADR-009)
+├── obsidian/        # Workstream notes integration (ADR-007)
+├── cmd/             # Subcommand implementations
+└── util/            # UUID v5, notifications, shared utilities
 ```
 
 ## Working Commands (current state)
 
 ```
-af create [name]        # worktree + mux + agent (local, bare, workspace, --from-pr)
-af done [session]       # teardown with confirmation, archive
+af create [name]        # worktree + mux + agent (--remote, --sandbox, --yolo, --from-pr)
+af done [session]       # teardown with confirmation, archive, remote cleanup
 af list                 # grouped by repo
-af resume [session]     # fzf picker, multi-agent session recovery
+af resume [session]     # fzf picker, multi-agent recovery, --respawn for dead VMs
 af agent add/stop/list  # multi-agent pane management
 af gc [--dry-run] [--all]  # merge detection + cleanup
 af editor [--terminal] [--visual]  # open codebase in editor
-af doctor               # dependency check
+af diff [session]       # visual diff via diffity/delta
+af pr [session]         # create GitHub PR from session metadata
+af note [session]       # open Obsidian workstream note
+af stats                # workstream analytics from ledger data
+af export [--format]    # export ledger data as JSON/CSV
+af doctor [--fix] [--verbose]  # dependency check + auto-install
 af config show/init     # config management
 af completions bash/zsh/fish  # shell completions
 af session-branch       # branch-tied agent launch
