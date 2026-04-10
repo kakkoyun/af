@@ -180,6 +180,23 @@ pub fn run(args: &CreateArgs) -> Result<()> {
     );
     let _ = mux.set_env(&session_name, "AF_SESSION_ID", &sid.to_string());
 
+    // Create Obsidian note (best-effort, only if enabled).
+    if cfg.obsidian.enabled {
+        if let Ok(note_path) = crate::obsidian::note_path(&cfg.obsidian, &session_name) {
+            let meta = crate::obsidian::NoteMeta {
+                session: session_name.clone(),
+                branch: branch_name.clone(),
+                base_branch,
+                repo: repo_name,
+                agent: agent_name.to_owned(),
+                status: "active".to_owned(),
+                created_at: chrono::Utc::now(),
+                completed_at: None,
+            };
+            let _ = crate::obsidian::create_note(&note_path, &meta);
+        }
+    }
+
     // Notify superterm (best-effort).
     crate::util::notify::notify(
         &session_name,

@@ -1,15 +1,19 @@
 //! `af done` — tear down a workstream.
 //!
 //! Kills the multiplexer session, removes the worktree, deletes the branch,
-//! and archives the session metadata.
+//! tears down any associated remote VM, and archives the session metadata.
 
 use anyhow::{Context, Result, bail};
 use std::io::Write;
+
+use tracing::debug;
 
 use crate::cli::DoneArgs;
 use crate::git::worktree;
 use crate::mux::Multiplexer;
 use crate::mux::tmux::TmuxMultiplexer;
+use crate::provider::RemoteProvider;
+use crate::provider::exedev::ExedevProvider;
 use crate::session::ledger::{Ledger, LedgerEvent};
 use crate::session::store::SessionStore;
 use crate::session::types::{ExecutionMode, SessionStatus};
@@ -85,6 +89,22 @@ pub fn run(args: &DoneArgs) -> Result<()> {
         }
     }
 
+    // If this was a remote session, tear down the remote VM.
+    // The session name doubles as the VM name. Failures are non-fatal
+    // because the remote may already be gone (manual cleanup, timeout, etc.).
+    if state.execution.mode == ExecutionMode::Remote {
+        let provider = ExedevProvider;
+        debug!(session = %session_name, provider = provider.name(), "tearing down remote VM");
+        match provider.teardown(&session_name) {
+            Ok(()) => {
+                debug!(session = %session_name, "remote VM torn down");
+            }
+            Err(err) => {
+                debug!(session = %session_name, %err, "remote teardown failed (non-fatal)");
+            }
+        }
+    }
+
     // Detect PR state and emit ledger event (best-effort).
     let session_dir = store.session_dir_path(&session_name);
     let ledger = Ledger::new(&session_dir);
@@ -136,6 +156,18 @@ pub fn run(args: &DoneArgs) -> Result<()> {
     };
     let _ = store.save(&final_state);
     let _ = store.archive(&session_name);
+
+    // Update Obsidian note frontmatter (best-effort).
+    let cfg = crate::config::load(None).ok();
+    if let Some(ref cfg) = cfg {
+        if cfg.obsidian.enabled {
+            if let Ok(note_path) = crate::obsidian::note_path(&cfg.obsidian, &session_name) {
+                let status = if args.force { "abandoned" } else { "completed" };
+                let _ =
+                    crate::obsidian::update_status(&note_path, status, Some(chrono::Utc::now()));
+            }
+        }
+    }
 
     // Notify superterm (best-effort).
     crate::util::notify::notify(&session_name, "Workstream torn down", "");
