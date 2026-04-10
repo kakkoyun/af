@@ -21,6 +21,10 @@ pub struct Config {
     pub editor: EditorConfig,
     /// Session lifecycle settings.
     pub lifecycle: LifecycleConfig,
+    /// Remote provisioning settings.
+    pub provisioning: ProvisioningConfig,
+    /// Obsidian integration settings.
+    pub obsidian: ObsidianConfig,
 }
 
 /// General settings.
@@ -65,6 +69,38 @@ pub struct LifecycleConfig {
     pub retention_days: u32,
     /// Automatically archive completed sessions.
     pub auto_archive: bool,
+}
+
+/// Remote provisioning settings (ADR-009).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct ProvisioningConfig {
+    /// Dotfiles configuration for remote VMs.
+    pub dotfiles: DotfilesConfig,
+}
+
+/// Dotfiles provisioning configuration.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct DotfilesConfig {
+    /// Git repo to clone on remote VMs (e.g., `https://github.com/you/dotfiles.git`).
+    pub repo: String,
+    /// Directory to clone into on the remote (default: "~/.dotfiles").
+    pub target: String,
+    /// Command to run after cloning (within the cloned directory).
+    pub install_cmd: String,
+}
+
+/// Obsidian integration settings (ADR-007).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct ObsidianConfig {
+    /// Path to the Obsidian vault (e.g., "~/Vaults/work").
+    pub vault: String,
+    /// Subfolder within the vault for workstream notes.
+    pub folder: String,
+    /// Enable Obsidian note creation on `af create`.
+    pub enabled: bool,
 }
 
 // ── Defaults ────────────────────────────────────────────────────────────────
@@ -240,6 +276,37 @@ fn merge(base: &mut Config, overlay: &Config) {
     }
     if overlay.lifecycle.auto_archive != default.lifecycle.auto_archive {
         base.lifecycle.auto_archive = overlay.lifecycle.auto_archive;
+    }
+
+    // Provisioning
+    if overlay.provisioning.dotfiles.repo != default.provisioning.dotfiles.repo {
+        base.provisioning
+            .dotfiles
+            .repo
+            .clone_from(&overlay.provisioning.dotfiles.repo);
+    }
+    if overlay.provisioning.dotfiles.target != default.provisioning.dotfiles.target {
+        base.provisioning
+            .dotfiles
+            .target
+            .clone_from(&overlay.provisioning.dotfiles.target);
+    }
+    if overlay.provisioning.dotfiles.install_cmd != default.provisioning.dotfiles.install_cmd {
+        base.provisioning
+            .dotfiles
+            .install_cmd
+            .clone_from(&overlay.provisioning.dotfiles.install_cmd);
+    }
+
+    // Obsidian
+    if overlay.obsidian.vault != default.obsidian.vault {
+        base.obsidian.vault.clone_from(&overlay.obsidian.vault);
+    }
+    if overlay.obsidian.folder != default.obsidian.folder {
+        base.obsidian.folder.clone_from(&overlay.obsidian.folder);
+    }
+    if overlay.obsidian.enabled != default.obsidian.enabled {
+        base.obsidian.enabled = overlay.obsidian.enabled;
     }
 }
 
