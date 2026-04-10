@@ -134,7 +134,7 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] Local multiplexer providers: Ghostty, cmux (beyond tmux/zellij)
 - [ ] Obsidian + Claude Code working documents (shared context/notes during sessions)
 - [ ] Zellij multiplexer implementation
-- [ ] Docker-based sandbox provider
+- [x] Docker-based sandbox provider (via sbx CLI — Docker AI Sandboxes)
 - [ ] `af log` — append to session log (Obsidian note)
 - [x] `af pr` — create PR from session branch (via gh pr create)
 - [ ] `af sync` — sync remote sandbox with local worktree
