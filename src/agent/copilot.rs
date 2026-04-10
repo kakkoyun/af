@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::agent::{AgentProvider, LaunchOpts, ResumeOpts};
+use crate::agent::{AgentProvider, ApprovalMode, LaunchOpts, ResumeOpts};
 
 /// GitHub Copilot CLI agent provider.
 ///
@@ -31,9 +31,13 @@ impl AgentProvider for CopilotProvider {
 
     fn launch_cmd(&self, opts: &LaunchOpts) -> Vec<String> {
         let mut cmd = vec!["copilot".to_owned()];
-        if opts.yolo {
-            cmd.push("--allow-all".to_owned());
-            cmd.push("--autopilot".to_owned());
+        match opts.approval_mode {
+            ApprovalMode::Default => {}
+            ApprovalMode::Auto => cmd.push("--allow-all-tools".to_owned()),
+            ApprovalMode::Yolo => {
+                cmd.push("--allow-all".to_owned());
+                cmd.push("--autopilot".to_owned());
+            }
         }
         // Copilot doesn't support explicit session IDs.
         let _ = &opts.session_id;
@@ -42,9 +46,13 @@ impl AgentProvider for CopilotProvider {
 
     fn resume_cmd(&self, opts: &ResumeOpts) -> Vec<String> {
         let mut cmd = vec!["copilot".to_owned()];
-        if opts.yolo {
-            cmd.push("--allow-all".to_owned());
-            cmd.push("--autopilot".to_owned());
+        match opts.approval_mode {
+            ApprovalMode::Default => {}
+            ApprovalMode::Auto => cmd.push("--allow-all-tools".to_owned()),
+            ApprovalMode::Yolo => {
+                cmd.push("--allow-all".to_owned());
+                cmd.push("--autopilot".to_owned());
+            }
         }
         cmd.push("--continue".to_owned());
         cmd
@@ -70,7 +78,7 @@ impl AgentProvider for CopilotProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent::{LaunchOpts, ResumeOpts};
+    use crate::agent::{ApprovalMode, LaunchOpts, ResumeOpts};
 
     #[test]
     fn test_copilot_name_and_binary() {
@@ -87,14 +95,25 @@ mod tests {
     }
 
     #[test]
-    fn test_copilot_launch_cmd_basic() {
+    fn test_copilot_launch_cmd_default() {
         let provider = CopilotProvider;
         let opts = LaunchOpts {
             session_id: "test-uuid".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
         let cmd = provider.launch_cmd(&opts);
         assert_eq!(cmd, vec!["copilot"]);
+    }
+
+    #[test]
+    fn test_copilot_launch_cmd_auto() {
+        let provider = CopilotProvider;
+        let opts = LaunchOpts {
+            session_id: "test-uuid".to_owned(),
+            approval_mode: ApprovalMode::Auto,
+        };
+        let cmd = provider.launch_cmd(&opts);
+        assert_eq!(cmd, vec!["copilot", "--allow-all-tools"]);
     }
 
     #[test]
@@ -102,24 +121,38 @@ mod tests {
         let provider = CopilotProvider;
         let opts = LaunchOpts {
             session_id: "test-uuid".to_owned(),
-            yolo: true,
+            approval_mode: ApprovalMode::Yolo,
         };
         let cmd = provider.launch_cmd(&opts);
         assert_eq!(cmd, vec!["copilot", "--allow-all", "--autopilot"]);
     }
 
     #[test]
-    fn test_copilot_resume_cmd_basic() {
+    fn test_copilot_resume_cmd_default() {
         let provider = CopilotProvider;
-        let opts = ResumeOpts { yolo: false };
+        let opts = ResumeOpts {
+            approval_mode: ApprovalMode::Default,
+        };
         let cmd = provider.resume_cmd(&opts);
         assert_eq!(cmd, vec!["copilot", "--continue"]);
     }
 
     #[test]
+    fn test_copilot_resume_cmd_auto() {
+        let provider = CopilotProvider;
+        let opts = ResumeOpts {
+            approval_mode: ApprovalMode::Auto,
+        };
+        let cmd = provider.resume_cmd(&opts);
+        assert_eq!(cmd, vec!["copilot", "--allow-all-tools", "--continue"]);
+    }
+
+    #[test]
     fn test_copilot_resume_cmd_yolo() {
         let provider = CopilotProvider;
-        let opts = ResumeOpts { yolo: true };
+        let opts = ResumeOpts {
+            approval_mode: ApprovalMode::Yolo,
+        };
         let cmd = provider.resume_cmd(&opts);
         assert_eq!(
             cmd,
@@ -132,7 +165,7 @@ mod tests {
         let provider = CopilotProvider;
         let opts = LaunchOpts {
             session_id: "test".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
         assert!(provider.pr_cmd(42, &opts).is_none());
     }

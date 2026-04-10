@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::agent::{AgentProvider, LaunchOpts, ResumeOpts};
+use crate::agent::{AgentProvider, ApprovalMode, LaunchOpts, ResumeOpts};
 
 /// Sourcegraph Amp agent provider.
 ///
@@ -31,8 +31,10 @@ impl AgentProvider for AmpProvider {
 
     fn launch_cmd(&self, opts: &LaunchOpts) -> Vec<String> {
         let mut cmd = vec!["amp".to_owned()];
-        if opts.yolo {
-            cmd.push("--dangerously-allow-all".to_owned());
+        match opts.approval_mode {
+            // Amp has no auto mode; fall through to default.
+            ApprovalMode::Default | ApprovalMode::Auto => {}
+            ApprovalMode::Yolo => cmd.push("--dangerously-allow-all".to_owned()),
         }
         // Amp uses its own thread-based session system.
         let _ = &opts.session_id;
@@ -41,8 +43,10 @@ impl AgentProvider for AmpProvider {
 
     fn resume_cmd(&self, opts: &ResumeOpts) -> Vec<String> {
         let mut cmd = vec!["amp".to_owned()];
-        if opts.yolo {
-            cmd.push("--dangerously-allow-all".to_owned());
+        match opts.approval_mode {
+            // Amp has no auto mode; fall through to default.
+            ApprovalMode::Default | ApprovalMode::Auto => {}
+            ApprovalMode::Yolo => cmd.push("--dangerously-allow-all".to_owned()),
         }
         cmd.extend([
             "threads".to_owned(),
@@ -75,12 +79,23 @@ mod tests {
     }
 
     #[test]
-    fn test_amp_launch_cmd_basic() {
+    fn test_amp_launch_cmd_default() {
         let p = AmpProvider;
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
+        assert_eq!(p.launch_cmd(&opts), vec!["amp"]);
+    }
+
+    #[test]
+    fn test_amp_launch_cmd_auto() {
+        let p = AmpProvider;
+        let opts = LaunchOpts {
+            session_id: "x".to_owned(),
+            approval_mode: ApprovalMode::Auto,
+        };
+        // Amp has no auto mode; falls through to default.
         assert_eq!(p.launch_cmd(&opts), vec!["amp"]);
     }
 
@@ -89,22 +104,36 @@ mod tests {
         let p = AmpProvider;
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
-            yolo: true,
+            approval_mode: ApprovalMode::Yolo,
         };
         assert_eq!(p.launch_cmd(&opts), vec!["amp", "--dangerously-allow-all"]);
     }
 
     #[test]
-    fn test_amp_resume_cmd_basic() {
+    fn test_amp_resume_cmd_default() {
         let p = AmpProvider;
-        let cmd = p.resume_cmd(&ResumeOpts { yolo: false });
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Default,
+        });
+        assert_eq!(cmd, vec!["amp", "threads", "continue", "--last"]);
+    }
+
+    #[test]
+    fn test_amp_resume_cmd_auto() {
+        let p = AmpProvider;
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Auto,
+        });
+        // Amp has no auto mode; falls through to default.
         assert_eq!(cmd, vec!["amp", "threads", "continue", "--last"]);
     }
 
     #[test]
     fn test_amp_resume_cmd_yolo() {
         let p = AmpProvider;
-        let cmd = p.resume_cmd(&ResumeOpts { yolo: true });
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Yolo,
+        });
         assert_eq!(
             cmd,
             vec![
@@ -122,7 +151,7 @@ mod tests {
         let p = AmpProvider;
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
         assert!(p.pr_cmd(42, &opts).is_none());
     }

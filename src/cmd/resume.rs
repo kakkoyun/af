@@ -68,7 +68,9 @@ pub fn run(args: &ResumeArgs) -> Result<()> {
 
         // Restore all running agents. The primary agent gets the initial pane;
         // additional agents each get a new split pane.
-        let resume_opts = crate::agent::ResumeOpts { yolo: false };
+        let resume_opts = crate::agent::ResumeOpts {
+            approval_mode: crate::agent::ApprovalMode::Default,
+        };
         let mut pane_updates: Vec<(usize, String)> = Vec::new();
         let mut is_first = true;
 
@@ -149,7 +151,9 @@ fn run_bare(session_name: &str, store: &SessionStore) -> Result<()> {
     let agent_provider = crate::agent::resolve(&agent.provider)
         .ok_or_else(|| anyhow::anyhow!("unknown agent '{}'", agent.provider))?;
 
-    let resume_opts = crate::agent::ResumeOpts { yolo: false };
+    let resume_opts = crate::agent::ResumeOpts {
+        approval_mode: crate::agent::ApprovalMode::Default,
+    };
     let cmd_parts = agent_provider.resume_cmd(&resume_opts);
 
     if cmd_parts.is_empty() {

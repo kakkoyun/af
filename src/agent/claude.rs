@@ -5,7 +5,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::agent::{AgentProvider, LaunchOpts, ResumeOpts};
+use crate::agent::{AgentProvider, ApprovalMode, LaunchOpts, ResumeOpts};
 
 /// Claude Code agent provider.
 ///
@@ -31,8 +31,13 @@ impl AgentProvider for ClaudeProvider {
 
     fn launch_cmd(&self, opts: &LaunchOpts) -> Vec<String> {
         let mut cmd = vec!["claude".to_owned()];
-        if opts.yolo {
-            cmd.push("--dangerously-skip-permissions".to_owned());
+        match opts.approval_mode {
+            ApprovalMode::Default => {}
+            ApprovalMode::Auto => {
+                cmd.push("--permission-mode".to_owned());
+                cmd.push("auto".to_owned());
+            }
+            ApprovalMode::Yolo => cmd.push("--dangerously-skip-permissions".to_owned()),
         }
         cmd.push("--session-id".to_owned());
         cmd.push(opts.session_id.clone());
@@ -41,8 +46,13 @@ impl AgentProvider for ClaudeProvider {
 
     fn resume_cmd(&self, opts: &ResumeOpts) -> Vec<String> {
         let mut cmd = vec!["claude".to_owned()];
-        if opts.yolo {
-            cmd.push("--dangerously-skip-permissions".to_owned());
+        match opts.approval_mode {
+            ApprovalMode::Default => {}
+            ApprovalMode::Auto => {
+                cmd.push("--permission-mode".to_owned());
+                cmd.push("auto".to_owned());
+            }
+            ApprovalMode::Yolo => cmd.push("--dangerously-skip-permissions".to_owned()),
         }
         cmd.push("--continue".to_owned());
         cmd
@@ -50,8 +60,13 @@ impl AgentProvider for ClaudeProvider {
 
     fn pr_cmd(&self, pr_number: u64, opts: &LaunchOpts) -> Option<Vec<String>> {
         let mut cmd = vec!["claude".to_owned()];
-        if opts.yolo {
-            cmd.push("--dangerously-skip-permissions".to_owned());
+        match opts.approval_mode {
+            ApprovalMode::Default => {}
+            ApprovalMode::Auto => {
+                cmd.push("--permission-mode".to_owned());
+                cmd.push("auto".to_owned());
+            }
+            ApprovalMode::Yolo => cmd.push("--dangerously-skip-permissions".to_owned()),
         }
         cmd.push("--from-pr".to_owned());
         cmd.push(pr_number.to_string());
@@ -97,14 +112,34 @@ mod tests {
     }
 
     #[test]
-    fn test_claude_launch_cmd_basic() {
+    fn test_claude_launch_cmd_default() {
         let provider = ClaudeProvider;
         let opts = LaunchOpts {
             session_id: "abc-123".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
         let cmd = provider.launch_cmd(&opts);
         assert_eq!(cmd, vec!["claude", "--session-id", "abc-123"]);
+    }
+
+    #[test]
+    fn test_claude_launch_cmd_auto() {
+        let provider = ClaudeProvider;
+        let opts = LaunchOpts {
+            session_id: "abc-123".to_owned(),
+            approval_mode: ApprovalMode::Auto,
+        };
+        let cmd = provider.launch_cmd(&opts);
+        assert_eq!(
+            cmd,
+            vec![
+                "claude",
+                "--permission-mode",
+                "auto",
+                "--session-id",
+                "abc-123"
+            ]
+        );
     }
 
     #[test]
@@ -112,7 +147,7 @@ mod tests {
         let provider = ClaudeProvider;
         let opts = LaunchOpts {
             session_id: "abc-123".to_owned(),
-            yolo: true,
+            approval_mode: ApprovalMode::Yolo,
         };
         let cmd = provider.launch_cmd(&opts);
         assert_eq!(
@@ -127,17 +162,34 @@ mod tests {
     }
 
     #[test]
-    fn test_claude_resume_cmd_basic() {
+    fn test_claude_resume_cmd_default() {
         let provider = ClaudeProvider;
-        let opts = ResumeOpts { yolo: false };
+        let opts = ResumeOpts {
+            approval_mode: ApprovalMode::Default,
+        };
         let cmd = provider.resume_cmd(&opts);
         assert_eq!(cmd, vec!["claude", "--continue"]);
     }
 
     #[test]
+    fn test_claude_resume_cmd_auto() {
+        let provider = ClaudeProvider;
+        let opts = ResumeOpts {
+            approval_mode: ApprovalMode::Auto,
+        };
+        let cmd = provider.resume_cmd(&opts);
+        assert_eq!(
+            cmd,
+            vec!["claude", "--permission-mode", "auto", "--continue"]
+        );
+    }
+
+    #[test]
     fn test_claude_resume_cmd_yolo() {
         let provider = ClaudeProvider;
-        let opts = ResumeOpts { yolo: true };
+        let opts = ResumeOpts {
+            approval_mode: ApprovalMode::Yolo,
+        };
         let cmd = provider.resume_cmd(&opts);
         assert_eq!(
             cmd,
@@ -146,11 +198,11 @@ mod tests {
     }
 
     #[test]
-    fn test_claude_pr_cmd() {
+    fn test_claude_pr_cmd_default() {
         let provider = ClaudeProvider;
         let opts = LaunchOpts {
             session_id: "abc-123".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
         let cmd = provider.pr_cmd(42, &opts);
         assert_eq!(
@@ -164,11 +216,31 @@ mod tests {
     }
 
     #[test]
+    fn test_claude_pr_cmd_auto() {
+        let provider = ClaudeProvider;
+        let opts = LaunchOpts {
+            session_id: "abc-123".to_owned(),
+            approval_mode: ApprovalMode::Auto,
+        };
+        let cmd = provider.pr_cmd(42, &opts);
+        assert_eq!(
+            cmd,
+            Some(vec![
+                "claude".to_owned(),
+                "--permission-mode".to_owned(),
+                "auto".to_owned(),
+                "--from-pr".to_owned(),
+                "42".to_owned()
+            ])
+        );
+    }
+
+    #[test]
     fn test_claude_pr_cmd_yolo() {
         let provider = ClaudeProvider;
         let opts = LaunchOpts {
             session_id: "abc-123".to_owned(),
-            yolo: true,
+            approval_mode: ApprovalMode::Yolo,
         };
         let cmd = provider.pr_cmd(42, &opts);
         assert_eq!(

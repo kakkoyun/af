@@ -119,14 +119,24 @@ fn test_session_branch_help() {
 // ── Create remote/sandbox/yolo flags ────────────────────────────────────────
 
 #[test]
-fn test_create_help_shows_remote_sandbox_yolo() {
+fn test_create_help_shows_remote_sandbox_yolo_auto() {
     cmd()
         .args(["create", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--remote"))
         .stdout(predicate::str::contains("--sandbox"))
-        .stdout(predicate::str::contains("--yolo"));
+        .stdout(predicate::str::contains("--yolo"))
+        .stdout(predicate::str::contains("--auto"));
+}
+
+#[test]
+fn test_create_auto_and_yolo_conflict() {
+    cmd()
+        .args(["create", "--auto", "--yolo", "task"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
 }
 
 // ── Flag conflicts ──────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::agent::{AgentProvider, LaunchOpts, ResumeOpts};
+use crate::agent::{AgentProvider, ApprovalMode, LaunchOpts, ResumeOpts};
 
 /// Gemini CLI agent provider.
 ///
@@ -31,8 +31,13 @@ impl AgentProvider for GeminiProvider {
 
     fn launch_cmd(&self, opts: &LaunchOpts) -> Vec<String> {
         let mut cmd = vec!["gemini".to_owned()];
-        if opts.yolo {
-            cmd.push("--yolo".to_owned());
+        match opts.approval_mode {
+            ApprovalMode::Default => {}
+            ApprovalMode::Auto => {
+                cmd.push("--approval-mode".to_owned());
+                cmd.push("auto_edit".to_owned());
+            }
+            ApprovalMode::Yolo => cmd.push("--yolo".to_owned()),
         }
         // Gemini doesn't have a --session-id flag.
         // Session ID is tracked in af's metadata only.
@@ -42,8 +47,13 @@ impl AgentProvider for GeminiProvider {
 
     fn resume_cmd(&self, opts: &ResumeOpts) -> Vec<String> {
         let mut cmd = vec!["gemini".to_owned()];
-        if opts.yolo {
-            cmd.push("--yolo".to_owned());
+        match opts.approval_mode {
+            ApprovalMode::Default => {}
+            ApprovalMode::Auto => {
+                cmd.push("--approval-mode".to_owned());
+                cmd.push("auto_edit".to_owned());
+            }
+            ApprovalMode::Yolo => cmd.push("--yolo".to_owned()),
         }
         cmd.push("--resume".to_owned());
         cmd.push("latest".to_owned());
@@ -74,13 +84,26 @@ mod tests {
     }
 
     #[test]
-    fn test_gemini_launch_cmd_basic() {
+    fn test_gemini_launch_cmd_default() {
         let p = GeminiProvider;
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
         assert_eq!(p.launch_cmd(&opts), vec!["gemini"]);
+    }
+
+    #[test]
+    fn test_gemini_launch_cmd_auto() {
+        let p = GeminiProvider;
+        let opts = LaunchOpts {
+            session_id: "x".to_owned(),
+            approval_mode: ApprovalMode::Auto,
+        };
+        assert_eq!(
+            p.launch_cmd(&opts),
+            vec!["gemini", "--approval-mode", "auto_edit"]
+        );
     }
 
     #[test]
@@ -88,22 +111,44 @@ mod tests {
         let p = GeminiProvider;
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
-            yolo: true,
+            approval_mode: ApprovalMode::Yolo,
         };
         assert_eq!(p.launch_cmd(&opts), vec!["gemini", "--yolo"]);
     }
 
     #[test]
-    fn test_gemini_resume_cmd_basic() {
+    fn test_gemini_resume_cmd_default() {
         let p = GeminiProvider;
-        let cmd = p.resume_cmd(&ResumeOpts { yolo: false });
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Default,
+        });
         assert_eq!(cmd, vec!["gemini", "--resume", "latest"]);
+    }
+
+    #[test]
+    fn test_gemini_resume_cmd_auto() {
+        let p = GeminiProvider;
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Auto,
+        });
+        assert_eq!(
+            cmd,
+            vec![
+                "gemini",
+                "--approval-mode",
+                "auto_edit",
+                "--resume",
+                "latest"
+            ]
+        );
     }
 
     #[test]
     fn test_gemini_resume_cmd_yolo() {
         let p = GeminiProvider;
-        let cmd = p.resume_cmd(&ResumeOpts { yolo: true });
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Yolo,
+        });
         assert_eq!(cmd, vec!["gemini", "--yolo", "--resume", "latest"]);
     }
 
@@ -112,7 +157,7 @@ mod tests {
         let p = GeminiProvider;
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
         assert!(p.pr_cmd(42, &opts).is_none());
     }

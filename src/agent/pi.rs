@@ -72,6 +72,7 @@ impl AgentProvider for PiProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent::ApprovalMode;
 
     #[test]
     fn test_pi_name_and_binary() {
@@ -81,20 +82,66 @@ mod tests {
     }
 
     #[test]
-    fn test_pi_launch_cmd() {
+    fn test_pi_launch_cmd_default() {
         let p = PiProvider;
         let opts = LaunchOpts {
             session_id: "ignored".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
         let cmd = p.launch_cmd(&opts);
         assert_eq!(cmd, vec!["pi"]);
     }
 
     #[test]
-    fn test_pi_resume_cmd() {
+    fn test_pi_launch_cmd_auto() {
         let p = PiProvider;
-        let cmd = p.resume_cmd(&ResumeOpts { yolo: false });
+        let opts = LaunchOpts {
+            session_id: "ignored".to_owned(),
+            approval_mode: ApprovalMode::Auto,
+        };
+        // pi has no approval modes; always launches plain.
+        let cmd = p.launch_cmd(&opts);
+        assert_eq!(cmd, vec!["pi"]);
+    }
+
+    #[test]
+    fn test_pi_launch_cmd_yolo() {
+        let p = PiProvider;
+        let opts = LaunchOpts {
+            session_id: "ignored".to_owned(),
+            approval_mode: ApprovalMode::Yolo,
+        };
+        // pi has no approval modes; always launches plain.
+        let cmd = p.launch_cmd(&opts);
+        assert_eq!(cmd, vec!["pi"]);
+    }
+
+    #[test]
+    fn test_pi_resume_cmd_default() {
+        let p = PiProvider;
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Default,
+        });
+        assert_eq!(cmd, vec!["pi", "--continue"]);
+    }
+
+    #[test]
+    fn test_pi_resume_cmd_auto() {
+        let p = PiProvider;
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Auto,
+        });
+        // pi has no approval modes; resumes the same way.
+        assert_eq!(cmd, vec!["pi", "--continue"]);
+    }
+
+    #[test]
+    fn test_pi_resume_cmd_yolo() {
+        let p = PiProvider;
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Yolo,
+        });
+        // pi has no approval modes; resumes the same way.
         assert_eq!(cmd, vec!["pi", "--continue"]);
     }
 
@@ -103,7 +150,7 @@ mod tests {
         let p = PiProvider;
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
         assert!(p.pr_cmd(42, &opts).is_none());
     }

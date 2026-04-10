@@ -101,8 +101,12 @@ pub struct CreateArgs {
     #[arg(long)]
     pub sandbox: bool,
 
-    /// Skip permission prompts (unattended mode).
-    #[arg(long)]
+    /// Auto-approve edits and safe tools, prompt for destructive operations.
+    #[arg(long, conflicts_with = "yolo")]
+    pub auto: bool,
+
+    /// Skip all permission prompts (sandbox/unattended mode).
+    #[arg(long, conflicts_with = "auto")]
     pub yolo: bool,
 
     /// Select the AI agent to launch (e.g., "claude", "pi").

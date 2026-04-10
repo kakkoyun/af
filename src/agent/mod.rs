@@ -13,20 +13,35 @@ pub mod pi;
 
 use std::path::{Path, PathBuf};
 
+/// Agent approval mode (ADR-012).
+///
+/// Controls how the agent handles permission prompts for tool use,
+/// file edits, and destructive operations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ApprovalMode {
+    /// Prompt for approval on tool use (agent default behaviour).
+    #[default]
+    Default,
+    /// Auto-approve edits and safe tools, prompt for destructive operations.
+    Auto,
+    /// Skip all permission prompts (sandbox/unattended mode).
+    Yolo,
+}
+
 /// Options for launching a new agent session.
 #[derive(Debug, Clone)]
 pub struct LaunchOpts {
     /// Deterministic session ID (UUID v5).
     pub session_id: String,
-    /// Skip permission prompts (--yolo mode).
-    pub yolo: bool,
+    /// Approval mode for permission prompts.
+    pub approval_mode: ApprovalMode,
 }
 
 /// Options for resuming an agent session.
 #[derive(Debug, Clone)]
 pub struct ResumeOpts {
-    /// Whether to use yolo/unattended mode on resume.
-    pub yolo: bool,
+    /// Approval mode for permission prompts.
+    pub approval_mode: ApprovalMode,
 }
 
 /// Abstraction over AI coding agents (ADR-001).

@@ -70,7 +70,7 @@ fn run_add(args: &AgentAddArgs) -> Result<()> {
         crate::util::uuid::session_id(&session_name, &format!("{session_name}-{slot_name}"));
     let launch_opts = crate::agent::LaunchOpts {
         session_id: session_id.to_string(),
-        yolo: false,
+        approval_mode: crate::agent::ApprovalMode::Default,
     };
     let cmd_parts = agent_provider.launch_cmd(&launch_opts);
     let launch_cmd_str = cmd_parts.join(" ");

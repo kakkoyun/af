@@ -7,7 +7,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::agent::{AgentProvider, LaunchOpts, ResumeOpts};
+use crate::agent::{AgentProvider, ApprovalMode, LaunchOpts, ResumeOpts};
 
 /// `OpenAI` Codex agent provider.
 ///
@@ -32,8 +32,17 @@ impl AgentProvider for CodexProvider {
 
     fn launch_cmd(&self, opts: &LaunchOpts) -> Vec<String> {
         let mut cmd = vec!["codex".to_owned()];
-        if opts.yolo {
-            cmd.push("--full-auto".to_owned());
+        match opts.approval_mode {
+            ApprovalMode::Default => {}
+            ApprovalMode::Auto => {
+                cmd.push("--ask-for-approval".to_owned());
+                cmd.push("on-request".to_owned());
+            }
+            ApprovalMode::Yolo => {
+                cmd.push("--full-auto".to_owned());
+                cmd.push("--ask-for-approval".to_owned());
+                cmd.push("never".to_owned());
+            }
         }
         // Codex doesn't have --session-id on launch; af tracks the ID externally.
         let _ = &opts.session_id;
@@ -42,8 +51,17 @@ impl AgentProvider for CodexProvider {
 
     fn resume_cmd(&self, opts: &ResumeOpts) -> Vec<String> {
         let mut cmd = vec!["codex".to_owned()];
-        if opts.yolo {
-            cmd.push("--full-auto".to_owned());
+        match opts.approval_mode {
+            ApprovalMode::Default => {}
+            ApprovalMode::Auto => {
+                cmd.push("--ask-for-approval".to_owned());
+                cmd.push("on-request".to_owned());
+            }
+            ApprovalMode::Yolo => {
+                cmd.push("--full-auto".to_owned());
+                cmd.push("--ask-for-approval".to_owned());
+                cmd.push("never".to_owned());
+            }
         }
         cmd.push("resume".to_owned());
         cmd.push("--last".to_owned());
@@ -73,13 +91,26 @@ mod tests {
     }
 
     #[test]
-    fn test_codex_launch_cmd_basic() {
+    fn test_codex_launch_cmd_default() {
         let p = CodexProvider;
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
         assert_eq!(p.launch_cmd(&opts), vec!["codex"]);
+    }
+
+    #[test]
+    fn test_codex_launch_cmd_auto() {
+        let p = CodexProvider;
+        let opts = LaunchOpts {
+            session_id: "x".to_owned(),
+            approval_mode: ApprovalMode::Auto,
+        };
+        assert_eq!(
+            p.launch_cmd(&opts),
+            vec!["codex", "--ask-for-approval", "on-request"]
+        );
     }
 
     #[test]
@@ -87,23 +118,58 @@ mod tests {
         let p = CodexProvider;
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
-            yolo: true,
+            approval_mode: ApprovalMode::Yolo,
         };
-        assert_eq!(p.launch_cmd(&opts), vec!["codex", "--full-auto"]);
+        assert_eq!(
+            p.launch_cmd(&opts),
+            vec!["codex", "--full-auto", "--ask-for-approval", "never"]
+        );
     }
 
     #[test]
-    fn test_codex_resume_cmd_basic() {
+    fn test_codex_resume_cmd_default() {
         let p = CodexProvider;
-        let cmd = p.resume_cmd(&ResumeOpts { yolo: false });
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Default,
+        });
         assert_eq!(cmd, vec!["codex", "resume", "--last"]);
+    }
+
+    #[test]
+    fn test_codex_resume_cmd_auto() {
+        let p = CodexProvider;
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Auto,
+        });
+        assert_eq!(
+            cmd,
+            vec![
+                "codex",
+                "--ask-for-approval",
+                "on-request",
+                "resume",
+                "--last"
+            ]
+        );
     }
 
     #[test]
     fn test_codex_resume_cmd_yolo() {
         let p = CodexProvider;
-        let cmd = p.resume_cmd(&ResumeOpts { yolo: true });
-        assert_eq!(cmd, vec!["codex", "--full-auto", "resume", "--last"]);
+        let cmd = p.resume_cmd(&ResumeOpts {
+            approval_mode: ApprovalMode::Yolo,
+        });
+        assert_eq!(
+            cmd,
+            vec![
+                "codex",
+                "--full-auto",
+                "--ask-for-approval",
+                "never",
+                "resume",
+                "--last"
+            ]
+        );
     }
 
     #[test]
@@ -111,7 +177,7 @@ mod tests {
         let p = CodexProvider;
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
-            yolo: false,
+            approval_mode: ApprovalMode::Default,
         };
         assert!(p.pr_cmd(42, &opts).is_none());
     }

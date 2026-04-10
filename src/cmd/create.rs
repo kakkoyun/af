@@ -99,9 +99,14 @@ pub fn run(args: &CreateArgs) -> Result<()> {
     //
     // Composition: --sandbox --remote host = remote machine + sandbox on it + agent inside.
     let agent_provider = resolve_agent(agent_name)?;
+    let approval_mode = if args.yolo {
+        crate::agent::ApprovalMode::Yolo
+    } else {
+        crate::agent::ApprovalMode::Default
+    };
     let launch_opts = crate::agent::LaunchOpts {
         session_id: sid.to_string(),
-        yolo: args.yolo,
+        approval_mode,
     };
 
     let (exec_mode, launch_cmd_str) = match (args.sandbox, &args.remote) {
@@ -266,7 +271,7 @@ fn run_workspace_mode(
     let agent_provider = resolve_agent(agent_name)?;
     let launch_opts = crate::agent::LaunchOpts {
         session_id: sid.to_string(),
-        yolo: false,
+        approval_mode: crate::agent::ApprovalMode::Default,
     };
     let cmd_parts = agent_provider.launch_cmd(&launch_opts);
     mux.send_keys(&session_name, &format!("{}\n", cmd_parts.join(" ")))?;

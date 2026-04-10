@@ -36,7 +36,7 @@ pub fn run() -> Result<()> {
 
     let opts = crate::agent::LaunchOpts {
         session_id: sid.to_string(),
-        yolo: false,
+        approval_mode: crate::agent::ApprovalMode::Default,
     };
     let cmd = agent.launch_cmd(&opts);
 
