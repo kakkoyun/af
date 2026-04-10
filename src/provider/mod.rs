@@ -11,6 +11,7 @@
 //! The two concerns are orthogonal and composable: `--sandbox --remote host`
 //! creates a sandbox on a remote machine.
 
+pub mod docker;
 pub mod exedev;
 pub mod slicer;
 pub mod workspaces;
@@ -131,7 +132,7 @@ pub trait SandboxProvider {
 pub const KNOWN_REMOTE_PROVIDERS: &[&str] = &["workspaces", "exedev"];
 
 /// All known sandbox provider names.
-pub const KNOWN_SANDBOX_PROVIDERS: &[&str] = &["slicer"];
+pub const KNOWN_SANDBOX_PROVIDERS: &[&str] = &["slicer", "docker"];
 
 /// Resolve a remote provider by name.
 ///
@@ -150,6 +151,7 @@ pub fn resolve_remote(name: &str) -> Option<Box<dyn RemoteProvider>> {
 pub fn resolve_sandbox(name: &str) -> Option<Box<dyn SandboxProvider>> {
     match name {
         "slicer" => Some(Box::new(slicer::SlicerProvider)),
+        "docker" => Some(Box::new(docker::DockerSandboxProvider)),
         _ => None,
     }
 }
@@ -376,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_resolve_sandbox_unknown_returns_none() {
-        assert!(resolve_sandbox("docker").is_none());
+        assert!(resolve_sandbox("nsjail").is_none());
         assert!(resolve_sandbox("").is_none());
     }
 
@@ -391,7 +393,8 @@ mod tests {
 
     #[test]
     fn test_known_sandbox_providers() {
-        assert_eq!(KNOWN_SANDBOX_PROVIDERS.len(), 1);
+        assert_eq!(KNOWN_SANDBOX_PROVIDERS.len(), 2);
         assert!(KNOWN_SANDBOX_PROVIDERS.contains(&"slicer"));
+        assert!(KNOWN_SANDBOX_PROVIDERS.contains(&"docker"));
     }
 }
