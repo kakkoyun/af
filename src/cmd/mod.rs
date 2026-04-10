@@ -15,3 +15,4 @@ pub mod list;
 pub mod pr;
 pub mod resume;
 pub mod session_branch;
+pub mod stats;

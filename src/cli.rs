@@ -54,6 +54,8 @@ pub enum Commands {
     Diff(DiffArgs),
     /// Create a GitHub PR from the current workstream.
     Pr(PrArgs),
+    /// Show workstream analytics from ledger data.
+    Stats,
     /// Check dependencies, optionally install missing ones.
     Doctor(DoctorArgs),
     /// Generate man page and write to stdout.
@@ -299,6 +301,7 @@ impl Cli {
             Commands::Agent(args) => crate::cmd::agent::run(args),
             Commands::Diff(args) => crate::cmd::diff::run(args),
             Commands::Pr(args) => crate::cmd::pr::run(args),
+            Commands::Stats => crate::cmd::stats::run(),
             Commands::Doctor(args) => crate::cmd::doctor::run(args),
             Commands::Mangen => {
                 let cmd = <Self as clap::CommandFactory>::command();
