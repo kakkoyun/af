@@ -12,5 +12,6 @@ pub mod done;
 pub mod editor;
 pub mod gc;
 pub mod list;
+pub mod pr;
 pub mod resume;
 pub mod session_branch;

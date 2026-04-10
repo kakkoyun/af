@@ -52,6 +52,8 @@ pub enum Commands {
     Agent(AgentArgs),
     /// Open a visual diff of the workstream changes.
     Diff(DiffArgs),
+    /// Create a GitHub PR from the current workstream.
+    Pr(PrArgs),
     /// Check dependencies, optionally install missing ones.
     Doctor(DoctorArgs),
     /// Generate man page and write to stdout.
@@ -199,6 +201,25 @@ pub struct DiffArgs {
     pub no_open: bool,
 }
 
+/// Arguments for `af pr`.
+#[derive(Debug, clap::Args)]
+pub struct PrArgs {
+    /// Session name. Defaults to the current multiplexer session.
+    pub session: Option<String>,
+
+    /// PR title. If omitted, gh prompts interactively.
+    #[arg(long, short = 't')]
+    pub title: Option<String>,
+
+    /// Open as draft PR.
+    #[arg(long)]
+    pub draft: bool,
+
+    /// Open the PR in the browser after creation.
+    #[arg(long)]
+    pub web: bool,
+}
+
 /// Arguments for `af agent`.
 #[derive(Debug, clap::Args)]
 pub struct AgentArgs {
@@ -277,6 +298,7 @@ impl Cli {
             Commands::Config(args) => crate::cmd::config_cmd::run(args),
             Commands::Agent(args) => crate::cmd::agent::run(args),
             Commands::Diff(args) => crate::cmd::diff::run(args),
+            Commands::Pr(args) => crate::cmd::pr::run(args),
             Commands::Doctor(args) => crate::cmd::doctor::run(args),
             Commands::Mangen => {
                 let cmd = <Self as clap::CommandFactory>::command();

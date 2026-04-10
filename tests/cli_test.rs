@@ -253,6 +253,19 @@ fn test_agent_no_subcommand_shows_help() {
         .stderr(predicate::str::contains("Usage"));
 }
 
+// ── PR subcommand ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_pr_help_shows_flags() {
+    cmd()
+        .args(["pr", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--title"))
+        .stdout(predicate::str::contains("--draft"))
+        .stdout(predicate::str::contains("--web"));
+}
+
 // ── Diff subcommand ────────────────────────────────────────────────────────
 
 #[test]
