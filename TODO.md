@@ -52,7 +52,7 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] Ledger: emit events from create/done/resume commands
 - [x] Agent session ID tracking in state.toml
 - [x] `af doctor` — pre-flight dependency check
-- [ ] `af doctor --fix` — auto-install missing dependencies *(placeholder, Phase 2)*
+- [x] `af doctor --fix` — auto-install missing dependencies via platform package manager
 - [x] Integration tests: CLI help, flag conflicts, empty list
 
 ## Phase 2 — Multi-Agent + Config

@@ -65,10 +65,86 @@ pub fn run(args: &DoctorArgs) -> Result<()> {
     }
 
     if args.fix && (!missing_must.is_empty() || !missing_should.is_empty()) {
+        let pkg_mgr = platform.package_manager();
+        let all_missing: Vec<&Dependency> = missing_must
+            .iter()
+            .chain(missing_should.iter())
+            .copied()
+            .collect();
+
         #[allow(clippy::print_stderr)]
         {
             eprintln!();
-            eprintln!("--fix is not yet implemented (Phase 2). Install missing tools manually.");
+            eprintln!(
+                "Attempting to install {} missing dependencies via {pkg_mgr}...",
+                all_missing.len()
+            );
+        }
+
+        for dep in &all_missing {
+            let binary = match &dep.check {
+                CheckMethod::Binary(b) => b.as_str(),
+            };
+            let pkg_name = pkg_mgr.package_name(binary);
+
+            // Skip npm-distributed agents — can't install via system package manager.
+            if matches!(binary, "claude" | "codex" | "pi" | "gemini" | "amp") {
+                #[allow(clippy::print_stderr)]
+                {
+                    eprintln!(
+                        "  ⏭ {:<14} (install manually — not a system package)",
+                        dep.name
+                    );
+                }
+                continue;
+            }
+
+            let cmd_parts = pkg_mgr.install_cmd(pkg_name);
+            let cmd_str = cmd_parts.join(" ");
+            #[allow(clippy::print_stderr)]
+            {
+                eprintln!("  ▶ {cmd_str}");
+            }
+
+            let status = std::process::Command::new(&cmd_parts[0])
+                .args(&cmd_parts[1..])
+                .status();
+
+            match status {
+                Ok(s) if s.success() => {
+                    #[allow(clippy::print_stderr)]
+                    {
+                        eprintln!("  ✓ {:<14} installed", dep.name);
+                    }
+                }
+                Ok(s) => {
+                    #[allow(clippy::print_stderr)]
+                    {
+                        eprintln!("  ✗ {:<14} install failed (exit {})", dep.name, s);
+                    }
+                }
+                Err(e) => {
+                    #[allow(clippy::print_stderr)]
+                    {
+                        eprintln!("  ✗ {:<14} install failed: {e}", dep.name);
+                    }
+                }
+            }
+        }
+
+        // Re-check after install attempt.
+        let still_missing: Vec<&str> = all_missing
+            .iter()
+            .filter(|d| !d.is_satisfied())
+            .map(|d| d.name.as_str())
+            .collect();
+        if still_missing.is_empty() {
+            #[allow(clippy::print_stderr)]
+            {
+                eprintln!();
+                eprintln!("All dependencies now satisfied.");
+            }
+            return Ok(());
         }
     }
 

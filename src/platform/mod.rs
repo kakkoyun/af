@@ -121,6 +121,55 @@ impl fmt::Display for Platform {
     }
 }
 
+impl PackageManager {
+    /// Build the install command for a package.
+    ///
+    /// Returns the full command as a `Vec` of strings (e.g., `["brew", "install", "tmux"]`).
+    #[must_use]
+    pub fn install_cmd(self, package: &str) -> Vec<String> {
+        match self {
+            Self::Brew => vec!["brew".to_owned(), "install".to_owned(), package.to_owned()],
+            Self::Pacman => vec![
+                "sudo".to_owned(),
+                "pacman".to_owned(),
+                "-S".to_owned(),
+                "--noconfirm".to_owned(),
+                package.to_owned(),
+            ],
+            Self::Apt => vec![
+                "sudo".to_owned(),
+                "apt-get".to_owned(),
+                "install".to_owned(),
+                "-y".to_owned(),
+                package.to_owned(),
+            ],
+        }
+    }
+
+    /// Map a binary name to the package name for this package manager.
+    ///
+    /// Some binaries have different package names across platforms
+    /// (e.g., `node` is `nodejs` on apt, `node` on brew/pacman).
+    #[must_use]
+    pub fn package_name(self, binary: &str) -> &'static str {
+        match (self, binary) {
+            (_, "node") => "nodejs",
+            (Self::Pacman, "gh") => "github-cli",
+            (_, "gh") => "gh",
+            (_, "git") => "git",
+            (_, "tmux") => "tmux",
+            (_, "zellij") => "zellij",
+            (_, "fzf") => "fzf",
+            (_, "claude") => "claude",
+            (_, "pi") => "pi",
+            (_, "codex") => "codex",
+            (_, "gemini") => "gemini",
+            (_, "amp") => "amp",
+            _ => "unknown",
+        }
+    }
+}
+
 impl fmt::Display for PackageManager {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -249,6 +298,55 @@ mod tests {
     #[test]
     fn test_display_name_debian() {
         assert_eq!(Platform::Debian.display_name(), "Debian/Ubuntu");
+    }
+
+    // ── PackageManager::install_cmd tests ──────────────────────────────────
+
+    #[test]
+    fn test_install_cmd_brew() {
+        let cmd = PackageManager::Brew.install_cmd("tmux");
+        assert_eq!(cmd, vec!["brew", "install", "tmux"]);
+    }
+
+    #[test]
+    fn test_install_cmd_pacman() {
+        let cmd = PackageManager::Pacman.install_cmd("tmux");
+        assert_eq!(cmd, vec!["sudo", "pacman", "-S", "--noconfirm", "tmux"]);
+    }
+
+    #[test]
+    fn test_install_cmd_apt() {
+        let cmd = PackageManager::Apt.install_cmd("tmux");
+        assert_eq!(cmd, vec!["sudo", "apt-get", "install", "-y", "tmux"]);
+    }
+
+    // ── PackageManager::package_name tests ───────────────────────────────
+
+    #[test]
+    fn test_package_name_node_apt() {
+        assert_eq!(PackageManager::Apt.package_name("node"), "nodejs");
+    }
+
+    #[test]
+    fn test_package_name_node_brew() {
+        assert_eq!(PackageManager::Brew.package_name("node"), "nodejs");
+    }
+
+    #[test]
+    fn test_package_name_gh_pacman() {
+        assert_eq!(PackageManager::Pacman.package_name("gh"), "github-cli");
+    }
+
+    #[test]
+    fn test_package_name_gh_brew() {
+        assert_eq!(PackageManager::Brew.package_name("gh"), "gh");
+    }
+
+    #[test]
+    fn test_package_name_git_all() {
+        assert_eq!(PackageManager::Brew.package_name("git"), "git");
+        assert_eq!(PackageManager::Pacman.package_name("git"), "git");
+        assert_eq!(PackageManager::Apt.package_name("git"), "git");
     }
 
     // ── Platform::detect integration test ─────────────────────────────────
