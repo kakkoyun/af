@@ -88,18 +88,45 @@ pub fn run(args: &CreateArgs) -> Result<()> {
 
     // Determine agent.
     let agent_name = args.agent.as_deref().unwrap_or(&cfg.general.default_agent);
-
-    // Generate session ID and build launch command.
     let sid = session_id(&repo_name, &branch_name);
-    let agent_provider = resolve_agent(agent_name)?;
-    let launch_opts = crate::agent::LaunchOpts {
-        session_id: sid.to_string(),
-        yolo: false,
-    };
-    let cmd_parts = agent_provider.launch_cmd(&launch_opts);
-    let launch_cmd_str = cmd_parts.join(" ");
 
-    // Send agent launch command to the multiplexer pane.
+    // Determine execution mode and launch command.
+    let (exec_mode, launch_cmd_str) = if args.sandbox {
+        // Sandbox mode: delegate to slicer for the full VM + agent lifecycle.
+        let sandbox_cmd = crate::provider::slicer::agent_sandbox_cmd(agent_name, &worktree_path);
+        let cmd_str = sandbox_cmd.map(|parts| parts.join(" ")).unwrap_or_default();
+        if cmd_str.is_empty() {
+            bail!("slicer is required for --sandbox mode. Install it: https://slicervm.com");
+        }
+        (ExecutionMode::Sandbox, cmd_str)
+    } else if let Some(ref remote) = args.remote {
+        // Remote mode: create VM, then launch agent via SSH.
+        let host = remote.as_deref().unwrap_or("auto");
+        let agent_provider = resolve_agent(agent_name)?;
+        let launch_opts = crate::agent::LaunchOpts {
+            session_id: sid.to_string(),
+            yolo: args.yolo,
+        };
+        let cmd_parts = agent_provider.launch_cmd(&launch_opts);
+        let ssh_cmd = format!("ssh {host} {}", cmd_parts.join(" "));
+        (ExecutionMode::Remote, ssh_cmd)
+    } else {
+        // Local or bare mode.
+        let agent_provider = resolve_agent(agent_name)?;
+        let launch_opts = crate::agent::LaunchOpts {
+            session_id: sid.to_string(),
+            yolo: args.yolo,
+        };
+        let cmd_parts = agent_provider.launch_cmd(&launch_opts);
+        let mode = if args.bare {
+            ExecutionMode::Bare
+        } else {
+            ExecutionMode::Local
+        };
+        (mode, cmd_parts.join(" "))
+    };
+
+    // Send launch command to the multiplexer pane.
     mux.send_keys(&session_name, &format!("{launch_cmd_str}\n"))
         .context("failed to launch agent")?;
 
@@ -111,11 +138,7 @@ pub fn run(args: &CreateArgs) -> Result<()> {
         Some(&branch_name),
         Some(&base_branch),
         Some(&git_root),
-        if args.bare {
-            ExecutionMode::Bare
-        } else {
-            ExecutionMode::Local
-        },
+        exec_mode,
         agent_name,
     );
     store.save(&state).context("failed to save session state")?;
@@ -128,7 +151,7 @@ pub fn run(args: &CreateArgs) -> Result<()> {
             &LedgerEvent::new("session_created")
                 .with_field("af_version", crate::VERSION)
                 .with_field("agent", agent_name)
-                .with_field("mode", if args.bare { "bare" } else { "local" })
+                .with_field("mode", execution_mode_str(args))
                 .with_field("branch", &branch_name)
                 .with_field("base", &base_branch),
         )
@@ -342,6 +365,19 @@ fn guard_session_limit(cfg: &config::Config, store: &SessionStore) -> Result<()>
         );
     }
     Ok(())
+}
+
+/// Map CLI args to a mode string for ledger events.
+fn execution_mode_str(args: &CreateArgs) -> &'static str {
+    if args.sandbox {
+        "sandbox"
+    } else if args.remote.is_some() {
+        "remote"
+    } else if args.bare {
+        "bare"
+    } else {
+        "local"
+    }
 }
 
 /// Resolve an agent provider by name.

@@ -107,6 +107,19 @@ fn test_session_branch_help() {
         .stdout(predicate::str::contains("session ID"));
 }
 
+// ── Create remote/sandbox/yolo flags ────────────────────────────────────────
+
+#[test]
+fn test_create_help_shows_remote_sandbox_yolo() {
+    cmd()
+        .args(["create", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--remote"))
+        .stdout(predicate::str::contains("--sandbox"))
+        .stdout(predicate::str::contains("--yolo"));
+}
+
 // ── Flag conflicts ──────────────────────────────────────────────────────────
 
 #[test]

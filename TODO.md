@@ -77,8 +77,9 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] Remote provider trait definition + stubs (workspaces, exedev, slicer)
 - [ ] DD Workspaces provider (detect, create, teardown) *(deferred: requires workspaces CLI)*
 - [x] exe.dev provider (detect, create, setup, teardown via SSH)
-- [ ] `af create --remote [host]` — remote session *(deferred)*
-- [ ] `af create --yolo` — unattended mode *(flag wiring only — agent support done)*
+- [x] `af create --remote [host]` — remote session via exe.dev/SSH
+- [x] `af create --yolo` — unattended mode (passes through to agent LaunchOpts)
+- [x] `af create --sandbox` — sandbox mode via slicer
 - [ ] SSH bootstrap pipeline (embedded default scripts) *(deferred)*
 - [ ] Dotfiles provisioning config (repo + install_cmd) *(deferred)*
 - [ ] Remote provisioning pipeline: bootstrap → dotfiles → auth *(deferred)*

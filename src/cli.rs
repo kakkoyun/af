@@ -63,6 +63,7 @@ pub enum Commands {
 
 /// Arguments for `af create`.
 #[derive(Debug, clap::Args)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct CreateArgs {
     /// Task name (becomes the branch and session name).
     /// If omitted, auto-generates from repo name + timestamp.
@@ -83,6 +84,18 @@ pub struct CreateArgs {
     /// Run agent locally on the host worktree (review/PR mode).
     #[arg(long)]
     pub bare: bool,
+
+    /// Run agent on a remote VM (via exe.dev or configured provider).
+    #[arg(long, value_name = "HOST")]
+    pub remote: Option<Option<String>>,
+
+    /// Run agent inside a Firecracker sandbox (via slicer).
+    #[arg(long)]
+    pub sandbox: bool,
+
+    /// Skip permission prompts (unattended mode).
+    #[arg(long)]
+    pub yolo: bool,
 
     /// Select the AI agent to launch (e.g., "claude", "pi").
     #[arg(long, value_name = "AGENT")]
