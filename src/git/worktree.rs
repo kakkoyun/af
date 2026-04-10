@@ -144,6 +144,11 @@ mod tests {
             .status()
             .unwrap();
         StdCommand::new("git")
+            .args(["config", "commit.gpgsign", "false"])
+            .current_dir(dir)
+            .status()
+            .unwrap();
+        StdCommand::new("git")
             .args(["commit", "--allow-empty", "-q", "-m", "init"])
             .current_dir(dir)
             .status()
