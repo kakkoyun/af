@@ -36,6 +36,7 @@ pub fn agent_sandbox_cmd(agent: &str, workdir: &Path) -> Option<Vec<String>> {
         "claude" => "claude",
         "codex" => "codex",
         "amp" => "amp",
+        "copilot" => "copilot",
         _ => "workspace",
     };
     Some(vec![

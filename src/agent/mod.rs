@@ -2,11 +2,12 @@
 //!
 //! Defines the [`AgentProvider`] trait that encapsulates agent-specific behaviour
 //! (launch commands, session resumption, permission bypass). Built-in providers:
-//! Claude Code, pi, Codex, Gemini CLI, Amp.
+//! Claude Code, pi, Codex, Gemini CLI, Amp, Copilot CLI.
 
 pub mod amp;
 pub mod claude;
 pub mod codex;
+pub mod copilot;
 pub mod gemini;
 pub mod pi;
 
@@ -59,7 +60,7 @@ pub trait AgentProvider {
 }
 
 /// All known agent provider names.
-pub const KNOWN_AGENTS: &[&str] = &["claude", "pi", "codex", "gemini", "amp"];
+pub const KNOWN_AGENTS: &[&str] = &["claude", "pi", "codex", "gemini", "amp", "copilot"];
 
 /// Resolve an agent provider by name.
 ///
@@ -71,13 +72,14 @@ pub fn resolve(name: &str) -> Option<Box<dyn AgentProvider>> {
         "codex" => Some(Box::new(codex::CodexProvider)),
         "gemini" => Some(Box::new(gemini::GeminiProvider)),
         "amp" => Some(Box::new(amp::AmpProvider)),
+        "copilot" => Some(Box::new(copilot::CopilotProvider)),
         _ => None,
     }
 }
 
 /// Find the first available agent from a priority list.
 ///
-/// Default priority: claude > pi > codex > gemini > amp.
+/// Default priority: claude > pi > codex > gemini > amp > copilot.
 pub fn first_available() -> Option<Box<dyn AgentProvider>> {
     for &name in KNOWN_AGENTS {
         if let Some(provider) = resolve(name) {
