@@ -539,3 +539,46 @@ The `af` binary has all these working commands:
 2. Wire --sandbox and --remote flags into af create
 3. Phase 4: Obsidian note integration
 4. Phase 3: SSH bootstrap pipeline
+
+---
+
+## 2026-04-10 — Session 7 Cont: Phase 1 Complete + New Commands
+
+### Done
+
+- **Phase 1 now 100% complete** — `af doctor --fix` wired to platform package manager.
+  Detects brew/pacman/apt, maps binary names to package names, installs missing
+  Must/Should tier deps. Skips npm-distributed agents with manual-install note.
+
+- **`af create --remote/--sandbox/--yolo`** — all three flags wired into create:
+  - `--sandbox` delegates to `slicer agent_sandbox_cmd` for full VM lifecycle
+  - `--remote [host]` builds SSH command to launch agent on remote host
+  - `--yolo` passes through to agent `LaunchOpts` for unattended mode
+
+- **`af pr`** — new subcommand: pushes branch, calls `gh pr create` with
+  `--head` and `--base` from session metadata. Supports `--title`, `--draft`,
+  `--web`. Writes `pr_opened` ledger event.
+
+- **`af stats`** — new subcommand: reads ledger.jsonl across all sessions,
+  computes session count, agent launch counts, event type distribution.
+  Pure logic with `compute_stats()` exposed for testing.
+
+### Current State
+
+| Metric | Value |
+|---|---|
+| Tests | 325 (288 unit + 28 integration + 9 doc) |
+| All passing | ✅ 325/325 |
+| Clippy | ✅ 0 warnings |
+| Formatting | ✅ clean |
+| Rust LOC | ~11,500 across 48 source files |
+| TODO tasks | 93 done / 17 remaining |
+| Phases | 0 ✅, 1 ✅, 2 ✅, 3 ~75%, 4 ~30%, 5 ~90% |
+| Commits | 45 |
+
+### Next session priorities
+
+1. Manual test full flow in live tmux
+2. Phase 3: SSH bootstrap pipeline, dotfiles provisioning
+3. Phase 4: Obsidian note integration, af auth
+4. Phase 5: User guide (mdBook)

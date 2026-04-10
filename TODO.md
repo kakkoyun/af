@@ -136,10 +136,10 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [ ] Zellij multiplexer implementation
 - [ ] Docker-based sandbox provider
 - [ ] `af log` — append to session log (Obsidian note)
-- [ ] `af pr` — create PR from session branch
+- [x] `af pr` — create PR from session branch (via gh pr create)
 - [ ] `af sync` — sync remote sandbox with local worktree
 - [ ] Dataview dashboard template for Obsidian
 - [ ] `af doctor --verbose` — detailed version/path info for debugging
-- [ ] `af stats` — workstream analytics from ledger data (duration, agent usage, etc.)
+- [x] `af stats` — workstream analytics from ledger data (agent usage, event counts)
 - [ ] `af export` — export ledger data for external analysis
 - [ ] Workspace template support (pre-configured sessions per project)
