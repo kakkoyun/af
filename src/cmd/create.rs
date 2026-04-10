@@ -91,39 +91,58 @@ pub fn run(args: &CreateArgs) -> Result<()> {
     let sid = session_id(&repo_name, &branch_name);
 
     // Determine execution mode and launch command.
-    let (exec_mode, launch_cmd_str) = if args.sandbox {
-        // Sandbox mode: delegate to slicer for the full VM + agent lifecycle.
-        let sandbox_cmd = crate::provider::slicer::agent_sandbox_cmd(agent_name, &worktree_path);
-        let cmd_str = sandbox_cmd.map(|parts| parts.join(" ")).unwrap_or_default();
-        if cmd_str.is_empty() {
-            bail!("slicer is required for --sandbox mode. Install it: https://slicervm.com");
+    //
+    // The three concerns compose orthogonally:
+    //   --remote [host]        → get a machine (exe.dev, SSH)
+    //   --sandbox              → wrap in isolation (slicer, docker/sbx)
+    //   --agent <name>         → which AI runs inside
+    //
+    // Composition: --sandbox --remote host = remote machine + sandbox on it + agent inside.
+    let agent_provider = resolve_agent(agent_name)?;
+    let launch_opts = crate::agent::LaunchOpts {
+        session_id: sid.to_string(),
+        yolo: args.yolo,
+    };
+
+    let (exec_mode, launch_cmd_str) = match (args.sandbox, &args.remote) {
+        // Remote + sandbox: SSH to host, run sandbox provider there.
+        (true, Some(remote_opt)) => {
+            let host = remote_opt.as_deref().unwrap_or("auto");
+            let sandbox_cmd =
+                crate::provider::slicer::agent_sandbox_cmd(agent_name, &worktree_path)
+                    .ok_or_else(|| anyhow::anyhow!("failed to build sandbox command"))?;
+            let inner_cmd = sandbox_cmd.join(" ");
+            let ssh_cmd = format!("ssh {host} {inner_cmd}");
+            (ExecutionMode::Sandbox, ssh_cmd)
         }
-        (ExecutionMode::Sandbox, cmd_str)
-    } else if let Some(ref remote) = args.remote {
-        // Remote mode: create VM, then launch agent via SSH.
-        let host = remote.as_deref().unwrap_or("auto");
-        let agent_provider = resolve_agent(agent_name)?;
-        let launch_opts = crate::agent::LaunchOpts {
-            session_id: sid.to_string(),
-            yolo: args.yolo,
-        };
-        let cmd_parts = agent_provider.launch_cmd(&launch_opts);
-        let ssh_cmd = format!("ssh {host} {}", cmd_parts.join(" "));
-        (ExecutionMode::Remote, ssh_cmd)
-    } else {
-        // Local or bare mode.
-        let agent_provider = resolve_agent(agent_name)?;
-        let launch_opts = crate::agent::LaunchOpts {
-            session_id: sid.to_string(),
-            yolo: args.yolo,
-        };
-        let cmd_parts = agent_provider.launch_cmd(&launch_opts);
-        let mode = if args.bare {
-            ExecutionMode::Bare
-        } else {
-            ExecutionMode::Local
-        };
-        (mode, cmd_parts.join(" "))
+        // Local sandbox: run sandbox provider on this machine.
+        (true, None) => {
+            let sandbox_cmd = crate::provider::slicer::agent_sandbox_cmd(
+                agent_name,
+                &worktree_path,
+            )
+            .ok_or_else(|| {
+                anyhow::anyhow!("sandbox provider required for --sandbox. Install slicer or sbx.")
+            })?;
+            (ExecutionMode::Sandbox, sandbox_cmd.join(" "))
+        }
+        // Remote only: launch agent directly on the remote via SSH.
+        (false, Some(remote_opt)) => {
+            let host = remote_opt.as_deref().unwrap_or("auto");
+            let cmd_parts = agent_provider.launch_cmd(&launch_opts);
+            let ssh_cmd = format!("ssh {host} {}", cmd_parts.join(" "));
+            (ExecutionMode::Remote, ssh_cmd)
+        }
+        // Local: agent runs on this machine.
+        (false, None) => {
+            let cmd_parts = agent_provider.launch_cmd(&launch_opts);
+            let mode = if args.bare {
+                ExecutionMode::Bare
+            } else {
+                ExecutionMode::Local
+            };
+            (mode, cmd_parts.join(" "))
+        }
     };
 
     // Send launch command to the multiplexer pane.
