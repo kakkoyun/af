@@ -32,6 +32,15 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "ansi"]
 uuid = { version = "1", features = ["v5"] }
 which = "7"
 
+[features]
+# Default features cover all optional provider integrations. CI tests
+# `--no-default-features` to keep the minimal build sound. Each feature
+# will gain optional dep entries as implementation lanes land.
+default = ["workspaces", "slicer-remote", "keyring"]
+workspaces = []
+slicer-remote = []
+keyring = []
+
 [dev-dependencies]
 assert_cmd = "2"
 predicates = "3"
