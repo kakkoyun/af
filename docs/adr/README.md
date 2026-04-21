@@ -16,3 +16,21 @@ Each decision is numbered and immutable once accepted. Superseded decisions link
 | [009](009-provisioning.md) | Provisioning System | Accepted |
 | [010](010-platform-deps.md) | Platform-Aware Dependency Management | Accepted |
 | [011](011-workstream-lifecycle.md) | Workstream Lifecycle & Session Ledger | Accepted |
+| [012](012-approval-modes.md) | Tri-State Approval Mode | Accepted |
+| [013](013-local-wiki-abstraction.md) | Local Wiki Abstraction | Accepted |
+| [014](014-three-layer-composition.md) | Three-Layer Composition Model | Accepted |
+| [015](015-subagent-coordination.md) | Subagent Coordination Patterns | Accepted |
+| [021](021-release-discipline.md) | Release Discipline & CHANGELOG-Driven Notes | Accepted |
+
+## Pending (Phase II — reserved numbers)
+
+ADRs 016–020 are reserved for Phase II design decisions. They will be written
+before their respective implementation lanes begin (ADR-first rule, ADR-015 §ADR-first).
+
+| Reserved | Working title | Owner lane |
+|---|---|---|
+| 016 | Secret Storage for `af auth` | Lane B2 |
+| 017 | Remote Session Resume & Reconnect Strategy | Lane B3 |
+| 018 | External Tool Dependency Testing | Lane A1 |
+| 019 | Remote Editor URL Scheme Strategy | Lane B5 |
+| 020 | mdBook User Guide Structure + Machine Index | Lane C1 |
