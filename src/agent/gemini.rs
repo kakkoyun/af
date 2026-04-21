@@ -2,6 +2,14 @@
 //!
 //! Implements [`AgentProvider`] for Google's Gemini CLI.
 //! Gemini supports resume by index, yolo mode, and sandbox mode.
+//!
+//! # OS sandbox (ADR-028)
+//!
+//! Gemini CLI has no `-s`/`--sandbox` flag in the sense that codex does.
+//! [`AgentSandbox::Os`] degrades silently to [`AgentSandbox::None`] with a
+//! `tracing::info!` log.
+
+pub use crate::agent::codex::AgentSandbox;
 
 use std::path::{Path, PathBuf};
 
@@ -15,6 +23,25 @@ use crate::agent::{AgentProvider, ApprovalMode, LaunchOpts, ResumeOpts};
 /// - `--sandbox` for sandboxed execution
 /// - `--approval-mode yolo` as alternative to `--yolo`
 pub struct GeminiProvider;
+
+/// Apply the OS sandbox policy for Gemini CLI — degrades to none with an info log.
+///
+/// Gemini CLI does not expose an OS-level sandbox flag compatible with af's
+/// `AgentSandbox::Os` semantics. When `Os` is requested, `af` logs an
+/// informational message and proceeds without a sandbox flag.
+///
+/// | `sandbox`            | effect                                         |
+/// |----------------------|------------------------------------------------|
+/// | `AgentSandbox::None` | no-op                                          |
+/// | `AgentSandbox::Os`   | no-op + `tracing::info!` degrade-to-none log   |
+pub fn apply_sandbox(_cmd: &mut Vec<String>, sandbox: AgentSandbox) {
+    if sandbox == AgentSandbox::Os {
+        tracing::info!(
+            agent = "gemini",
+            "agent gemini does not support OS sandbox; running without"
+        );
+    }
+}
 
 impl AgentProvider for GeminiProvider {
     fn name(&self) -> &'static str {
@@ -160,5 +187,27 @@ mod tests {
             approval_mode: ApprovalMode::Default,
         };
         assert!(p.pr_cmd(42, &opts).is_none());
+    }
+
+    // --- AgentSandbox tests (ADR-028) ---
+
+    #[test]
+    fn test_gemini_apply_sandbox_none_is_noop() {
+        let mut cmd = vec!["gemini".to_owned()];
+        let before = cmd.clone();
+        apply_sandbox(&mut cmd, AgentSandbox::None);
+        assert_eq!(cmd, before);
+    }
+
+    #[test]
+    fn test_gemini_apply_sandbox_os_does_not_modify_argv() {
+        // gemini has no OS sandbox flag; argv must be unchanged.
+        let mut cmd = vec!["gemini".to_owned()];
+        let before = cmd.clone();
+        apply_sandbox(&mut cmd, AgentSandbox::Os);
+        assert_eq!(
+            cmd, before,
+            "gemini apply_sandbox(Os) must not modify argv (degrade-to-none)"
+        );
     }
 }
