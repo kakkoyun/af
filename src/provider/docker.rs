@@ -21,12 +21,25 @@ use crate::provider::{ProvisionOpts, SandboxConfig, SandboxHandle, SandboxProvid
 /// Docker AI Sandbox provider via the `sbx` CLI.
 ///
 /// Manages isolated microVM sandboxes for AI coding agents. Each sandbox
-/// gets its own Docker daemon, filesystem, and network. Supports Claude,
-/// Codex, and other agents.
+/// gets its own Docker daemon, filesystem, and network. Supports all
+/// sbx-native agents: claude, codex, copilot, docker-agent, droid,
+/// gemini, kiro, opencode, and shell.
 pub struct DockerSandboxProvider;
 
 /// Known agents supported by `sbx run`.
-const KNOWN_SBX_AGENTS: &[&str] = &["claude", "codex"];
+///
+/// Full list from <https://docs.docker.com/ai/sandboxes/> CLI surface reference.
+const KNOWN_SBX_AGENTS: &[&str] = &[
+    "claude",
+    "codex",
+    "copilot",
+    "docker-agent",
+    "droid",
+    "gemini",
+    "kiro",
+    "opencode",
+    "shell",
+];
 
 impl SandboxProvider for DockerSandboxProvider {
     fn name(&self) -> &'static str {
@@ -47,21 +60,20 @@ impl SandboxProvider for DockerSandboxProvider {
         Ok(())
     }
 
+    /// Returns a [`SandboxHandle`] without invoking `sbx`.
+    ///
+    /// The real sandbox is created by `sbx run` on first launch via
+    /// [`agent_sandbox_cmd`]. Calling `sbx create` here first would cause a
+    /// double-create failure if the name is already in use.
     fn create(&self, name: &str, _host: Option<&str>) -> anyhow::Result<SandboxHandle> {
-        // sbx create claude <path> --name <name>
-        // For now, create without a specific agent — the agent is launched separately.
-        debug!(name, "creating docker sandbox");
-
-        let output = std::process::Command::new("sbx")
-            .args(["create", "claude", ".", "--name", name])
-            .output()
-            .map_err(|e| anyhow::anyhow!("failed to run sbx create: {e}"))?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("sbx create failed: {}", stderr.trim());
-        }
-
+        // Idempotent: return a handle without invoking `sbx create`. The real
+        // sandbox is created by `sbx run` on first launch (see agent_sandbox_cmd).
+        // Running `sbx create` first would cause a double-create failure when
+        // the name is already in use.
+        debug!(
+            name,
+            "registering docker sandbox handle (sbx run creates on launch)"
+        );
         Ok(SandboxHandle {
             id: name.to_owned(),
             hostname: name.to_owned(),
@@ -131,6 +143,21 @@ impl SandboxProvider for DockerSandboxProvider {
         let stdout = String::from_utf8_lossy(&output.stdout);
         Ok(parse_sbx_ls(&stdout))
     }
+}
+
+/// Build the `sbx create` arguments for creating a named sandbox.
+///
+/// Returns the argument list (without the `sbx` binary itself) so callers
+/// can construct a [`std::process::Command`] and tests can assert on the
+/// exact args without spawning a real process.
+pub fn sbx_create_args(name: &str, agent: &str, workdir: &Path) -> Vec<String> {
+    vec![
+        "create".to_owned(),
+        agent.to_owned(),
+        workdir.display().to_string(),
+        "--name".to_owned(),
+        name.to_owned(),
+    ]
 }
 
 /// Build the `sbx run` command for launching an agent in a sandbox.
@@ -255,8 +282,71 @@ mod tests {
 
     #[test]
     fn test_agent_sandbox_cmd_unknown_falls_back_to_claude() {
-        let cmd = agent_sandbox_cmd("pi", Path::new("/tmp/project"));
+        let cmd = agent_sandbox_cmd("nonexistent-agent", Path::new("/tmp/project"));
         assert_eq!(cmd[2], "claude");
+    }
+
+    #[test]
+    fn test_create_is_idempotent_and_requires_no_sbx_process() {
+        // create() must return a valid SandboxHandle without invoking sbx.
+        // We verify this by checking the returned handle fields are correct.
+        // If create() were to call sbx, it would fail in CI environments where
+        // sbx is not installed, but this test must always pass.
+        let provider = DockerSandboxProvider;
+        let result = provider.create("test-session", None);
+        let handle = result.expect("create() should succeed without sbx");
+        assert_eq!(handle.id, "test-session");
+        assert_eq!(handle.hostname, "test-session");
+        assert_eq!(handle.provider, "docker");
+    }
+
+    #[test]
+    fn test_sbx_create_args_uses_agent_and_workdir() {
+        let args = sbx_create_args("my-sandbox", "codex", Path::new("/home/user/project"));
+        assert_eq!(
+            args,
+            vec![
+                "create",
+                "codex",
+                "/home/user/project",
+                "--name",
+                "my-sandbox"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_sbx_create_args_claude_agent() {
+        let args = sbx_create_args("proj", "claude", Path::new("/workspace"));
+        assert_eq!(args[1], "claude");
+        assert_eq!(args[2], "/workspace");
+        assert_eq!(args[4], "proj");
+    }
+
+    #[test]
+    fn test_known_sbx_agents_includes_full_sbx_set() {
+        let expected = &[
+            "claude",
+            "codex",
+            "copilot",
+            "docker-agent",
+            "droid",
+            "gemini",
+            "kiro",
+            "opencode",
+            "shell",
+        ];
+        for agent in expected {
+            assert!(
+                KNOWN_SBX_AGENTS.contains(agent),
+                "KNOWN_SBX_AGENTS missing expected agent: {agent}"
+            );
+        }
+        assert_eq!(
+            KNOWN_SBX_AGENTS.len(),
+            expected.len(),
+            "KNOWN_SBX_AGENTS has unexpected agents"
+        );
     }
 
     #[test]
