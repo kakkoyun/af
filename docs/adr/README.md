@@ -1,7 +1,7 @@
 # Architecture Decision Records
 
 ADRs follow the [Michael Nygard format](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions).
-Each decision is numbered and immutable once accepted. Superseded decisions link to their replacement.
+Each decision is numbered and immutable once accepted. Superseded or amended decisions link to their replacement.
 
 | ADR | Title | Status |
 |---|---|---|
@@ -20,10 +20,18 @@ Each decision is numbered and immutable once accepted. Superseded decisions link
 | [013](013-local-wiki-abstraction.md) | Local Wiki Abstraction | Accepted |
 | [014](014-three-layer-composition.md) | Three-Layer Composition Model | Accepted |
 | [015](015-subagent-coordination.md) | Subagent Coordination Patterns | Accepted |
-| [021](021-release-discipline.md) | Release Discipline & CHANGELOG-Driven Notes | Accepted |
-
 | [016](016-secret-storage.md) | Secret Storage for `af auth` | Accepted |
 | [017](017-remote-resume.md) | Remote Session Resume & Reconnect Strategy | Accepted |
 | [018](018-external-tool-testing.md) | External Tool Dependency Testing | Accepted |
 | [019](019-remote-editor-urls.md) | Remote Editor URL Scheme Strategy | Accepted |
 | [020](020-mdbook-structure.md) | mdBook User Guide Structure + Machine Index | Accepted |
+| [021](021-release-discipline.md) | Release Discipline & CHANGELOG-Driven Notes | Accepted |
+| [022](022-cmux-multiplexer.md) | cmux Multiplexer Provider | Accepted |
+| [023](023-sandbox-agent-layer-conflict.md) | Sandbox Agent-Layer Conflict Resolution | Accepted |
+| [024](024-remote-sandbox-daemon-url.md) | Remote Sandbox via Daemon URL (supersedes ADR-014 §"Composition model" for slicer) | Accepted |
+| [025](025-secret-boundaries.md) | Secret Boundaries (extends ADR-016) | Accepted |
+| [027](027-remote-ssh-target.md) | Remote = SSH Target (supersedes parts of ADR-004, ADR-017) | Accepted |
+| [028](028-agent-level-os-sandbox.md) | Agent-Level OS Sandbox | Accepted |
+| [029](029-external-tool-testing-addendum.md) | External Tool Testing — `CommandRunner` Dropped (addendum to ADR-018) | Accepted |
+
+**ADR-026** was drafted (provider-specific liveness) but folded into ADR-027 during the Phase II.5 revision round; it never landed as an independent ADR.
