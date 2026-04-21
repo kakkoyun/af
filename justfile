@@ -91,6 +91,27 @@ doc-check:
 doc:
     cargo doc --no-deps --open
 
+# ── Release ────────────────────────────────────────────────────────────────────
+
+# Dry-run the release workflow against a throwaway tag to verify all 6 matrix
+# build targets before pushing a real version tag. See ADR-021.
+release-dry-run:
+    gh workflow run release.yml -f tag=v0.0.0-dry
+    @echo "Monitor:  gh run list --workflow=release.yml --limit 1"
+    @echo "Cleanup:  gh release delete v0.0.0-dry --yes 2>/dev/null; git push origin :refs/tags/v0.0.0-dry 2>/dev/null || true"
+
+# ── Docs ───────────────────────────────────────────────────────────────────────
+
+# Generate command reference pages in book/src/commands/ from --help output.
+# Requires the binary to be built. See ADR-020 and Lane C1.
+book-gen: build
+    @echo "book-gen: stub — full implementation in Lane C1"
+    @echo "Will generate book/src/commands/*.md from 'af <cmd> --help' output"
+
+# Build the mdBook user guide (requires mdbook: cargo install mdbook)
+book-build:
+    mdbook build book
+
 # ── Git Hooks ──────────────────────────────────────────────────────────────────
 
 # Install git pre-commit hook
