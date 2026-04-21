@@ -2,6 +2,14 @@
 //!
 //! Implements [`RemoteProvider`] for the exe.dev cloud development platform.
 //! All lifecycle operations shell out to `ssh exe.dev <command>`.
+//!
+//! This module also hosts the narrowed-trait types introduced by ADR-027
+//! (`SshTarget`, `Liveness`, universal probe) via a `#[path]` re-export
+//! of `src/provider/target.rs`. The Phase IV integration pass will hoist
+//! that file to a top-level `pub mod target;` in `provider/mod.rs`; until
+//! then, `exedev.rs` is the single entry point that pulls the file into
+//! the module graph so `workspaces.rs` and `cmd/list.rs` can import it as
+//! `crate::provider::exedev::target::...`.
 
 use std::path::Path;
 use std::process::Command;
@@ -10,6 +18,17 @@ use std::sync::OnceLock;
 use tracing::debug;
 
 use crate::provider::{RemoteInstance, RemoteProvider};
+
+/// SSH target + liveness types (ADR-027).
+///
+/// See `target::SshTarget`, `target::Liveness`, and `target::is_alive`.
+/// Re-exported here because `src/provider/mod.rs` is a shared file that
+/// Lane L-REMOTE cannot edit; the lead will promote this to
+/// `pub mod target;` on `provider/mod.rs` in Phase IV.
+#[path = "target.rs"]
+pub mod target;
+
+pub use target::{DEFAULT_PROBE_TIMEOUT, Liveness, SshTarget};
 
 /// Cached result of `ssh exe.dev whoami` for the lifetime of the process.
 static DETECT_CACHE: OnceLock<bool> = OnceLock::new();
