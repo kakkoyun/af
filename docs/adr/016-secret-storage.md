@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-04-21
+**Amended:** 2026-04-21 (account naming per ADR-025)
 
 ## Context
 
@@ -61,7 +62,8 @@ af auth clear --provider <name>     # Delete the keyring entry
 
 Provider names match the `--agent` flag values: `claude`, `pi`, `codex`, `gemini`,
 `amp`, `copilot`. The keyring service name is `af` and the account is
-`af/<provider-name>` (e.g., `af/claude`).
+`<provider-name>` (e.g., `claude`). We drop the redundant `af/` prefix — the
+service name already scopes the account — per ADR-025 review finding [C 2.2].
 
 ### Injection into agent launch env
 

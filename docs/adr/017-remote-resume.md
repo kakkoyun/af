@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-04-21
+**Amended:** 2026-04-21 (probe now uses `accept-new`, per ADR-027 and security finding N2)
 
 ## Context
 
@@ -30,7 +31,7 @@ pub fn is_alive(host: &str, timeout_secs: u64) -> bool {
         .args([
             "-o", "ConnectTimeout=5",
             "-o", "BatchMode=yes",           // no interactive prompts
-            "-o", "StrictHostKeyChecking=no", // don't fail on key change after reboot
+            "-o", "StrictHostKeyChecking=accept-new", // record key on first connect; never accept silent changes
             host, "true",
         ])
         .status()
@@ -76,10 +77,12 @@ not trigger automatic cleanup (the user runs `af done --force`).
 
 ### SSH key change after reboot
 
-VMs may get new host keys after a reboot (especially ephemeral exe.dev VMs). Using
-`StrictHostKeyChecking=no` in the probe avoids false negatives. Full SSH sessions
-(the actual `af resume` attach) use `StrictHostKeyChecking=accept-new` so the key
-is recorded on first connection but not re-challenged.
+VMs may get new host keys after a reboot (especially ephemeral exe.dev VMs).
+Both the probe and the full SSH session use `StrictHostKeyChecking=accept-new`
+so the key is recorded on first connection but not re-challenged. Using
+`accept-new` on the probe (rather than `no`) closes the MITM gap identified
+in ADR-027 and security finding N2: a hijacked first connection must present
+a consistent host key, and subsequent connections refuse silent changes.
 
 ## Consequences
 
@@ -87,8 +90,9 @@ is recorded on first connection but not re-challenged.
   hanging or failing with an SSH error.
 - The probe adds ~5 seconds of latency on unreachable hosts. On reachable hosts it
   completes in <100ms and is negligible.
-- `StrictHostKeyChecking=no` on the probe is a security trade-off: it prevents
-  MITM detection for the probe itself. The actual session still uses
-  `accept-new`, so MITM is detectable on first real connection.
+- Both probe and session use `StrictHostKeyChecking=accept-new`, closing the
+  MITM gap identified in ADR-027 and security finding N2. A hijacked first
+  connection is pinned via TOFU, and subsequent connections refuse silent
+  host-key changes.
 - This ADR does not cover credential rotation (rotated SSH keys): that requires
   `af auth` (ADR-016) for API keys and is out of scope for SSH key management.
