@@ -2,6 +2,14 @@
 //!
 //! Implements [`RemoteProvider`] for the exe.dev cloud development platform.
 //! All lifecycle operations shell out to `ssh exe.dev <command>`.
+//!
+//! This module also hosts the narrowed-trait types introduced by ADR-027
+//! (`SshTarget`, `Liveness`, universal probe) via a `#[path]` re-export
+//! of `src/provider/target.rs`. The Phase IV integration pass will hoist
+//! that file to a top-level `pub mod target;` in `provider/mod.rs`; until
+//! then, `exedev.rs` is the single entry point that pulls the file into
+//! the module graph so `workspaces.rs` and `cmd/list.rs` can import it as
+//! `crate::provider::exedev::target::...`.
 
 use std::path::Path;
 use std::process::Command;
@@ -10,6 +18,17 @@ use std::sync::OnceLock;
 use tracing::debug;
 
 use crate::provider::{RemoteInstance, RemoteProvider};
+
+/// SSH target + liveness types (ADR-027).
+///
+/// See `target::SshTarget`, `target::Liveness`, and `target::is_alive`.
+/// Re-exported here because `src/provider/mod.rs` is a shared file that
+/// Lane L-REMOTE cannot edit; the lead will promote this to
+/// `pub mod target;` on `provider/mod.rs` in Phase IV.
+#[path = "target.rs"]
+pub mod target;
+
+pub use target::{DEFAULT_PROBE_TIMEOUT, Liveness, SshTarget};
 
 /// Cached result of `ssh exe.dev whoami` for the lifetime of the process.
 static DETECT_CACHE: OnceLock<bool> = OnceLock::new();
@@ -71,6 +90,70 @@ fn repo_name(repo: &str) -> &str {
     base.strip_suffix(".git").unwrap_or(base)
 }
 
+impl ExedevProvider {
+    /// ADR-027 narrowed surface — resolve a session name to its SSH
+    /// target.
+    ///
+    /// The exe.dev CLI publishes each VM into `~/.ssh/config` at create
+    /// time, using the VM name as the alias. `af` adopts the same
+    /// convention: the session name doubles as the alias. This method
+    /// performs no I/O and is cheap to call from `af list`.
+    ///
+    /// Returns an error if `name` is empty.
+    pub fn ssh_target(&self, name: &str) -> anyhow::Result<SshTarget> {
+        if name.is_empty() {
+            anyhow::bail!("exedev ssh_target: session name must not be empty");
+        }
+        Ok(SshTarget::new(name))
+    }
+
+    /// ADR-027 narrowed surface — liveness probe for a session.
+    ///
+    /// Resolves the SSH target, then runs the universal SSH probe
+    /// ([`target::is_alive`]) with the default timeout. Returns
+    /// `Ok(Liveness::…)` on every probe outcome; the `anyhow::Result`
+    /// wrapper is reserved for misuse (e.g., empty `name`) so callers
+    /// in `af list` can keep their per-session loop simple.
+    pub fn is_alive(&self, name: &str) -> anyhow::Result<Liveness> {
+        let t = self.ssh_target(name)?;
+        Ok(target::is_alive(&t, DEFAULT_PROBE_TIMEOUT))
+    }
+
+    /// ADR-027 replacement for the now-trait-removed `setup(…)`.
+    ///
+    /// Clones the repo into the VM and optionally checks out `branch`.
+    /// `git_root` is accepted but currently unused — it exists to match
+    /// the legacy `setup` signature so Phase IV can restore trait-method
+    /// status without a second refactor. See `docs/adr/027-remote-ssh-target.md`
+    /// for the full motivation.
+    pub fn bootstrap<P: AsRef<Path>>(
+        &self,
+        ssh_host: &str,
+        repo: &str,
+        branch: Option<&str>,
+        git_root: P,
+    ) -> anyhow::Result<()> {
+        let _ = git_root.as_ref(); // reserved for future provisioning steps
+        let name = repo_name(repo);
+        let checkout = branch
+            .map(|b| format!(" && cd {name} && git checkout {b}"))
+            .unwrap_or_default();
+        let remote_cmd = format!("git clone {repo}{checkout}");
+
+        debug!(ssh_host, %remote_cmd, "bootstrapping exe.dev VM");
+        let status = Command::new("ssh")
+            .args([ssh_host, &remote_cmd])
+            .status()
+            .map_err(|err| anyhow::anyhow!("failed to run ssh {ssh_host}: {err}"))?;
+
+        if !status.success() {
+            anyhow::bail!("remote bootstrap on {ssh_host} failed (exit {status})");
+        }
+        debug!(ssh_host, "exe.dev VM bootstrap complete");
+        Ok(())
+    }
+}
+
 impl RemoteProvider for ExedevProvider {
     fn name(&self) -> &'static str {
         "exe.dev"
@@ -125,25 +208,13 @@ impl RemoteProvider for ExedevProvider {
         ssh_host: &str,
         repo: &str,
         branch: Option<&str>,
-        _git_root: &Path,
+        git_root: &Path,
     ) -> anyhow::Result<()> {
-        let name = repo_name(repo);
-        let checkout = branch
-            .map(|b| format!(" && cd {name} && git checkout {b}"))
-            .unwrap_or_default();
-        let remote_cmd = format!("git clone {repo}{checkout}");
-
-        debug!(ssh_host, %remote_cmd, "setting up repo on exe.dev VM");
-        let status = Command::new("ssh")
-            .args([ssh_host, &remote_cmd])
-            .status()
-            .map_err(|err| anyhow::anyhow!("failed to run ssh {ssh_host}: {err}"))?;
-
-        if !status.success() {
-            anyhow::bail!("remote setup on {ssh_host} failed (exit {status})");
-        }
-        debug!(ssh_host, "exe.dev VM setup complete");
-        Ok(())
+        // ADR-027: `setup` will be removed from the trait in Phase IV.
+        // The concrete logic moved to `ExedevProvider::bootstrap`; this
+        // impl delegates so callers still invoking the trait continue
+        // to work during the transition.
+        self.bootstrap(ssh_host, repo, branch, git_root)
     }
 
     fn teardown(&self, name: &str) -> anyhow::Result<()> {
@@ -330,5 +401,54 @@ mod tests {
     fn test_exedev_as_trait_object() {
         let provider: Box<dyn RemoteProvider> = Box::new(ExedevProvider);
         assert_eq!(provider.name(), "exe.dev");
+    }
+
+    // ── ADR-027 narrowed surface ────────────────────────────────────
+
+    #[test]
+    fn test_exedev_ssh_target_uses_session_name_as_alias() {
+        // Per ADR-027, every exedev session name doubles as its SSH
+        // alias (exe.dev publishes entries into ~/.ssh/config at create
+        // time). `ssh_target` is pure: no I/O, just name → SshTarget.
+        let provider = ExedevProvider;
+        let target = provider
+            .ssh_target("kakkoyun--issue-42")
+            .expect("ssh_target should succeed for a non-empty name");
+        assert_eq!(target.host, "kakkoyun--issue-42");
+    }
+
+    #[test]
+    fn test_exedev_ssh_target_rejects_empty_name() {
+        let provider = ExedevProvider;
+        assert!(provider.ssh_target("").is_err());
+    }
+
+    #[test]
+    fn test_exedev_is_alive_returns_liveness_without_panic() {
+        // The probe talks to a host that almost certainly does not
+        // resolve; we assert on the contract (never Alive, never
+        // panic), not on the outcome of any specific ssh binary.
+        let provider = ExedevProvider;
+        let liveness = provider
+            .is_alive("af-lane-l-probe-target-should-fail")
+            .expect("is_alive never returns Err for exedev");
+        assert!(matches!(
+            liveness,
+            Liveness::Unreachable | Liveness::Unknown(_)
+        ));
+    }
+
+    #[test]
+    fn test_exedev_bootstrap_signature_still_available() {
+        // ADR-027 removes `setup` from the RemoteProvider trait; the
+        // equivalent now lives as an inherent method named `bootstrap`
+        // on the concrete `ExedevProvider`. We do not invoke it (no
+        // network), we just assert it compiles with the documented
+        // signature.
+        fn _assert_bootstrap_signature() {
+            let provider = ExedevProvider;
+            let _ = <ExedevProvider>::bootstrap::<&Path>;
+            let _ = &provider; // silence unused
+        }
     }
 }
