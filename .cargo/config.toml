@@ -1,7 +1,7 @@
-# Use faster linker when available.
-# Install: `cargo install --locked cargo-binstall && cargo binstall cargo-nextest`
-# Linux: `sudo apt install lld` or `sudo pacman -S lld`
-# macOS: comes with Xcode toolchain
+# Use faster linker on Linux where lld is commonly available.
+# On macOS the Apple linker (ld_prime / ld64) that ships with Xcode is already
+# competitive; forcing lld there causes build failures on machines without it.
+# Install lld on Linux: `sudo apt install lld` or `sudo pacman -S lld`.
 
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
@@ -11,14 +11,8 @@ rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 linker = "clang"
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
-[target.x86_64-apple-darwin]
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]
-
-[target.aarch64-apple-darwin]
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]
-
 [build]
-# Uncomment if you have lld installed globally:
+# Uncomment if you have lld installed globally and want to use it on all targets:
 # rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [alias]
