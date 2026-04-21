@@ -2,6 +2,13 @@
 //!
 //! Implements [`AgentProvider`] for pi (`@mariozechner/pi-coding-agent`).
 //! pi supports session continuation, session files, and fork-based resume.
+//!
+//! # OS sandbox (ADR-028)
+//!
+//! pi has no CLI sandbox flag. [`AgentSandbox::Os`] degrades silently to
+//! [`AgentSandbox::None`] with a `tracing::info!` log.
+
+pub use crate::agent::codex::AgentSandbox;
 
 use std::path::{Path, PathBuf};
 
@@ -15,6 +22,25 @@ use crate::agent::{AgentProvider, LaunchOpts, ResumeOpts};
 /// - No native session-ID concept — uses session file paths
 /// - No yolo/unattended mode equivalent
 pub struct PiProvider;
+
+/// Apply the OS sandbox policy for pi — degrades to none with an info log.
+///
+/// pi exposes no OS-level sandbox flag. When [`AgentSandbox::Os`] is
+/// requested, `af` logs an informational message and proceeds without a
+/// sandbox flag.
+///
+/// | `sandbox`            | effect                                         |
+/// |----------------------|------------------------------------------------|
+/// | `AgentSandbox::None` | no-op                                          |
+/// | `AgentSandbox::Os`   | no-op + `tracing::info!` degrade-to-none log   |
+pub fn apply_sandbox(_cmd: &mut Vec<String>, sandbox: AgentSandbox) {
+    if sandbox == AgentSandbox::Os {
+        tracing::info!(
+            agent = "pi",
+            "agent pi does not support OS sandbox; running without"
+        );
+    }
+}
 
 impl AgentProvider for PiProvider {
     fn name(&self) -> &'static str {
@@ -160,5 +186,27 @@ mod tests {
         let p = PiProvider;
         // Just verify it doesn't panic. Result depends on environment.
         let _available = p.is_available();
+    }
+
+    // --- AgentSandbox tests (ADR-028) ---
+
+    #[test]
+    fn test_pi_apply_sandbox_none_is_noop() {
+        let mut cmd = vec!["pi".to_owned()];
+        let before = cmd.clone();
+        apply_sandbox(&mut cmd, AgentSandbox::None);
+        assert_eq!(cmd, before);
+    }
+
+    #[test]
+    fn test_pi_apply_sandbox_os_does_not_modify_argv() {
+        // pi has no sandbox flag; argv must be unchanged regardless of sandbox mode.
+        let mut cmd = vec!["pi".to_owned()];
+        let before = cmd.clone();
+        apply_sandbox(&mut cmd, AgentSandbox::Os);
+        assert_eq!(
+            cmd, before,
+            "pi apply_sandbox(Os) must not modify argv (degrade-to-none)"
+        );
     }
 }
