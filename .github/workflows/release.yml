@@ -126,11 +126,21 @@ jobs:
           cd artifacts
           sha256sum af-*.tar.gz > SHA256SUMS.txt
 
+      - name: "Extract CHANGELOG notes"
+        id: changelog
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          version="${tag#v}"
+          notes=$(awk "/^## \[${version}\]/{flag=1; next} /^## \[/{flag=0} flag{print}" CHANGELOG.md)
+          # Write to a file to preserve multi-line content across steps
+          printf '%s' "$notes" > /tmp/release-notes.md
+          echo "Release notes extracted for ${version} ($(wc -l < /tmp/release-notes.md) lines)"
+
       - name: "Create GitHub Release"
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          generate_release_notes: true
+          body_path: /tmp/release-notes.md
           files: |
             artifacts/af-*.tar.gz
             artifacts/SHA256SUMS.txt
