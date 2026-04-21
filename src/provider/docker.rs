@@ -60,26 +60,20 @@ impl SandboxProvider for DockerSandboxProvider {
         Ok(())
     }
 
+    /// Returns a [`SandboxHandle`] without invoking `sbx`.
+    ///
+    /// The real sandbox is created by `sbx run` on first launch via
+    /// [`agent_sandbox_cmd`]. Calling `sbx create` here first would cause a
+    /// double-create failure if the name is already in use.
     fn create(&self, name: &str, _host: Option<&str>) -> anyhow::Result<SandboxHandle> {
-        // `sbx run` creates the sandbox on first use; this path is a fallback
-        // for callers that pre-create before launching. Uses the current working
-        // directory as the workspace root and claude as the default agent since
-        // the trait signature does not carry workdir or agent context.
-        debug!(name, "creating docker sandbox");
-
-        let workdir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-        let args = sbx_create_args(name, "claude", &workdir);
-
-        let output = std::process::Command::new("sbx")
-            .args(&args)
-            .output()
-            .map_err(|e| anyhow::anyhow!("failed to run sbx create: {e}"))?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("sbx create failed: {}", stderr.trim());
-        }
-
+        // Idempotent: return a handle without invoking `sbx create`. The real
+        // sandbox is created by `sbx run` on first launch (see agent_sandbox_cmd).
+        // Running `sbx create` first would cause a double-create failure when
+        // the name is already in use.
+        debug!(
+            name,
+            "registering docker sandbox handle (sbx run creates on launch)"
+        );
         Ok(SandboxHandle {
             id: name.to_owned(),
             hostname: name.to_owned(),
@@ -290,6 +284,20 @@ mod tests {
     fn test_agent_sandbox_cmd_unknown_falls_back_to_claude() {
         let cmd = agent_sandbox_cmd("nonexistent-agent", Path::new("/tmp/project"));
         assert_eq!(cmd[2], "claude");
+    }
+
+    #[test]
+    fn test_create_is_idempotent_and_requires_no_sbx_process() {
+        // create() must return a valid SandboxHandle without invoking sbx.
+        // We verify this by checking the returned handle fields are correct.
+        // If create() were to call sbx, it would fail in CI environments where
+        // sbx is not installed, but this test must always pass.
+        let provider = DockerSandboxProvider;
+        let result = provider.create("test-session", None);
+        let handle = result.expect("create() should succeed without sbx");
+        assert_eq!(handle.id, "test-session");
+        assert_eq!(handle.hostname, "test-session");
+        assert_eq!(handle.provider, "docker");
     }
 
     #[test]
