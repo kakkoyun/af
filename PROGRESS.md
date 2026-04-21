@@ -640,3 +640,72 @@ The `af` binary has all these working commands:
 2. Docker sandbox provider (research + implement)
 3. Phase 5: User guide (mdBook)
 4. Remaining backlog items
+
+---
+
+## 2026-04-21 — Session 9: Lane D — Pattern-Hardening Foundation
+
+### Done
+
+- **Project audit** — Full codebase state captured: 392 tests, 53 files, ~11.4K LOC src,
+  14 ADRs accepted, Phases 0–2 complete, Phases 3–5 have only externally-blocked items
+  remaining. Build was broken locally (lld override on Apple targets).
+
+- **Sprint plan written** — `~/.claude/plans/alrighty-analyz-this-project-compiled-snowglobe.md`
+  (852 lines). 8 implementation lanes (A1, A2, B1, B2, B3, B4, B5, C1), 7 new ADRs to
+  write, 5 patterns to establish. Full parallelism map with file-ownership contracts.
+
+- **Lane D (Foundation) — 10 commits:**
+  1. `fix(cargo)`: dropped lld override on Apple Darwin targets
+  2. `feat(cargo)`: scaffolded workspaces/slicer-remote/keyring feature flags
+  3. `docs(adr)`: wrote ADR-015 subagent coordination patterns
+  4. `docs(conventions)`: created `docs/CONVENTIONS.md` file-ownership manifest
+  5. `docs(adr)`: wrote ADR-021 release discipline + CHANGELOG-driven notes
+  6. `ci(release)`: replaced `generate_release_notes:true` with awk CHANGELOG extraction
+  7. `ci(check)`: added cargo-audit job alongside cargo-deny
+  8. `feat(just)`: added `release-dry-run`, `book-gen` (stub), `book-build` recipes
+  9. `docs(changelog)`: reconciled 0.1.0 with all ~40 unreferenced commits (Phase 3/4/5)
+  10. `docs(adr)`: updated ADR index with ADRs 012–015 and 021; reserved 016–020
+
+### Design decisions
+
+- **ADR-015**: File-ownership manifest + subagent dispatch protocol. Motivated by
+  Session 2's ledger.rs overwrite. Promotes AGENTS.md prose to an accepted decision.
+- **ADR-021**: CHANGELOG-driven release notes. Release tag is user-called, not sprint-
+  completion-triggered. Mandates dry-run via `just release-dry-run` before any real tag.
+- **Pattern P6 (ADR-first)**: All Phase II lanes must write their governing ADR before
+  touching implementation code. Encoded in CONVENTIONS.md and ADR-015.
+
+### Files touched
+
+- `.cargo/config.toml`, `Cargo.toml`, `justfile`
+- `.github/workflows/release.yml`, `.github/workflows/ci.yml`
+- `docs/adr/015-subagent-coordination.md` (new)
+- `docs/adr/021-release-discipline.md` (new)
+- `docs/adr/README.md`
+- `docs/CONVENTIONS.md` (new)
+- `CHANGELOG.md`, `TODO.md`, `PROGRESS.md`
+
+### Tests
+
+- 392 passing (unchanged — Lane D had no Rust code changes).
+- Full cargo test --all-features: green.
+- cargo fmt --check + clippy -D warnings: clean.
+
+### Next
+
+- **Phase II** (parallel, 5 lanes): each Phase II subagent writes one design ADR.
+  - Lane A1-ADR → ADR-018 (External Tool Dependency Testing)
+  - Lane B2-ADR → ADR-016 (Secret Storage)
+  - Lane B3-ADR → ADR-017 (Remote Session Resume)
+  - Lane B5-ADR → ADR-019 (Remote Editor URL Schemes)
+  - Lane C1-ADR → ADR-020 (mdBook Structure)
+- Dispatch protocol: use §16 subagent prompt template from sprint plan + CONVENTIONS.md.
+- Each subagent gets a branch, an explicit owns list, and the shared-file do-not-touch list.
+
+### Blockers
+
+- DD Workspaces CLI not installed locally (Lane A1 will use CommandRunner trait to mock it).
+- keyring library choice pending ADR-016.
+- slicer daemon on remote host pending ADR-017 review for `--sandbox --remote`.
+- Real exe.dev VM smoke test deferred until user has access during Phase V.

@@ -126,6 +126,62 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 
 ---
 
+## Pattern-Hardening Sprint (initial topics — must complete before 0.1.0 tag)
+
+See `~/.claude/plans/alrighty-analyz-this-project-compiled-snowglobe.md` for the full
+lane specs, parallelism map, and Definition-of-Done checklists.
+
+### Phase I — Foundation (Lane D) ✅
+
+- [x] `fix(cargo)`: drop lld linker override on Apple targets
+- [x] `feat(cargo)`: introduce workspaces/slicer-remote/keyring feature flags
+- [x] `docs(adr)`: ADR-015 subagent coordination patterns
+- [x] `docs(conventions)`: file-ownership manifest (`docs/CONVENTIONS.md`)
+- [x] `docs(adr)`: ADR-021 release discipline & CHANGELOG-driven notes
+- [x] `ci(release)`: CHANGELOG-driven release notes (drop generate_release_notes)
+- [x] `ci(check)`: add cargo-audit job
+- [x] `feat(just)`: release-dry-run + book-gen recipes
+- [x] `docs(changelog)`: reconcile 0.1.0 with all shipped Phase 3/4/5 work
+- [x] `docs(adr)`: update ADR index with 012-015 and 021
+
+### Phase II — Design ADRs (parallel, no code yet)
+
+- [ ] ADR-018: External Tool Dependency Testing (Lane A1)
+- [ ] ADR-016: Secret Storage for `af auth` (Lane B2)
+- [ ] ADR-017: Remote Session Resume & Reconnect Strategy (Lane B3)
+- [ ] ADR-019: Remote Editor URL Scheme Strategy (Lane B5)
+- [ ] ADR-020: mdBook User Guide Structure + Machine Index (Lane C1)
+
+### Phase III — Implementation (parallel, file-disjoint)
+
+- [ ] **Lane A1**: DD Workspaces provider (real impl + CommandRunner trait + fake)
+- [ ] **Lane A2**: Orphan detection in `af list`
+- [ ] **Lane B1**: Slicer `--sandbox --remote` composition
+- [ ] **Lane B2**: `af auth setup/reroll/status/clear` + keyring
+- [ ] **Lane B3**: Remote session resume (SSH drop detection + reconnect)
+- [ ] **Lane B4**: exe.dev SSH liveness check (folds into B3)
+- [ ] **Lane B5**: `af editor` for remote sessions (URL schemes)
+- [ ] **Lane C1**: mdBook user guide + `scripts/book-gen.sh` + `index.json` + CI
+
+### Phase IV — Integration (lead-only)
+
+- [ ] Wire all new modules into `src/lib.rs`, `src/cli.rs`, `src/cmd/mod.rs`
+- [ ] Update `Cargo.toml` with optional deps for keyring/workspaces
+- [ ] Update `README.md` with new commands
+- [ ] Final `CHANGELOG.md` date stamp + version link
+- [ ] Update `docs/adr/README.md` with ADRs 016-020
+- [ ] Final `cargo test --all-features` green
+- [ ] PROGRESS.md session entry
+
+### Phase V — Release Gate (user-triggered)
+
+- [ ] `just release-dry-run` — all 6 matrix targets green
+- [ ] Delete draft release
+- [ ] User approves tag
+- [ ] `git tag -a v0.1.0` + `git push origin v0.1.0`
+
+---
+
 ## Backlog (unscheduled)
 
 - [x] Remote control: superterm notification integration (notify on create/done, agent-hook stop)
