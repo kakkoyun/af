@@ -61,12 +61,17 @@ impl SandboxProvider for DockerSandboxProvider {
     }
 
     fn create(&self, name: &str, _host: Option<&str>) -> anyhow::Result<SandboxHandle> {
-        // sbx create claude <path> --name <name>
-        // For now, create without a specific agent — the agent is launched separately.
+        // `sbx run` creates the sandbox on first use; this path is a fallback
+        // for callers that pre-create before launching. Uses the current working
+        // directory as the workspace root and claude as the default agent since
+        // the trait signature does not carry workdir or agent context.
         debug!(name, "creating docker sandbox");
 
+        let workdir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        let args = sbx_create_args(name, "claude", &workdir);
+
         let output = std::process::Command::new("sbx")
-            .args(["create", "claude", ".", "--name", name])
+            .args(&args)
             .output()
             .map_err(|e| anyhow::anyhow!("failed to run sbx create: {e}"))?;
 
@@ -144,6 +149,21 @@ impl SandboxProvider for DockerSandboxProvider {
         let stdout = String::from_utf8_lossy(&output.stdout);
         Ok(parse_sbx_ls(&stdout))
     }
+}
+
+/// Build the `sbx create` arguments for creating a named sandbox.
+///
+/// Returns the argument list (without the `sbx` binary itself) so callers
+/// can construct a [`std::process::Command`] and tests can assert on the
+/// exact args without spawning a real process.
+pub fn sbx_create_args(name: &str, agent: &str, workdir: &Path) -> Vec<String> {
+    vec![
+        "create".to_owned(),
+        agent.to_owned(),
+        workdir.display().to_string(),
+        "--name".to_owned(),
+        name.to_owned(),
+    ]
 }
 
 /// Build the `sbx run` command for launching an agent in a sandbox.
@@ -270,6 +290,29 @@ mod tests {
     fn test_agent_sandbox_cmd_unknown_falls_back_to_claude() {
         let cmd = agent_sandbox_cmd("nonexistent-agent", Path::new("/tmp/project"));
         assert_eq!(cmd[2], "claude");
+    }
+
+    #[test]
+    fn test_sbx_create_args_uses_agent_and_workdir() {
+        let args = sbx_create_args("my-sandbox", "codex", Path::new("/home/user/project"));
+        assert_eq!(
+            args,
+            vec![
+                "create",
+                "codex",
+                "/home/user/project",
+                "--name",
+                "my-sandbox"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_sbx_create_args_claude_agent() {
+        let args = sbx_create_args("proj", "claude", Path::new("/workspace"));
+        assert_eq!(args[1], "claude");
+        assert_eq!(args[2], "/workspace");
+        assert_eq!(args[4], "proj");
     }
 
     #[test]
