@@ -154,24 +154,96 @@ lane specs, parallelism map, and Definition-of-Done checklists.
 - [x] `docs/CONVENTIONS.md`: updated with worktree protocol + naming table
 - [x] `docs/adr/README.md`: all 21 ADRs indexed (001–021)
 
-### Phase III — Implementation (parallel, file-disjoint)
+### Phase II.5 — ADR Revision Round (post-research gap analysis) — REVISED
 
-- [ ] **Lane A1**: DD Workspaces provider (real impl + CommandRunner trait + fake)
-- [ ] **Lane A2**: Orphan detection in `af list`
-- [ ] **Lane B1**: Slicer `--sandbox --remote` composition
-- [ ] **Lane B2**: `af auth setup/reroll/status/clear` + keyring
-- [ ] **Lane B3**: Remote session resume (SSH drop detection + reconnect)
-- [ ] **Lane B4**: exe.dev SSH liveness check (folds into B3)
-- [ ] **Lane B5**: `af editor` for remote sessions (URL schemes)
-- [ ] **Lane C1**: mdBook user guide + `scripts/book-gen.sh` + `index.json` + CI
+Triggered by CLI-surface research (2026-04-21), three-reviewer synthesis
+(critic + security + architect), and user directives D1–D7. See
+`docs/planning/gap-analysis.md §8–§9` and `docs/planning/adr-drafts.md`.
+
+**Pre-Phase-II.5 (independent of any ADR):**
+
+- [ ] **Lane L-FIX**: `fix(docker):` three commits — workdir passthrough (G4),
+      full `KNOWN_SBX_AGENTS` list (G5), drop double-create (G6). Red-first,
+      regression tests. Land before or during Phase II.5.
+
+**ADR authoring (lead-only, single branch `phase-2.5-adr-revision`):**
+
+- [ ] Ratify ADR-022: cmux Multiplexer Provider (first-class per D3; critic's
+      defer-to-0.2.0 recommendation rejected by directive — see §8.5)
+- [ ] Ratify ADR-023: Sandbox Agent-Layer Conflict Resolution (ratifies slicer
+      split Option A; folds sbx double-create fix — Lane L-FIX carries code)
+- [ ] Ratify ADR-024: Remote Sandbox via Daemon URL (slicer `--url`/`--token`;
+      supersedes ADR-014 §"Composition model" L37–41 for slicer)
+- [ ] Ratify ADR-025: Secret Boundaries (narrows ADR-016 per D1 + security
+      N1/N3/H-a/H-b/H-c; forbids SSH `SetEnv`/`SendEnv`; host+exedev only;
+      `secrecy::SecretString` + dedicated Linux collection)
+- [ ] Ratify ADR-027: Remote = SSH Target (narrows ADR-004 + ADR-017; drops
+      `setup()` from `RemoteProvider` trait; adds `ssh_target()` +
+      `Liveness` enum; `accept-new` on probe)
+- [ ] Ratify ADR-028: Agent-Level OS Sandbox (adds `--agent-sandbox=<none|os>`
+      per D6; orthogonal to VM-sandbox layer)
+- [ ] **Addendum ADR-029 (A-b)**: ADR-018 supersession — drop `CommandRunner`
+      trait per critic [C 2.1]; adopt feature-gates + `assert_cmd` only
+- [ ] **DROPPED**: ADR-026 (provider-specific liveness) — folds into ADR-027
+- [ ] Write `docs/reference/external-tools.md` (verified CLI surface reference — G10)
+- [ ] Amend ADR-017 probe to `StrictHostKeyChecking=accept-new` (security C2/N2)
+- [ ] Amend ADR-016 account naming to `<provider>` (drop `af/` prefix per [C 2.2])
+- [ ] Update `docs/adr/README.md` with ADRs 022–029
+- [ ] Update `docs/CONVENTIONS.md` worktree table with L-* lanes
+- [ ] Delete `docs/planning/adr-drafts.md` and `docs/planning/gap-analysis.md`
+      once all ADRs land
+
+**Scope-call checkpoint (user):** §8.6 open items (Windows stance, headless
+`af auth`, multi-user keyring, `insta` vs `include_str!` snapshot, awk vs
+`git-cliff` extraction, `xtask` vs shell, `cargo audit` CVE verify). Most can
+defer to 0.2.0 with a one-sentence ADR; user calls.
+
+### Phase III — Implementation (parallel, file-disjoint) — REVISED (12 → 7 lanes)
+
+Architect [A] consolidation. Each lane is single-sentence-scope and
+file-disjoint; lead integrates.
+
+- [ ] **Lane L-REMOTE**: `RemoteProvider` trait narrowing per ADR-027 + DD
+      Workspaces provider (`workspaces create/list/ssh-config/delete/restart`)
+      + `ssh_target()` + `is_alive()` + orphan column in `af list`. Folds
+      former A1, A2, B3, B4. (G9, G11, H-e)
+- [ ] **Lane L-SBX-DAEMON**: Slicer `--sandbox --remote` via `--url`/`--token`
+      per ADR-024. One `SandboxConfig.remote_daemon` field + test. Folds
+      former B1. (G1)
+- [ ] **Lane L-AUTH**: `af auth setup/reroll/status/clear` + keyring per
+      ADR-016 as narrowed by ADR-025. Host + exedev only. `secrecy::SecretString`
+      + `/run/user/$UID/af-<session>/.env` (not SSH `SetEnv`). Folds former
+      B2; **DROPS** former B2.5 (no af-level cross-provider sync per D1).
+- [ ] **Lane L-EDITOR**: `af editor` for remote sessions — URL schemes
+      (ADR-019) + `workspaces connect` branch for DD sessions. Folds former
+      B5. (G8)
+- [ ] **Lane L-MUX-CMUX**: cmux as second `Multiplexer` impl per ADR-022.
+      Promoted mandatory per directive D3 (see gap-analysis §8.5 conflict).
+      Trait unchanged. (G7)
+- [ ] **Lane L-AGENT-SANDBOX**: Per-agent `--agent-sandbox=os` mapping per
+      ADR-028. `src/agent/codex.rs` → `-s workspace-write`; `src/agent/claude.rs`
+      → documented no-op; others → degrade to `none` with info log. (G15, D6)
+- [ ] **Lane L-BOOK**: mdBook user guide + `scripts/book-gen.sh` +
+      `commands/index.json` + CI per ADR-020. Adds
+      `book/src/concepts/approval-modes.md` page (A-c) lifting ADR-012's
+      per-agent table. (G14, D5)
+- [ ] **NEUTRALIZED**: Lane S1 — ADR-023 ratifies shipped slicer split in ~2
+      paragraphs; no code change.
 
 ### Phase IV — Integration (lead-only)
 
-- [ ] Wire all new modules into `src/lib.rs`, `src/cli.rs`, `src/cmd/mod.rs`
-- [ ] Update `Cargo.toml` with optional deps for keyring/workspaces
-- [ ] Update `README.md` with new commands
+- [ ] Wire all new modules into `src/lib.rs`, `src/cli.rs`, `src/cmd/mod.rs`,
+      `src/provider/mod.rs`, `src/mux/mod.rs`
+- [ ] Update `Cargo.toml` with optional deps for keyring (`secrecy`, `zeroize`),
+      workspaces, cmux (if gated), slicer-remote
+- [ ] **Addendum A-d**: Overnight-yolo guard in `src/cli.rs` + `src/cmd/create.rs`
+      — warn when `--yolo` runs without VM sandbox AND without `--agent-sandbox=os`
+      (G16, D7)
+- [ ] Update `README.md` with new commands (`af auth`, `--agent-sandbox`,
+      cmux selection via config)
 - [ ] Final `CHANGELOG.md` date stamp + version link
-- [ ] Update `docs/adr/README.md` with ADRs 016-020
+- [ ] Update `docs/adr/README.md` with ADRs 022–029 (total catalog 001–029
+      minus dropped 026)
 - [ ] Final `cargo test --all-features` green
 - [ ] PROGRESS.md session entry
 
