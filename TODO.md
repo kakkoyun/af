@@ -146,11 +146,13 @@ lane specs, parallelism map, and Definition-of-Done checklists.
 
 ### Phase II — Design ADRs (parallel, no code yet)
 
-- [ ] ADR-018: External Tool Dependency Testing (Lane A1)
-- [ ] ADR-016: Secret Storage for `af auth` (Lane B2)
-- [ ] ADR-017: Remote Session Resume & Reconnect Strategy (Lane B3)
-- [ ] ADR-019: Remote Editor URL Scheme Strategy (Lane B5)
-- [ ] ADR-020: mdBook User Guide Structure + Machine Index (Lane C1)
+- [x] ADR-018: External Tool Dependency Testing — `CommandRunner` trait + feature gates (Lane A1)
+- [x] ADR-016: Secret Storage — `keyring` crate, macOS Keychain + Arch Secret Service dbus (Lane B2)
+- [x] ADR-017: Remote Session Resume — SSH probe + reconnect flow (Lane B3)
+- [x] ADR-019: Remote Editor URL Schemes — vscode-remote://, cursor://, `zed ssh://` (Lane B5)
+- [x] ADR-020: mdBook User Guide — book structure + `index.json` machine index (Lane C1)
+- [x] `docs/CONVENTIONS.md`: updated with worktree protocol + naming table
+- [x] `docs/adr/README.md`: all 21 ADRs indexed (001–021)
 
 ### Phase III — Implementation (parallel, file-disjoint)
 

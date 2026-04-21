@@ -112,8 +112,68 @@ See ADR-015 for the full protocol. Quick reference:
 
 Every subagent prompt must state:
 - Branch name (`lane-<id>-<short>`)
-- Owns (explicit absolute paths)
+- Worktree path (`../af-lane-<id>`)
+- Owns (explicit absolute paths — relative to the worktree root)
 - Does-not-touch (the shared-file table above)
 - Referenced ADRs
 - TDD + commit format
 - Handback: push branch, open draft PR, **stop — do not merge**
+
+---
+
+## Worktree Protocol for Parallel Lanes
+
+Each implementation lane runs in its own git worktree. This isolates file edits,
+cargo target directories, and language server state between concurrent agents.
+
+### Setup (lead, before dispatching a lane)
+
+```bash
+# Create worktree + branch in one command
+git worktree add ../af-lane-a1 -b lane-a1-workspaces
+git worktree add ../af-lane-b2 -b lane-b2-auth
+# etc.
+```
+
+The worktree root is one level above the project root: `../af-lane-<id>`.
+All absolute paths in the subagent prompt use this root.
+
+### Subagent working directory
+
+The subagent's working directory is the worktree root. All `cargo` commands,
+file reads, and edits run there. The subagent must **not** `cd` to the main
+worktree or touch any path outside its worktree directory.
+
+### Review + integration (lead)
+
+```bash
+# See what the lane changed, relative to main
+git diff main..lane-a1-workspaces
+
+# After review, merge
+git merge --no-ff lane-a1-workspaces -m "feat(provider): integrate Lane A1 workspaces"
+
+# Cleanup
+git worktree remove ../af-lane-a1
+git branch -d lane-a1-workspaces
+```
+
+### Naming convention
+
+| Lane | Branch | Worktree path |
+|---|---|---|
+| A1 | `lane-a1-workspaces` | `../af-lane-a1` |
+| A2 | `lane-a2-orphan` | `../af-lane-a2` |
+| B1 | `lane-b1-slicer-remote` | `../af-lane-b1` |
+| B2 | `lane-b2-auth` | `../af-lane-b2` |
+| B3 | `lane-b3-resume` | `../af-lane-b3` |
+| B4 | `lane-b4-exedev-liveness` | `../af-lane-b4` |
+| B5 | `lane-b5-editor-remote` | `../af-lane-b5` |
+| C1 | `lane-c1-book` | `../af-lane-c1` |
+
+### Why worktrees (not just branches)
+
+- Each lane gets its own `target/` — no cargo lock contention between concurrent builds.
+- Language servers (rust-analyzer) don't fight over the same workspace root.
+- File edits are isolated: a subagent cannot accidentally touch a file it was told not to.
+- `git diff main..<branch>` gives a clean review scope without switching branches.

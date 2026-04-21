@@ -22,15 +22,8 @@ Each decision is numbered and immutable once accepted. Superseded decisions link
 | [015](015-subagent-coordination.md) | Subagent Coordination Patterns | Accepted |
 | [021](021-release-discipline.md) | Release Discipline & CHANGELOG-Driven Notes | Accepted |
 
-## Pending (Phase II — reserved numbers)
-
-ADRs 016–020 are reserved for Phase II design decisions. They will be written
-before their respective implementation lanes begin (ADR-first rule, ADR-015 §ADR-first).
-
-| Reserved | Working title | Owner lane |
-|---|---|---|
-| 016 | Secret Storage for `af auth` | Lane B2 |
-| 017 | Remote Session Resume & Reconnect Strategy | Lane B3 |
-| 018 | External Tool Dependency Testing | Lane A1 |
-| 019 | Remote Editor URL Scheme Strategy | Lane B5 |
-| 020 | mdBook User Guide Structure + Machine Index | Lane C1 |
+| [016](016-secret-storage.md) | Secret Storage for `af auth` | Accepted |
+| [017](017-remote-resume.md) | Remote Session Resume & Reconnect Strategy | Accepted |
+| [018](018-external-tool-testing.md) | External Tool Dependency Testing | Accepted |
+| [019](019-remote-editor-urls.md) | Remote Editor URL Scheme Strategy | Accepted |
+| [020](020-mdbook-structure.md) | mdBook User Guide Structure + Machine Index | Accepted |
