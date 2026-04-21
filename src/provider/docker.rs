@@ -21,12 +21,25 @@ use crate::provider::{ProvisionOpts, SandboxConfig, SandboxHandle, SandboxProvid
 /// Docker AI Sandbox provider via the `sbx` CLI.
 ///
 /// Manages isolated microVM sandboxes for AI coding agents. Each sandbox
-/// gets its own Docker daemon, filesystem, and network. Supports Claude,
-/// Codex, and other agents.
+/// gets its own Docker daemon, filesystem, and network. Supports all
+/// sbx-native agents: claude, codex, copilot, docker-agent, droid,
+/// gemini, kiro, opencode, and shell.
 pub struct DockerSandboxProvider;
 
 /// Known agents supported by `sbx run`.
-const KNOWN_SBX_AGENTS: &[&str] = &["claude", "codex"];
+///
+/// Full list from <https://docs.docker.com/ai/sandboxes/> CLI surface reference.
+const KNOWN_SBX_AGENTS: &[&str] = &[
+    "claude",
+    "codex",
+    "copilot",
+    "docker-agent",
+    "droid",
+    "gemini",
+    "kiro",
+    "opencode",
+    "shell",
+];
 
 impl SandboxProvider for DockerSandboxProvider {
     fn name(&self) -> &'static str {
@@ -255,8 +268,34 @@ mod tests {
 
     #[test]
     fn test_agent_sandbox_cmd_unknown_falls_back_to_claude() {
-        let cmd = agent_sandbox_cmd("pi", Path::new("/tmp/project"));
+        let cmd = agent_sandbox_cmd("nonexistent-agent", Path::new("/tmp/project"));
         assert_eq!(cmd[2], "claude");
+    }
+
+    #[test]
+    fn test_known_sbx_agents_includes_full_sbx_set() {
+        let expected = &[
+            "claude",
+            "codex",
+            "copilot",
+            "docker-agent",
+            "droid",
+            "gemini",
+            "kiro",
+            "opencode",
+            "shell",
+        ];
+        for agent in expected {
+            assert!(
+                KNOWN_SBX_AGENTS.contains(agent),
+                "KNOWN_SBX_AGENTS missing expected agent: {agent}"
+            );
+        }
+        assert_eq!(
+            KNOWN_SBX_AGENTS.len(),
+            expected.len(),
+            "KNOWN_SBX_AGENTS has unexpected agents"
+        );
     }
 
     #[test]
