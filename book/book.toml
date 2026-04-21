@@ -1,0 +1,22 @@
+[book]
+title = "af — User Guide"
+authors = ["Kemal Akkoyun"]
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+site-url = "/guide/"
+git-repository-url = "https://github.com/kakkoyun/af"
+git-repository-icon = "fa-github"
+edit-url-template = "https://github.com/kakkoyun/af/edit/main/book/src/{path}"
+no-section-label = false
+
+[output.html.search]
+enable = true
+limit-results = 30
+use-boolean-and = true
+
+[output.html.fold]
+enable = true
+level = 1

@@ -103,10 +103,10 @@ release-dry-run:
 # ── Docs ───────────────────────────────────────────────────────────────────────
 
 # Generate command reference pages in book/src/commands/ from --help output.
-# Requires the binary to be built. See ADR-020 and Lane C1.
+# Delegates to scripts/book-gen.sh; requires the binary (build target runs first).
+# See ADR-020.
 book-gen: build
-    @echo "book-gen: stub — full implementation in Lane C1"
-    @echo "Will generate book/src/commands/*.md from 'af <cmd> --help' output"
+    scripts/book-gen.sh
 
 # Build the mdBook user guide (requires mdbook: cargo install mdbook)
 book-build:

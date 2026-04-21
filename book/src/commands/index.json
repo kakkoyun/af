@@ -1,0 +1,21 @@
+{
+  "commands": [
+    { "name": "create", "page": "create.md" },
+    { "name": "done", "page": "done.md" },
+    { "name": "list", "page": "list.md" },
+    { "name": "resume", "page": "resume.md" },
+    { "name": "agent", "page": "agent.md" },
+    { "name": "gc", "page": "gc.md" },
+    { "name": "editor", "page": "editor.md" },
+    { "name": "diff", "page": "diff.md" },
+    { "name": "pr", "page": "pr.md" },
+    { "name": "note", "page": "note.md" },
+    { "name": "stats", "page": "stats.md" },
+    { "name": "export", "page": "export.md" },
+    { "name": "doctor", "page": "doctor.md" },
+    { "name": "config", "page": "config.md" },
+    { "name": "completions", "page": "completions.md" },
+    { "name": "session-branch", "page": "session-branch.md" },
+    { "name": "version", "page": "version.md" }
+  ]
+}
