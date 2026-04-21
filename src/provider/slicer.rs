@@ -9,7 +9,7 @@ use std::process::Command;
 
 use tracing::debug;
 
-use crate::provider::{ProvisionOpts, SandboxConfig, SandboxHandle, SandboxProvider};
+use crate::provider::{ProvisionOpts, RemoteDaemon, SandboxConfig, SandboxHandle, SandboxProvider};
 
 /// Default VM group when none is specified in the config.
 const DEFAULT_GROUP: &str = "default";
@@ -44,6 +44,45 @@ pub fn agent_sandbox_cmd(agent: &str, workdir: &Path) -> Option<Vec<String>> {
         subcommand.to_owned(),
         workdir_str.to_owned(),
     ])
+}
+
+/// Build the command to launch an agent sandbox via a remote daemon.
+///
+/// Like [`agent_sandbox_cmd`], but prepends `--url <url>` (and optionally
+/// `--token <token>`) as global slicer flags before the subcommand and workdir.
+///
+/// ```text
+/// slicer [--url <url>] [--token <tok>] <subcommand> <workdir>
+/// ```
+///
+/// `resolved_token` is the already-resolved token string (e.g. from
+/// [`RemoteDaemon::resolve_token`]). Pass `None` when no token is available.
+///
+/// Returns `None` only when `workdir` cannot be converted to a UTF-8 string.
+pub fn agent_sandbox_cmd_with_daemon(
+    agent: &str,
+    workdir: &std::path::Path,
+    daemon: &RemoteDaemon,
+    resolved_token: Option<&str>,
+) -> Option<Vec<String>> {
+    let workdir_str = workdir.to_str()?;
+    let subcommand = match agent {
+        "claude" => "claude",
+        "codex" => "codex",
+        "amp" => "amp",
+        "copilot" => "copilot",
+        _ => "workspace",
+    };
+
+    let daemon_args = daemon.slicer_args(resolved_token);
+
+    // Layout: slicer <daemon_flags…> <subcommand> <workdir>
+    let mut cmd = Vec::with_capacity(1 + daemon_args.len() + 2);
+    cmd.push("slicer".to_owned());
+    cmd.extend(daemon_args);
+    cmd.push(subcommand.to_owned());
+    cmd.push(workdir_str.to_owned());
+    Some(cmd)
 }
 
 /// Parse JSON output from `slicer vm list --json`.
