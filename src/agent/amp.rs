@@ -3,6 +3,13 @@
 //! Implements [`AgentProvider`] for Sourcegraph's Amp CLI.
 //! Amp uses a thread-based model: `amp threads continue --last` for resumption,
 //! `--dangerously-allow-all` for unattended mode.
+//!
+//! # OS sandbox (ADR-028)
+//!
+//! Amp has no CLI sandbox flag. [`AgentSandbox::Os`] degrades silently to
+//! [`AgentSandbox::None`] with a `tracing::info!` log.
+
+pub use crate::agent::codex::AgentSandbox;
 
 use std::path::{Path, PathBuf};
 
@@ -15,6 +22,25 @@ use crate::agent::{AgentProvider, ApprovalMode, LaunchOpts, ResumeOpts};
 /// - `--dangerously-allow-all` for yolo/unattended mode
 /// - Thread-based session model (threads new/continue/list)
 pub struct AmpProvider;
+
+/// Apply the OS sandbox policy for Amp — degrades to none with an info log.
+///
+/// Amp exposes no OS-level sandbox flag. When [`AgentSandbox::Os`] is
+/// requested, `af` logs an informational message and proceeds without a
+/// sandbox flag.
+///
+/// | `sandbox`            | effect                                         |
+/// |----------------------|------------------------------------------------|
+/// | `AgentSandbox::None` | no-op                                          |
+/// | `AgentSandbox::Os`   | no-op + `tracing::info!` degrade-to-none log   |
+pub fn apply_sandbox(_cmd: &mut Vec<String>, sandbox: AgentSandbox) {
+    if sandbox == AgentSandbox::Os {
+        tracing::info!(
+            agent = "amp",
+            "agent amp does not support OS sandbox; running without"
+        );
+    }
+}
 
 impl AgentProvider for AmpProvider {
     fn name(&self) -> &'static str {
@@ -160,5 +186,27 @@ mod tests {
     fn test_amp_is_available() {
         let p = AmpProvider;
         let _available = p.is_available();
+    }
+
+    // --- AgentSandbox tests (ADR-028) ---
+
+    #[test]
+    fn test_amp_apply_sandbox_none_is_noop() {
+        let mut cmd = vec!["amp".to_owned()];
+        let before = cmd.clone();
+        apply_sandbox(&mut cmd, AgentSandbox::None);
+        assert_eq!(cmd, before);
+    }
+
+    #[test]
+    fn test_amp_apply_sandbox_os_does_not_modify_argv() {
+        // amp has no OS sandbox flag; argv must be unchanged.
+        let mut cmd = vec!["amp".to_owned()];
+        let before = cmd.clone();
+        apply_sandbox(&mut cmd, AgentSandbox::Os);
+        assert_eq!(
+            cmd, before,
+            "amp apply_sandbox(Os) must not modify argv (degrade-to-none)"
+        );
     }
 }
