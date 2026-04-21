@@ -34,7 +34,7 @@ daemon-based providers.
 - The sbx provider **ignores** `remote_daemon` for 0.1.0 (sbx has no daemon
   mode). Future sbx daemon support reuses the same field without trait change.
 - `TokenSource::Keyring` integrates with ADR-025's scope (host-only keyring);
-  daemon tokens are per-host, stored as `af/slicer/<host-alias>`.
+  daemon tokens are per-host, stored as `slicer/<host-alias>`.
 - Feature-gated behind `slicer-remote` (already scaffolded in Lane D).
 
 ## Alternatives considered
