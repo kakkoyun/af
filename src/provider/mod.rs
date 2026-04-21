@@ -42,13 +42,96 @@ pub struct SandboxHandle {
     pub provider: String,
 }
 
+/// Remote daemon connection configuration (ADR-024).
+///
+/// When present in [`SandboxConfig`], the slicer provider forwards `--url`
+/// (and optionally `--token`) to every `slicer` invocation, enabling
+/// daemon-mode connections without a separate SSH/provisioning pipeline.
+///
+/// `token_ref` is an ADR-025-style keyring path (e.g. `"slicer/my-host"`).
+/// For 0.1.0 the actual keyring read is performed by the `af auth` command
+/// family (Lane L-AUTH). As a stopgap, [`RemoteDaemon::resolve_token`] reads
+/// `AF_SLICER_TOKEN_<UPPERCASE_REF>` from the environment (see ADR-024
+/// §Consequences for the stabilisation plan).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RemoteDaemon {
+    /// Slicer daemon URL, e.g. `"https://slicer.example.com:8443"`.
+    pub url: String,
+    /// ADR-025 keyring path (no `af/` prefix), e.g. `"slicer/my-host"`.
+    /// When set, the resolved token is passed as `--token`.
+    pub token_ref: Option<String>,
+}
+
+impl RemoteDaemon {
+    /// Return the environment variable name used to look up the token.
+    ///
+    /// Conversion: replace `/` and `-` with `_`, then uppercase.
+    /// `"slicer/my-host"` → `"AF_SLICER_TOKEN_SLICER_MY_HOST"`.
+    ///
+    /// Returns `None` when `token_ref` is `None`.
+    #[must_use]
+    pub fn token_env_var(&self) -> Option<String> {
+        self.token_ref.as_ref().map(|r| {
+            let normalised = r.replace(['/', '-'], "_").to_uppercase();
+            format!("AF_SLICER_TOKEN_{normalised}")
+        })
+    }
+
+    /// Resolve the token value from the environment (stopgap, see ADR-024).
+    ///
+    /// Reads [`Self::token_env_var`] from `std::env`. Returns `None` when
+    /// `token_ref` is unset or the env var is absent/empty.
+    #[must_use]
+    pub fn resolve_token(&self) -> Option<String> {
+        let var = self.token_env_var()?;
+        std::env::var(&var).ok().filter(|v| !v.is_empty())
+    }
+
+    /// Build the `--url` / `--token` argv fragment for `slicer`.
+    ///
+    /// Accepts an optional pre-resolved token value (used in tests or when
+    /// the caller has already obtained the token through another path).
+    /// When `resolved_token` is `None`, the method does **not** append
+    /// `--token` even if `token_ref` is set — callers that want env-based
+    /// resolution should pass `self.resolve_token().as_deref()`.
+    #[must_use]
+    pub fn slicer_args(&self, resolved_token: Option<&str>) -> Vec<String> {
+        let mut args = vec!["--url".to_owned(), self.url.clone()];
+        if let Some(tok) = resolved_token {
+            args.push("--token".to_owned());
+            args.push(tok.to_owned());
+        }
+        args
+    }
+}
+
 /// Configuration for sandbox pre-flight setup.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(default)]
 pub struct SandboxConfig {
     /// Group or template name for the sandbox VM.
     pub group: String,
     /// Optional share-home path for `VirtioFS` mounts.
     pub share_home: Option<PathBuf>,
+    /// Remote daemon connection details (ADR-024).
+    ///
+    /// When `Some`, the slicer provider forwards `--url` (and optionally
+    /// `--token`) to every `slicer` CLI invocation.
+    pub remote_daemon: Option<RemoteDaemon>,
+}
+
+impl SandboxConfig {
+    /// Return the `--url` / `--token` argv fragment for slicer, or `None`.
+    ///
+    /// Resolves the token via [`RemoteDaemon::resolve_token`] (env-var
+    /// stopgap). Returns `None` when `remote_daemon` is not configured.
+    #[must_use]
+    pub fn slicer_daemon_args(&self) -> Option<Vec<String>> {
+        let daemon = self.remote_daemon.as_ref()?;
+        let token = daemon.resolve_token();
+        Some(daemon.slicer_args(token.as_deref()))
+    }
 }
 
 /// Options for provisioning a sandbox after creation.
@@ -285,6 +368,7 @@ mod tests {
         let config = SandboxConfig {
             group: "default".to_owned(),
             share_home: Some(PathBuf::from("/home/user/Workspace")),
+            remote_daemon: None,
         };
         assert_eq!(config.group, "default");
         assert_eq!(
@@ -298,6 +382,7 @@ mod tests {
         let config = SandboxConfig {
             group: "minimal".to_owned(),
             share_home: None,
+            remote_daemon: None,
         };
         assert_eq!(config.group, "minimal");
         assert!(config.share_home.is_none());
