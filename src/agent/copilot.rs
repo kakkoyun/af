@@ -3,6 +3,13 @@
 //! Implements [`AgentProvider`] for GitHub Copilot CLI.
 //! Copilot uses `--continue` for session resumption,
 //! `--allow-all --autopilot` for unattended mode.
+//!
+//! # OS sandbox (ADR-028)
+//!
+//! Copilot CLI has no OS-level sandbox flag. [`AgentSandbox::Os`] degrades
+//! silently to [`AgentSandbox::None`] with a `tracing::info!` log.
+
+pub use crate::agent::codex::AgentSandbox;
 
 use std::path::{Path, PathBuf};
 
@@ -15,6 +22,25 @@ use crate::agent::{AgentProvider, ApprovalMode, LaunchOpts, ResumeOpts};
 /// - `--allow-all --autopilot` for yolo/unattended mode
 /// - Interactive chat with file editing, shell commands, codebase search
 pub struct CopilotProvider;
+
+/// Apply the OS sandbox policy for Copilot CLI — degrades to none with an info log.
+///
+/// GitHub Copilot CLI does not expose an OS-level sandbox flag. When
+/// [`AgentSandbox::Os`] is requested, `af` logs an informational message and
+/// proceeds without a sandbox flag.
+///
+/// | `sandbox`            | effect                                         |
+/// |----------------------|------------------------------------------------|
+/// | `AgentSandbox::None` | no-op                                          |
+/// | `AgentSandbox::Os`   | no-op + `tracing::info!` degrade-to-none log   |
+pub fn apply_sandbox(_cmd: &mut Vec<String>, sandbox: AgentSandbox) {
+    if sandbox == AgentSandbox::Os {
+        tracing::info!(
+            agent = "copilot",
+            "agent copilot does not support OS sandbox; running without"
+        );
+    }
+}
 
 impl AgentProvider for CopilotProvider {
     fn name(&self) -> &'static str {
@@ -168,5 +194,27 @@ mod tests {
             approval_mode: ApprovalMode::Default,
         };
         assert!(provider.pr_cmd(42, &opts).is_none());
+    }
+
+    // --- AgentSandbox tests (ADR-028) ---
+
+    #[test]
+    fn test_copilot_apply_sandbox_none_is_noop() {
+        let mut cmd = vec!["copilot".to_owned()];
+        let before = cmd.clone();
+        apply_sandbox(&mut cmd, AgentSandbox::None);
+        assert_eq!(cmd, before);
+    }
+
+    #[test]
+    fn test_copilot_apply_sandbox_os_does_not_modify_argv() {
+        // copilot has no OS sandbox flag; argv must be unchanged.
+        let mut cmd = vec!["copilot".to_owned()];
+        let before = cmd.clone();
+        apply_sandbox(&mut cmd, AgentSandbox::Os);
+        assert_eq!(
+            cmd, before,
+            "copilot apply_sandbox(Os) must not modify argv (degrade-to-none)"
+        );
     }
 }
