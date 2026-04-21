@@ -4,6 +4,7 @@
 //! The CLI definition in `cli.rs` dispatches to these handlers.
 
 pub mod agent;
+pub mod auth;
 pub mod config_cmd;
 pub mod create;
 pub mod diff;

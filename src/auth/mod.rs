@@ -21,11 +21,10 @@
 //!
 //! # Module map
 //!
-//! - [`redact`] — [`SecretString`](redact::SecretString), redaction helpers,
-//!   panic hook.
-//! - [`keyring`] — [`Keystore`](keyring::Keystore) trait + in-memory fake.
-//!   Real backend is stubbed behind `#[cfg(feature = "keyring")]` until
-//!   Phase IV wires `dep:keyring`.
+//! - [`redact`] — [`SecretString`], redaction helpers, panic hook.
+//! - [`keyring`] — [`Keystore`] trait + in-memory fake. Real backend is
+//!   stubbed behind `#[cfg(feature = "keyring")]` until Phase IV wires
+//!   `dep:keyring`.
 //! - [`transport`] — host env injection + tmpfs env-file delivery.
 //!
 //! # Feature gating
