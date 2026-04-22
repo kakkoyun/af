@@ -28,6 +28,33 @@ pub enum ApprovalMode {
     Yolo,
 }
 
+/// Per-agent OS sandbox mode (ADR-028).
+///
+/// Controls whether `af` asks the agent binary to enable its own OS-level
+/// sandbox. This is orthogonal to af's VM/container isolation layer
+/// (`--sandbox` / `provider/slicer`, `provider/docker`).
+///
+/// # Default
+///
+/// `None`. The CLI layer will make `Os` the effective default when the
+/// selected agent supports it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AgentSandbox {
+    /// No agent-level OS sandbox. Agent is launched without any additional
+    /// sandbox flag.
+    #[default]
+    None,
+    /// Request the agent's native OS sandbox.
+    ///
+    /// - **codex:** appends `-s workspace-write` (Seatbelt on macOS,
+    ///   bubblewrap/Landlock on Linux — codex resolves the OS detail).
+    /// - **claude:** no-op. Claude defers sandboxing to the caller; it has
+    ///   a built-in file-approval flow that is the functional equivalent.
+    /// - **amp, gemini, copilot, pi:** no OS sandbox flag available; degrades
+    ///   to `None` with a `tracing::info!` log.
+    Os,
+}
+
 /// Options for launching a new agent session.
 #[derive(Debug, Clone)]
 pub struct LaunchOpts {

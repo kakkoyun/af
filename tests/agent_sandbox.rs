@@ -8,11 +8,11 @@
 
 use af::agent::amp::{AmpProvider, apply_sandbox as amp_apply};
 use af::agent::claude::{ClaudeProvider, apply_sandbox as claude_apply};
-use af::agent::codex::{AgentSandbox, CodexProvider, apply_sandbox as codex_apply};
+use af::agent::codex::{CodexProvider, apply_sandbox as codex_apply};
 use af::agent::copilot::{CopilotProvider, apply_sandbox as copilot_apply};
 use af::agent::gemini::{GeminiProvider, apply_sandbox as gemini_apply};
 use af::agent::pi::{PiProvider, apply_sandbox as pi_apply};
-use af::agent::{AgentProvider, ApprovalMode, LaunchOpts};
+use af::agent::{AgentProvider, AgentSandbox, ApprovalMode, LaunchOpts};
 
 fn default_opts() -> LaunchOpts {
     LaunchOpts {

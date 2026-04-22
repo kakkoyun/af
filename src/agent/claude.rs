@@ -16,11 +16,9 @@
 //! the `claude` binary). `apply_sandbox` is therefore a no-op for all values
 //! of [`AgentSandbox`].
 
-pub use crate::agent::codex::AgentSandbox;
-
 use std::path::{Path, PathBuf};
 
-use crate::agent::{AgentProvider, ApprovalMode, LaunchOpts, ResumeOpts};
+use crate::agent::{AgentProvider, AgentSandbox, ApprovalMode, LaunchOpts, ResumeOpts};
 
 /// Claude Code agent provider.
 ///

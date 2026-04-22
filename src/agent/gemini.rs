@@ -9,11 +9,9 @@
 //! [`AgentSandbox::Os`] degrades silently to [`AgentSandbox::None`] with a
 //! `tracing::info!` log.
 
-pub use crate::agent::codex::AgentSandbox;
-
 use std::path::{Path, PathBuf};
 
-use crate::agent::{AgentProvider, ApprovalMode, LaunchOpts, ResumeOpts};
+use crate::agent::{AgentProvider, AgentSandbox, ApprovalMode, LaunchOpts, ResumeOpts};
 
 /// Gemini CLI agent provider.
 ///

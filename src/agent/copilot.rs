@@ -9,11 +9,9 @@
 //! Copilot CLI has no OS-level sandbox flag. [`AgentSandbox::Os`] degrades
 //! silently to [`AgentSandbox::None`] with a `tracing::info!` log.
 
-pub use crate::agent::codex::AgentSandbox;
-
 use std::path::{Path, PathBuf};
 
-use crate::agent::{AgentProvider, ApprovalMode, LaunchOpts, ResumeOpts};
+use crate::agent::{AgentProvider, AgentSandbox, ApprovalMode, LaunchOpts, ResumeOpts};
 
 /// GitHub Copilot CLI agent provider.
 ///
