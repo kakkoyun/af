@@ -75,7 +75,7 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 ## Phase 3 — Remote Providers
 
 - [x] Remote provider trait definition + stubs (workspaces, exedev, slicer)
-- [ ] DD Workspaces provider (detect, create, teardown) *(deferred: requires workspaces CLI)*
+- [x] DD Workspaces provider (detect, create, teardown, restart) *(L-REMOTE 2026-04-21)*
 - [x] exe.dev provider (detect, create, setup, teardown via SSH)
 - [x] `af create --remote [host]` — remote session via exe.dev/SSH
 - [x] `af create --yolo` — unattended mode (passes through to agent LaunchOpts)
@@ -84,7 +84,7 @@ detailed phasing and [docs/adr/](docs/adr/) for architecture decisions.
 - [x] Dotfiles provisioning config (repo + install_cmd)
 - [x] Remote provisioning pipeline: bootstrap → dotfiles → auth
 - [ ] Remote session resume (SSH drop detection + reconnect) *(deferred)*
-- [ ] Orphan detection in `af list` *(deferred)*
+- [x] Orphan detection in `af list` *(L-REMOTE — STATUS column driven by `is_alive()`)*
 - [x] `af done` for remote sessions (exe.dev teardown)
 
 ## Phase 4 — Sandbox + Obsidian
@@ -162,33 +162,33 @@ Triggered by CLI-surface research (2026-04-21), three-reviewer synthesis
 
 **Pre-Phase-II.5 (independent of any ADR):**
 
-- [ ] **Lane L-FIX**: `fix(docker):` three commits — workdir passthrough (G4),
+- [x] **Lane L-FIX**: `fix(docker):` three commits — workdir passthrough (G4),
       full `KNOWN_SBX_AGENTS` list (G5), drop double-create (G6). Red-first,
-      regression tests. Land before or during Phase II.5.
+      regression tests. *(commits e88f8b9, 5bb9ad9, aa8a587)*
 
 **ADR authoring (lead-only, single branch `phase-2.5-adr-revision`):**
 
-- [ ] Ratify ADR-022: cmux Multiplexer Provider (first-class per D3; critic's
+- [x] Ratify ADR-022: cmux Multiplexer Provider (first-class per D3; critic's
       defer-to-0.2.0 recommendation rejected by directive — see §8.5)
-- [ ] Ratify ADR-023: Sandbox Agent-Layer Conflict Resolution (ratifies slicer
+- [x] Ratify ADR-023: Sandbox Agent-Layer Conflict Resolution (ratifies slicer
       split Option A; folds sbx double-create fix — Lane L-FIX carries code)
-- [ ] Ratify ADR-024: Remote Sandbox via Daemon URL (slicer `--url`/`--token`;
+- [x] Ratify ADR-024: Remote Sandbox via Daemon URL (slicer `--url`/`--token`;
       supersedes ADR-014 §"Composition model" L37–41 for slicer)
-- [ ] Ratify ADR-025: Secret Boundaries (narrows ADR-016 per D1 + security
+- [x] Ratify ADR-025: Secret Boundaries (narrows ADR-016 per D1 + security
       N1/N3/H-a/H-b/H-c; forbids SSH `SetEnv`/`SendEnv`; host+exedev only;
       `secrecy::SecretString` + dedicated Linux collection)
-- [ ] Ratify ADR-027: Remote = SSH Target (narrows ADR-004 + ADR-017; drops
+- [x] Ratify ADR-027: Remote = SSH Target (narrows ADR-004 + ADR-017; drops
       `setup()` from `RemoteProvider` trait; adds `ssh_target()` +
       `Liveness` enum; `accept-new` on probe)
-- [ ] Ratify ADR-028: Agent-Level OS Sandbox (adds `--agent-sandbox=<none|os>`
+- [x] Ratify ADR-028: Agent-Level OS Sandbox (adds `--agent-sandbox=<none|os>`
       per D6; orthogonal to VM-sandbox layer)
-- [ ] **Addendum ADR-029 (A-b)**: ADR-018 supersession — drop `CommandRunner`
+- [x] **Addendum ADR-029 (A-b)**: ADR-018 supersession — drop `CommandRunner`
       trait per critic [C 2.1]; adopt feature-gates + `assert_cmd` only
-- [ ] **DROPPED**: ADR-026 (provider-specific liveness) — folds into ADR-027
-- [ ] Write `docs/reference/external-tools.md` (verified CLI surface reference — G10)
-- [ ] Amend ADR-017 probe to `StrictHostKeyChecking=accept-new` (security C2/N2)
-- [ ] Amend ADR-016 account naming to `<provider>` (drop `af/` prefix per [C 2.2])
-- [ ] Update `docs/adr/README.md` with ADRs 022–029
+- [x] **DROPPED**: ADR-026 (provider-specific liveness) — folds into ADR-027
+- [x] Write `docs/reference/external-tools.md` (verified CLI surface reference — G10)
+- [x] Amend ADR-017 probe to `StrictHostKeyChecking=accept-new` (security C2/N2)
+- [x] Amend ADR-016 account naming to `<provider>` (drop `af/` prefix per [C 2.2])
+- [x] Update `docs/adr/README.md` with ADRs 022–029
 - [ ] Update `docs/CONVENTIONS.md` worktree table with L-* lanes
 - [ ] Delete `docs/planning/adr-drafts.md` and `docs/planning/gap-analysis.md`
       once all ADRs land
@@ -203,49 +203,62 @@ defer to 0.2.0 with a one-sentence ADR; user calls.
 Architect [A] consolidation. Each lane is single-sentence-scope and
 file-disjoint; lead integrates.
 
-- [ ] **Lane L-REMOTE**: `RemoteProvider` trait narrowing per ADR-027 + DD
+- [x] **Lane L-REMOTE**: `RemoteProvider` trait narrowing per ADR-027 + DD
       Workspaces provider (`workspaces create/list/ssh-config/delete/restart`)
       + `ssh_target()` + `is_alive()` + orphan column in `af list`. Folds
-      former A1, A2, B3, B4. (G9, G11, H-e)
-- [ ] **Lane L-SBX-DAEMON**: Slicer `--sandbox --remote` via `--url`/`--token`
+      former A1, A2, B3, B4. (G9, G11, H-e) *(7176ca0, c5ee927, 83c84bf, 47b4bde)*
+- [x] **Lane L-SBX-DAEMON**: Slicer `--sandbox --remote` via `--url`/`--token`
       per ADR-024. One `SandboxConfig.remote_daemon` field + test. Folds
-      former B1. (G1)
-- [ ] **Lane L-AUTH**: `af auth setup/reroll/status/clear` + keyring per
+      former B1. (G1) *(b5354ff, a3ef01e)*
+- [x] **Lane L-AUTH**: `af auth setup/reroll/status/clear` + keyring per
       ADR-016 as narrowed by ADR-025. Host + exedev only. `secrecy::SecretString`
       + `/run/user/$UID/af-<session>/.env` (not SSH `SetEnv`). Folds former
       B2; **DROPS** former B2.5 (no af-level cross-provider sync per D1).
-- [ ] **Lane L-EDITOR**: `af editor` for remote sessions — URL schemes
+      *(81ab504, 4386532; Cargo.toml optional deps still pending in Phase IV)*
+- [x] **Lane L-EDITOR**: `af editor` for remote sessions — URL schemes
       (ADR-019) + `workspaces connect` branch for DD sessions. Folds former
-      B5. (G8)
-- [ ] **Lane L-MUX-CMUX**: cmux as second `Multiplexer` impl per ADR-022.
+      B5. (G8) *(e86e8cd, 12cbd1c)*
+- [x] **Lane L-MUX-CMUX**: cmux as second `Multiplexer` impl per ADR-022.
       Promoted mandatory per directive D3 (see gap-analysis §8.5 conflict).
-      Trait unchanged. (G7)
-- [ ] **Lane L-AGENT-SANDBOX**: Per-agent `--agent-sandbox=os` mapping per
+      Trait unchanged. (G7) *(a4317b2, 9827d2d, 3d19372, 2d4e865, ce0b79e)*
+- [x] **Lane L-AGENT-SANDBOX**: Per-agent `--agent-sandbox=os` mapping per
       ADR-028. `src/agent/codex.rs` → `-s workspace-write`; `src/agent/claude.rs`
       → documented no-op; others → degrade to `none` with info log. (G15, D6)
-- [ ] **Lane L-BOOK**: mdBook user guide + `scripts/book-gen.sh` +
+      *(c3bbb73, 7997858, 6dee478, 7bb1641, 9778721, 8121f57, 7104364, f340dc5, bb1dbc6)*
+- [x] **Lane L-BOOK**: mdBook user guide + `scripts/book-gen.sh` +
       `commands/index.json` + CI per ADR-020. Adds
       `book/src/concepts/approval-modes.md` page (A-c) lifting ADR-012's
-      per-agent table. (G14, D5)
-- [ ] **NEUTRALIZED**: Lane S1 — ADR-023 ratifies shipped slicer split in ~2
+      per-agent table. (G14, D5) *(9915b13, 5d76d38, 4fa228f, 7ada398)*
+- [x] **NEUTRALIZED**: Lane S1 — ADR-023 ratifies shipped slicer split in ~2
       paragraphs; no code change.
 
 ### Phase IV — Integration (lead-only)
 
-- [ ] Wire all new modules into `src/lib.rs`, `src/cli.rs`, `src/cmd/mod.rs`,
-      `src/provider/mod.rs`, `src/mux/mod.rs`
-- [ ] Update `Cargo.toml` with optional deps for keyring (`secrecy`, `zeroize`),
-      workspaces, cmux (if gated), slicer-remote
+- [x] Wire all new modules into `src/lib.rs`, `src/cli.rs`, `src/cmd/mod.rs`,
+      `src/provider/mod.rs`, `src/mux/mod.rs` *(landed alongside each lane;
+      `auth`, `provider::target`, `mux::cmux`, `SandboxConfig.remote_daemon`,
+      `AgentSandbox` all published)*
+- [ ] Update `Cargo.toml` with optional deps for keyring (`keyring`, `secrecy`,
+      `zeroize`), workspaces, cmux (if gated), slicer-remote *(feature arrays
+      currently empty — no optional deps wired yet)*
 - [ ] **Addendum A-d**: Overnight-yolo guard in `src/cli.rs` + `src/cmd/create.rs`
       — warn when `--yolo` runs without VM sandbox AND without `--agent-sandbox=os`
       (G16, D7)
 - [ ] Update `README.md` with new commands (`af auth`, `--agent-sandbox`,
       cmux selection via config)
 - [ ] Final `CHANGELOG.md` date stamp + version link
-- [ ] Update `docs/adr/README.md` with ADRs 022–029 (total catalog 001–029
-      minus dropped 026)
-- [ ] Final `cargo test --all-features` green
-- [ ] PROGRESS.md session entry
+- [x] Update `docs/adr/README.md` with ADRs 022–029 (total catalog 001–029
+      minus dropped 026) *(plus ADR-030 skill-bundle)*
+- [x] Final `cargo test --all-features` green *(626 passed, 1 ignored, 9 suites
+      as of ce0b79e)*
+- [x] PROGRESS.md session entry *(Session 10, Session 10)*
+
+### Phase IV.5 — ADR-030 follow-through
+
+- [x] **ADR-030**: `af` Skill Bundle — URL-Driven Claude Code Skill Installer *(18ce1b7)*
+- [ ] **Lane L-SKILL**: `af skill install` subcommand +
+      `book/src/skills/af.md` bundle page + in-tree
+      `hooks/af-session-bind.py`. Per ADR-030. Greenfield work; no blockers.
 
 ### Phase V — Release Gate (user-triggered)
 
