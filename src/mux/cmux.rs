@@ -54,13 +54,10 @@
 //! environment variables, using an `@` prefix on the key to mirror tmux's
 //! `@option` naming convention.
 //!
-//! ## Phase IV wiring
+//! ## Module wiring
 //!
-//! The lead must add to `src/mux/mod.rs`:
-//! ```rust
-//! pub mod cmux;
-//! ```
-//! and wire the factory auto-select logic (ADR-022 §Decision).
+//! Declared via `pub mod cmux;` in `src/mux/mod.rs`. Factory auto-select
+//! logic (ADR-022 §Decision) lands in a follow-up commit.
 
 use std::collections::HashMap;
 use std::fs;
