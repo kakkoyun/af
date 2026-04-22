@@ -16,13 +16,11 @@
 //! the remote host. For the `workspaces` provider, `workspaces connect
 //! <name>` is used instead of a URI scheme.
 //!
-//! The session-state fields that would carry the SSH host and remote working
-//! directory are owned by Lane L-REMOTE and are not yet present in
-//! [`ExecutionInfo`]. Until they land, a `Remote` session falls back to
-//! local behaviour with an info log explaining why. The pure URL-builder
-//! functions below ([`build_remote_open_args`],
-//! [`build_workspaces_connect_args`]) are the seam Lane L-REMOTE will wire
-//! into [`run`] once the metadata lands.
+//! Remote dispatch is driven by [`dispatch_remote_visual`], which reads the
+//! `ssh_host` / `remote_path` / `remote_provider` fields populated by
+//! `af create` into [`ExecutionInfo`]. The pure URL-builder functions
+//! [`build_remote_open_args`] and [`build_workspaces_connect_args`] remain
+//! exported so external integrators (editor plugins, tests) can reuse them.
 //!
 //! [`ExecutionMode`]: crate::session::types::ExecutionMode
 //! [`ExecutionInfo`]: crate::session::types::ExecutionInfo
@@ -59,17 +57,46 @@ pub fn run(args: &EditorArgs) -> Result<()> {
 
     // Remote-session branch (ADR-019).
     //
-    // When `ExecutionInfo` gains the `ssh_host` / `remote_path` /
-    // `remote_provider` fields from Lane L-REMOTE, this is the hook point
-    // for `dispatch_remote_visual(...)`. Until then, fall through to the
-    // local path with an info log so users on remote sessions understand
-    // why they are getting the local worktree.
+    // A Remote session whose ExecutionInfo carries an ssh_host launches the
+    // editor against the remote host via its native URI scheme (or
+    // `workspaces connect` for Datadog Workspaces sessions) and returns
+    // without touching the local worktree. If the metadata is incomplete
+    // — e.g. ssh_host is missing because the session was created before
+    // the schema extension — fall through with an info log.
     if matches!(state.execution.mode, ExecutionMode::Remote) && (args.visual || !args.terminal) {
-        info!(
-            session = %session_name,
-            "remote editor requires Lane L-REMOTE session-state integration; \
-             falling back to local worktree path for now (ADR-019)"
-        );
+        if let Some(ssh_host) = state.execution.ssh_host.as_deref() {
+            let remote_path = state.execution.remote_path.as_deref().unwrap_or("");
+            if let Some(open_args) = dispatch_remote_visual(
+                &cfg.editor,
+                &session_name,
+                state.execution.remote_provider.as_deref(),
+                ssh_host,
+                remote_path,
+            ) {
+                debug!(
+                    binary = %open_args.binary,
+                    host = %ssh_host,
+                    "launching remote editor"
+                );
+                std::process::Command::new(&open_args.binary)
+                    .args(&open_args.argv)
+                    .spawn()
+                    .with_context(|| format!("failed to launch {}", open_args.binary))?;
+                return Ok(());
+            }
+            info!(
+                session = %session_name,
+                host = %ssh_host,
+                "remote session has ssh_host but no visual editor resolvable \
+                 from config/env/PATH; falling back to local worktree path"
+            );
+        } else {
+            info!(
+                session = %session_name,
+                "remote session is missing ssh_host metadata (pre-Phase-IV state.toml); \
+                 falling back to local worktree path (ADR-019)"
+            );
+        }
     }
 
     let wt_path = match state.worktree.as_ref() {
@@ -203,6 +230,49 @@ pub fn build_workspaces_connect_args(session_name: &str) -> OpenArgs {
         binary: String::from("workspaces"),
         argv: vec![String::from("connect"), session_name.to_owned()],
     }
+}
+
+/// Pure dispatcher that picks the right remote-visual [`OpenArgs`].
+///
+/// Returns `None` when no visual editor can be resolved (e.g. empty
+/// config, no env vars set, nothing on `$PATH`), or when the resolved
+/// editor name is not one of the recognised [`EditorKind`] values. The
+/// caller treats `None` as "fall through to local worktree behaviour".
+///
+/// Dispatch order:
+///
+/// 1. If `remote_provider` is `"workspaces"`, return
+///    [`build_workspaces_connect_args`] regardless of editor
+///    configuration — the Workspaces CLI owns the connection and is
+///    incompatible with the generic SSH-remote URI schemes.
+/// 2. Otherwise, resolve the visual editor with the same precedence as
+///    the local path (config → env vars → PATH), parse it into an
+///    [`EditorKind`], and build the appropriate URI via
+///    [`build_remote_open_args`].
+///
+/// The function performs no I/O beyond reading environment variables
+/// (via [`std::env::var`]) and consulting `$PATH` via `which`, so it is
+/// safe to call from tests that control those inputs.
+#[must_use]
+pub fn dispatch_remote_visual(
+    editor_cfg: &EditorConfig,
+    session_name: &str,
+    remote_provider: Option<&str>,
+    ssh_host: &str,
+    remote_path: &str,
+) -> Option<OpenArgs> {
+    // Workspaces ignores editor kind — it has its own CLI. The host
+    // string is unused because the session name doubles as the
+    // Workspaces identifier (ADR-027 §5).
+    if remote_provider == Some("workspaces") {
+        let _ = ssh_host;
+        let _ = remote_path;
+        return Some(build_workspaces_connect_args(session_name));
+    }
+
+    let editor_name = detect_visual_editor(editor_cfg)?;
+    let kind: EditorKind = editor_name.parse().ok()?;
+    Some(build_remote_open_args(&kind, ssh_host, remote_path))
 }
 
 /// Open a terminal editor in a tmux horizontal split pane.
@@ -434,5 +504,115 @@ mod tests {
             args.argv,
             vec![String::from("connect"), String::from("my-session")]
         );
+    }
+
+    // ── dispatch_remote_visual (ADR-019 runtime glue) ───────────────────
+
+    #[test]
+    fn test_dispatch_remote_visual_workspaces_provider_overrides_editor_config() {
+        // Even if the user has VS Code configured, a workspaces session
+        // must call `workspaces connect` because VS Code's ssh-remote
+        // scheme does not reach Workspaces VMs.
+        let cfg = EditorConfig {
+            terminal: String::new(),
+            visual: String::from("code"),
+        };
+        let args = dispatch_remote_visual(
+            &cfg,
+            "my-session",
+            Some("workspaces"),
+            "irrelevant-host",
+            "/irrelevant/path",
+        )
+        .expect("workspaces provider must always dispatch");
+        assert_eq!(args.binary, "workspaces");
+        assert_eq!(
+            args.argv,
+            vec![String::from("connect"), String::from("my-session")]
+        );
+    }
+
+    #[test]
+    fn test_dispatch_remote_visual_vscode_config_builds_vscode_uri() {
+        let cfg = EditorConfig {
+            terminal: String::new(),
+            visual: String::from("code"),
+        };
+        let args =
+            dispatch_remote_visual(&cfg, "sess", Some("exedev"), "dev-vm", "/home/user/repo")
+                .expect("exedev + code should resolve");
+        assert_eq!(args.binary, "code");
+        assert_eq!(
+            args.argv[1],
+            "vscode-remote://ssh-remote+dev-vm/home/user/repo"
+        );
+    }
+
+    #[test]
+    fn test_dispatch_remote_visual_cursor_config_builds_cursor_uri() {
+        let cfg = EditorConfig {
+            terminal: String::new(),
+            visual: String::from("cursor"),
+        };
+        let args = dispatch_remote_visual(&cfg, "sess", Some("exedev"), "dev-vm", "/code")
+            .expect("exedev + cursor should resolve");
+        assert_eq!(args.binary, "cursor");
+        assert_eq!(
+            args.argv[1],
+            "cursor://vscode-remote/ssh-remote+dev-vm/code"
+        );
+    }
+
+    #[test]
+    fn test_dispatch_remote_visual_zed_config_builds_zed_arg() {
+        let cfg = EditorConfig {
+            terminal: String::new(),
+            visual: String::from("zed"),
+        };
+        let args = dispatch_remote_visual(&cfg, "sess", Some("exedev"), "dev-vm", "/code")
+            .expect("exedev + zed should resolve");
+        assert_eq!(args.binary, "zed");
+        assert_eq!(args.argv, vec![String::from("ssh://dev-vm/code")]);
+    }
+
+    #[test]
+    fn test_dispatch_remote_visual_unknown_editor_returns_none() {
+        // An editor the URL builder does not understand falls through to
+        // the local worktree path — the caller uses this as the signal
+        // to log an info message and not touch the remote.
+        let cfg = EditorConfig {
+            terminal: String::new(),
+            visual: String::from("emacs"),
+        };
+        let args = dispatch_remote_visual(&cfg, "sess", Some("exedev"), "dev-vm", "/code");
+        assert!(args.is_none(), "unknown editor must return None");
+    }
+
+    #[test]
+    fn test_dispatch_remote_visual_exedev_with_empty_remote_path_is_ok() {
+        // remote_path = "" is the honest value when provisioning has not
+        // yet populated the field. VS Code opens the user's home dir in
+        // that case — a better UX than refusing to launch.
+        let cfg = EditorConfig {
+            terminal: String::new(),
+            visual: String::from("code"),
+        };
+        let args = dispatch_remote_visual(&cfg, "sess", Some("exedev"), "dev-vm", "")
+            .expect("empty remote_path is allowed");
+        assert_eq!(args.argv[1], "vscode-remote://ssh-remote+dev-vm/");
+    }
+
+    #[test]
+    fn test_dispatch_remote_visual_unknown_provider_falls_through_to_uri() {
+        // A non-workspaces provider (exedev, or a future one) uses the
+        // URI-scheme path. None means "provider not recorded" — we still
+        // attempt the URI path because ssh_host is available.
+        let cfg = EditorConfig {
+            terminal: String::new(),
+            visual: String::from("code"),
+        };
+        let args = dispatch_remote_visual(&cfg, "sess", None, "dev-vm", "/code")
+            .expect("absent provider should still route through URI builder");
+        assert_eq!(args.binary, "code");
     }
 }
