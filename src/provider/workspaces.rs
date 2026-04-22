@@ -27,7 +27,7 @@ use std::process::Command;
 
 use tracing::debug;
 
-use crate::provider::exedev::target::{self, DEFAULT_PROBE_TIMEOUT, Liveness, SshTarget};
+use crate::provider::target::{self, DEFAULT_PROBE_TIMEOUT, Liveness, SshTarget};
 use crate::provider::{RemoteInstance, RemoteProvider};
 
 /// DD Workspaces remote development provider.

@@ -12,7 +12,7 @@ use anyhow::{Context, Result};
 use std::collections::BTreeMap;
 
 use crate::provider::exedev::ExedevProvider;
-use crate::provider::exedev::target::Liveness;
+use crate::provider::target::Liveness;
 use crate::session::store::SessionStore;
 use crate::session::types::{ExecutionMode, SessionState};
 

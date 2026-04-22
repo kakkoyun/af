@@ -9,8 +9,8 @@
 
 use std::time::Duration;
 
-use af::provider::exedev::target::is_alive as probe;
-use af::provider::exedev::{DEFAULT_PROBE_TIMEOUT, ExedevProvider, Liveness, SshTarget};
+use af::provider::exedev::ExedevProvider;
+use af::provider::target::{DEFAULT_PROBE_TIMEOUT, Liveness, SshTarget, is_alive as probe};
 
 #[cfg(feature = "workspaces")]
 use af::provider::workspaces::{

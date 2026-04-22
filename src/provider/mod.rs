@@ -14,6 +14,7 @@
 pub mod docker;
 pub mod exedev;
 pub mod slicer;
+pub mod target;
 pub mod workspaces;
 
 use std::path::{Path, PathBuf};
