@@ -160,16 +160,22 @@ git branch -d lane-a1-workspaces
 
 ### Naming convention
 
-| Lane | Branch | Worktree path |
-|---|---|---|
-| A1 | `lane-a1-workspaces` | `../af-lane-a1` |
-| A2 | `lane-a2-orphan` | `../af-lane-a2` |
-| B1 | `lane-b1-slicer-remote` | `../af-lane-b1` |
-| B2 | `lane-b2-auth` | `../af-lane-b2` |
-| B3 | `lane-b3-resume` | `../af-lane-b3` |
-| B4 | `lane-b4-exedev-liveness` | `../af-lane-b4` |
-| B5 | `lane-b5-editor-remote` | `../af-lane-b5` |
-| C1 | `lane-c1-book` | `../af-lane-c1` |
+Phase II.5 consolidated the original 12-lane plan into 7 `L-*` lanes
+(plus `L-FIX` as the pre-Phase-II.5 docker hotfix and `L-SKILL` for
+ADR-030). The original A/B/C lane IDs are preserved in the "folds"
+column for traceability.
+
+| Lane | Branch | Worktree path | Folds |
+|---|---|---|---|
+| L-FIX | `lane-l-fix-docker` | `../af-lane-l-fix-docker` | — (pre-Phase-II.5 docker bug trio) |
+| L-REMOTE | `lane-l-remote` | `../af-lane-l-remote` | former A1, A2, B3, B4 |
+| L-SBX-DAEMON | `lane-l-sbx-daemon` | `../af-lane-l-sbx-daemon` | former B1 |
+| L-AUTH | `lane-l-auth` | `../af-lane-l-auth` | former B2 (B2.5 dropped per D1) |
+| L-EDITOR | `lane-l-editor` | `../af-lane-l-editor` | former B5 |
+| L-MUX-CMUX | `lane-l-mux-cmux` | `../af-lane-l-mux-cmux` | new per directive D3 (ADR-022) |
+| L-AGENT-SANDBOX | `lane-l-agent-sandbox` | `../af-lane-l-agent-sandbox` | new per ADR-028 |
+| L-BOOK | `lane-l-book` | `../af-lane-l-book` | former C1 |
+| L-SKILL | `lane-l-skill` | `../af-lane-l-skill` | new per ADR-030 (Phase IV.5) |
 
 ### Why worktrees (not just branches)
 
