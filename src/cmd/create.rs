@@ -109,10 +109,23 @@ pub fn run(args: &CreateArgs) -> Result<()> {
         approval_mode,
     };
 
-    let (exec_mode, launch_cmd_str) = match (args.sandbox, &args.remote) {
+    // Resolve the SSH host once so both the launch command and the session
+    // state agree on which machine the work lives on. `--remote` with no
+    // argument resolves to the literal alias "auto" — the exe.dev
+    // convention for "pick any available VM".
+    let ssh_host = args
+        .remote
+        .as_ref()
+        .map(|opt| opt.as_deref().unwrap_or("auto").to_owned());
+    // Every remote session `af create` can currently produce is an
+    // exe.dev VM (ADR-027 §5 folds workspaces support into a later
+    // Phase IV step). Recording the provider lets `af list` / `af done`
+    // pick the right probe and teardown without a second detection pass.
+    let remote_provider = ssh_host.as_ref().map(|_| String::from("exedev"));
+
+    let (exec_mode, launch_cmd_str) = match (args.sandbox, ssh_host.as_deref()) {
         // Remote + sandbox: SSH to host, run sandbox provider there.
-        (true, Some(remote_opt)) => {
-            let host = remote_opt.as_deref().unwrap_or("auto");
+        (true, Some(host)) => {
             let sandbox_cmd =
                 crate::provider::slicer::agent_sandbox_cmd(agent_name, &worktree_path)
                     .ok_or_else(|| anyhow::anyhow!("failed to build sandbox command"))?;
@@ -132,8 +145,7 @@ pub fn run(args: &CreateArgs) -> Result<()> {
             (ExecutionMode::Sandbox, sandbox_cmd.join(" "))
         }
         // Remote only: launch agent directly on the remote via SSH.
-        (false, Some(remote_opt)) => {
-            let host = remote_opt.as_deref().unwrap_or("auto");
+        (false, Some(host)) => {
             let cmd_parts = agent_provider.launch_cmd(&launch_opts);
             let ssh_cmd = format!("ssh {host} {}", cmd_parts.join(" "));
             (ExecutionMode::Remote, ssh_cmd)
@@ -155,6 +167,13 @@ pub fn run(args: &CreateArgs) -> Result<()> {
         .context("failed to launch agent")?;
 
     // Store session metadata.
+    //
+    // `remote_path` is intentionally left `None` for now: the current
+    // Remote branch of `af create` SSHes in and launches the agent
+    // directly, without a `git clone` step, so we do not yet know which
+    // absolute path on the VM holds the working tree. Populating this
+    // field is deferred to the provisioning pass that will call
+    // `ExedevProvider::bootstrap` from `af create` (ADR-019 §2).
     let state = build_state(
         &session_name,
         &sid.to_string(),
@@ -164,6 +183,9 @@ pub fn run(args: &CreateArgs) -> Result<()> {
         Some(&git_root),
         exec_mode,
         agent_name,
+        ssh_host.as_deref(),
+        None,
+        remote_provider.as_deref(),
     );
     store.save(&state).context("failed to save session state")?;
 
@@ -285,6 +307,9 @@ fn run_workspace_mode(
         None,
         ExecutionMode::Workspace,
         agent_name,
+        None,
+        None,
+        None,
     );
     store.save(&state)?;
 
@@ -442,6 +467,12 @@ fn shellexpand_tilde(path: &str) -> String {
 }
 
 /// Build a `SessionState` from components.
+///
+/// The `ssh_host`, `remote_path`, and `remote_provider` arguments map
+/// directly onto the identically-named fields of
+/// [`ExecutionInfo`](crate::session::types::ExecutionInfo). Pass `None`
+/// for every local session so the on-disk `state.toml` stays free of
+/// empty remote fields.
 #[allow(clippy::too_many_arguments)]
 fn build_state(
     session_name: &str,
@@ -452,6 +483,9 @@ fn build_state(
     git_root: Option<&std::path::Path>,
     mode: ExecutionMode,
     agent_name: &str,
+    ssh_host: Option<&str>,
+    remote_path: Option<&str>,
+    remote_provider: Option<&str>,
 ) -> SessionState {
     let worktree = match (worktree_path, branch, base_branch, git_root) {
         (Some(wt), Some(b), Some(bb), Some(gr)) => Some(WorktreeInfo {
@@ -475,9 +509,9 @@ fn build_state(
             mode,
             multiplexer: "tmux".to_owned(),
             multiplexer_session: session_name.to_owned(),
-            ssh_host: None,
-            remote_path: None,
-            remote_provider: None,
+            ssh_host: ssh_host.map(str::to_owned),
+            remote_path: remote_path.map(str::to_owned),
+            remote_provider: remote_provider.map(str::to_owned),
         },
         agents: vec![AgentSlot {
             slot: "primary".to_owned(),
@@ -491,5 +525,81 @@ fn build_state(
             af: crate::VERSION.to_owned(),
             agent_config_hash: String::new(),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_state_local_leaves_remote_fields_none() {
+        // Local sessions must never populate ssh_host / remote_path /
+        // remote_provider — the serialized state.toml has to stay
+        // indistinguishable from pre-Phase-IV files.
+        let state = build_state(
+            "sess-local",
+            "00000000-0000-0000-0000-000000000000",
+            Some(std::path::Path::new("/tmp/wt")),
+            Some("feature/x"),
+            Some("main"),
+            Some(std::path::Path::new("/tmp/repo")),
+            ExecutionMode::Local,
+            "claude",
+            None,
+            None,
+            None,
+        );
+        assert_eq!(state.execution.ssh_host, None);
+        assert_eq!(state.execution.remote_path, None);
+        assert_eq!(state.execution.remote_provider, None);
+    }
+
+    #[test]
+    fn test_build_state_remote_populates_host_and_provider() {
+        // Remote sessions carry the SSH host and provider so the editor,
+        // pr, and done commands can target the VM without re-deriving
+        // them. `remote_path` stays None until the provisioning pass
+        // lands — see the note at the Remote branch in `run()`.
+        let state = build_state(
+            "sess-remote",
+            "00000000-0000-0000-0000-000000000000",
+            Some(std::path::Path::new("/tmp/wt")),
+            Some("feature/x"),
+            Some("main"),
+            Some(std::path::Path::new("/tmp/repo")),
+            ExecutionMode::Remote,
+            "claude",
+            Some("dev-vm-42"),
+            None,
+            Some("exedev"),
+        );
+        assert_eq!(state.execution.ssh_host.as_deref(), Some("dev-vm-42"));
+        assert_eq!(state.execution.remote_path, None);
+        assert_eq!(state.execution.remote_provider.as_deref(), Some("exedev"));
+    }
+
+    #[test]
+    fn test_build_state_sandbox_on_remote_records_host() {
+        // --sandbox --remote composes: the mode is Sandbox but the work
+        // still lives on a remote VM, so ssh_host must be recorded for
+        // teardown. (The mode drives liveness probing; ssh_host drives
+        // editor/pr/done dispatch.)
+        let state = build_state(
+            "sess-sbx-remote",
+            "00000000-0000-0000-0000-000000000000",
+            Some(std::path::Path::new("/tmp/wt")),
+            Some("feature/x"),
+            Some("main"),
+            Some(std::path::Path::new("/tmp/repo")),
+            ExecutionMode::Sandbox,
+            "codex",
+            Some("auto"),
+            None,
+            Some("exedev"),
+        );
+        assert_eq!(state.execution.mode, ExecutionMode::Sandbox);
+        assert_eq!(state.execution.ssh_host.as_deref(), Some("auto"));
+        assert_eq!(state.execution.remote_provider.as_deref(), Some("exedev"));
     }
 }
