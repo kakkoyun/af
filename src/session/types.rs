@@ -140,6 +140,26 @@ pub struct ExecutionInfo {
     pub multiplexer: String,
     /// Multiplexer session name.
     pub multiplexer_session: String,
+    /// SSH host/alias for remote sessions (ADR-019, ADR-027).
+    ///
+    /// Populated for `ExecutionMode::Remote` sessions — the value is the
+    /// host or alias passed to `ssh` (e.g. an exe.dev hostname or a
+    /// workspaces alias resolved through `~/.ssh/config`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_host: Option<String>,
+    /// Absolute path to the repo clone on the remote host.
+    ///
+    /// Populated for `ExecutionMode::Remote` sessions so `af editor`,
+    /// `af pr`, and `af done` can target the right working tree without
+    /// a round-trip SSH `pwd`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_path: Option<String>,
+    /// Which remote provider created the session (e.g., "exedev", "workspaces").
+    ///
+    /// Informational — used by `af list`/`af done` to pick the correct
+    /// liveness probe and teardown command. See ADR-019 / ADR-027.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_provider: Option<String>,
 }
 
 #[cfg(test)]
@@ -165,6 +185,9 @@ mod tests {
                 mode: ExecutionMode::Local,
                 multiplexer: String::from("tmux"),
                 multiplexer_session: String::from("kakkoyun--issue-42"),
+                ssh_host: None,
+                remote_path: None,
+                remote_provider: None,
             },
             agents: vec![AgentSlot {
                 slot: String::from("primary"),
@@ -241,5 +264,76 @@ mod tests {
         assert_eq!(pr.number, 0);
         assert!(pr.url.is_empty());
         assert!(pr.state.is_empty());
+    }
+
+    // ── ExecutionInfo remote-session fields (Phase IV, ADR-019/ADR-027) ────────
+
+    #[test]
+    fn test_execution_info_legacy_toml_parses_with_none_remote_fields() {
+        // An existing state.toml written before the remote fields existed
+        // must round-trip cleanly: missing optional fields deserialize to
+        // None and are elided on re-serialize.
+        let legacy = r#"
+[session]
+name = "old-session"
+id = "550e8400-e29b-41d4-a716-446655440000"
+created_at = "2026-03-01T12:00:00Z"
+status = "active"
+
+[execution]
+mode = "local"
+multiplexer = "tmux"
+multiplexer_session = "old-session"
+
+[[agents]]
+slot = "primary"
+provider = "claude"
+session_ids = ["550e8400-e29b-41d4-a716-446655440000"]
+pane = "0"
+status = "running"
+
+[versions]
+af = "0.1.0"
+"#;
+        let state: SessionState = toml::from_str(legacy).expect("legacy toml must parse");
+        assert_eq!(state.execution.ssh_host, None);
+        assert_eq!(state.execution.remote_path, None);
+        assert_eq!(state.execution.remote_provider, None);
+
+        let reserialized = toml::to_string(&state).unwrap();
+        assert!(!reserialized.contains("ssh_host"));
+        assert!(!reserialized.contains("remote_path"));
+        assert!(!reserialized.contains("remote_provider"));
+    }
+
+    #[test]
+    fn test_execution_info_remote_fields_roundtrip() {
+        let mut state = sample_session_state();
+        state.execution.mode = ExecutionMode::Remote;
+        state.execution.ssh_host = Some(String::from("dev-host-42"));
+        state.execution.remote_path = Some(String::from("/home/user/repo"));
+        state.execution.remote_provider = Some(String::from("exedev"));
+
+        let toml_str = toml::to_string_pretty(&state).unwrap();
+        assert!(toml_str.contains("ssh_host"));
+        assert!(toml_str.contains("remote_path"));
+        assert!(toml_str.contains("remote_provider"));
+
+        let parsed: SessionState = toml::from_str(&toml_str).unwrap();
+        assert_eq!(state, parsed);
+    }
+
+    #[test]
+    fn test_execution_info_none_fields_are_skipped_on_serialize() {
+        // Local sessions must not write empty remote fields — the serialized
+        // TOML should be indistinguishable from a pre-Phase-IV file.
+        let state = sample_session_state();
+        assert_eq!(state.execution.ssh_host, None);
+
+        let toml_str = toml::to_string(&state).unwrap();
+        assert!(
+            !toml_str.contains("ssh_host"),
+            "None ssh_host must be skipped on serialize, got: {toml_str}"
+        );
     }
 }

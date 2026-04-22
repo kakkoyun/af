@@ -173,6 +173,9 @@ mod tests {
                 mode,
                 multiplexer: String::from("tmux"),
                 multiplexer_session: name.to_owned(),
+                ssh_host: None,
+                remote_path: None,
+                remote_provider: None,
             },
             agents: vec![AgentSlot {
                 slot: String::from("primary"),

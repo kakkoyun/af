@@ -38,6 +38,9 @@ fn sample_state(name: &str, provider: &str) -> SessionState {
             mode: ExecutionMode::Local,
             multiplexer: String::from("tmux"),
             multiplexer_session: name.to_owned(),
+            ssh_host: None,
+            remote_path: None,
+            remote_provider: None,
         },
         agents: vec![AgentSlot {
             slot: String::from("primary"),

@@ -89,6 +89,9 @@ pub fn env_to_session_state(name: &str, env: &HashMap<String, String>) -> Sessio
             mode,
             multiplexer: "tmux".to_owned(),
             multiplexer_session: name.to_owned(),
+            ssh_host: None,
+            remote_path: None,
+            remote_provider: None,
         },
         agents: vec![AgentSlot {
             slot: "primary".to_owned(),

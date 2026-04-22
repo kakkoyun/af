@@ -475,6 +475,9 @@ fn build_state(
             mode,
             multiplexer: "tmux".to_owned(),
             multiplexer_session: session_name.to_owned(),
+            ssh_host: None,
+            remote_path: None,
+            remote_provider: None,
         },
         agents: vec![AgentSlot {
             slot: "primary".to_owned(),
