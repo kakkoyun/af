@@ -57,8 +57,10 @@ impl AgentProvider for PiProvider {
         // pi doesn't have a --session-id flag like Claude.
         // We launch it plain; session tracking is by pi's own file-based sessions.
         // The session_id is stored in af's metadata for correlation only.
-        let _ = opts;
-        vec!["pi".to_owned()]
+        let mut cmd = vec!["pi".to_owned()];
+        apply_sandbox(&mut cmd, opts.sandbox);
+        let _ = &opts.session_id;
+        cmd
     }
 
     fn resume_cmd(&self, _opts: &ResumeOpts) -> Vec<String> {
@@ -111,6 +113,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "ignored".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         let cmd = p.launch_cmd(&opts);
         assert_eq!(cmd, vec!["pi"]);
@@ -122,6 +125,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "ignored".to_owned(),
             approval_mode: ApprovalMode::Auto,
+            sandbox: AgentSandbox::None,
         };
         // pi has no approval modes; always launches plain.
         let cmd = p.launch_cmd(&opts);
@@ -134,8 +138,22 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "ignored".to_owned(),
             approval_mode: ApprovalMode::Yolo,
+            sandbox: AgentSandbox::None,
         };
         // pi has no approval modes; always launches plain.
+        let cmd = p.launch_cmd(&opts);
+        assert_eq!(cmd, vec!["pi"]);
+    }
+
+    #[test]
+    fn test_pi_launch_cmd_with_sandbox_os_argv_unchanged() {
+        // ADR-028: pi has no OS sandbox flag; Os degrades to none.
+        let p = PiProvider;
+        let opts = LaunchOpts {
+            session_id: "ignored".to_owned(),
+            approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::Os,
+        };
         let cmd = p.launch_cmd(&opts);
         assert_eq!(cmd, vec!["pi"]);
     }
@@ -175,6 +193,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         assert!(p.pr_cmd(42, &opts).is_none());
     }

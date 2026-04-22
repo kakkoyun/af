@@ -63,6 +63,7 @@ impl AgentProvider for CopilotProvider {
                 cmd.push("--autopilot".to_owned());
             }
         }
+        apply_sandbox(&mut cmd, opts.sandbox);
         // Copilot doesn't support explicit session IDs.
         let _ = &opts.session_id;
         cmd
@@ -124,6 +125,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "test-uuid".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         let cmd = provider.launch_cmd(&opts);
         assert_eq!(cmd, vec!["copilot"]);
@@ -135,6 +137,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "test-uuid".to_owned(),
             approval_mode: ApprovalMode::Auto,
+            sandbox: AgentSandbox::None,
         };
         let cmd = provider.launch_cmd(&opts);
         assert_eq!(cmd, vec!["copilot", "--allow-all-tools"]);
@@ -146,9 +149,23 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "test-uuid".to_owned(),
             approval_mode: ApprovalMode::Yolo,
+            sandbox: AgentSandbox::None,
         };
         let cmd = provider.launch_cmd(&opts);
         assert_eq!(cmd, vec!["copilot", "--allow-all", "--autopilot"]);
+    }
+
+    #[test]
+    fn test_copilot_launch_cmd_with_sandbox_os_argv_unchanged() {
+        // ADR-028: copilot has no OS sandbox flag; Os degrades to none.
+        let provider = CopilotProvider;
+        let opts = LaunchOpts {
+            session_id: "test-uuid".to_owned(),
+            approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::Os,
+        };
+        let cmd = provider.launch_cmd(&opts);
+        assert_eq!(cmd, vec!["copilot"]);
     }
 
     #[test]
@@ -190,6 +207,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "test".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         assert!(provider.pr_cmd(42, &opts).is_none());
     }

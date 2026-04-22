@@ -60,6 +60,7 @@ impl AgentProvider for AmpProvider {
             ApprovalMode::Default | ApprovalMode::Auto => {}
             ApprovalMode::Yolo => cmd.push("--dangerously-allow-all".to_owned()),
         }
+        apply_sandbox(&mut cmd, opts.sandbox);
         // Amp uses its own thread-based session system.
         let _ = &opts.session_id;
         cmd
@@ -108,6 +109,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         assert_eq!(p.launch_cmd(&opts), vec!["amp"]);
     }
@@ -118,6 +120,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Auto,
+            sandbox: AgentSandbox::None,
         };
         // Amp has no auto mode; falls through to default.
         assert_eq!(p.launch_cmd(&opts), vec!["amp"]);
@@ -129,8 +132,21 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Yolo,
+            sandbox: AgentSandbox::None,
         };
         assert_eq!(p.launch_cmd(&opts), vec!["amp", "--dangerously-allow-all"]);
+    }
+
+    #[test]
+    fn test_amp_launch_cmd_with_sandbox_os_argv_unchanged() {
+        // ADR-028: amp has no OS sandbox flag; Os degrades to none.
+        let p = AmpProvider;
+        let opts = LaunchOpts {
+            session_id: "x".to_owned(),
+            approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::Os,
+        };
+        assert_eq!(p.launch_cmd(&opts), vec!["amp"]);
     }
 
     #[test]
@@ -176,6 +192,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         assert!(p.pr_cmd(42, &opts).is_none());
     }

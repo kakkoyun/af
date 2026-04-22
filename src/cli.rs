@@ -112,6 +112,15 @@ pub struct CreateArgs {
     /// Select the AI agent to launch (e.g., "claude", "pi").
     #[arg(long, value_name = "AGENT")]
     pub agent: Option<String>,
+
+    /// Per-agent OS sandbox mode (ADR-028).
+    ///
+    /// `none` (default): launch the agent without its native OS sandbox flag.
+    /// `os`: ask the agent to enable its OS sandbox when supported (codex
+    /// appends `-s workspace-write`; claude is a documented no-op; amp,
+    /// gemini, copilot, pi degrade to `none` with a log line).
+    #[arg(long, value_enum, default_value_t = crate::agent::AgentSandbox::None)]
+    pub agent_sandbox: crate::agent::AgentSandbox,
 }
 
 /// Arguments for `af done`.

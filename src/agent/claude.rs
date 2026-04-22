@@ -66,6 +66,7 @@ impl AgentProvider for ClaudeProvider {
             }
             ApprovalMode::Yolo => cmd.push("--dangerously-skip-permissions".to_owned()),
         }
+        apply_sandbox(&mut cmd, opts.sandbox);
         cmd.push("--session-id".to_owned());
         cmd.push(opts.session_id.clone());
         cmd
@@ -95,6 +96,7 @@ impl AgentProvider for ClaudeProvider {
             }
             ApprovalMode::Yolo => cmd.push("--dangerously-skip-permissions".to_owned()),
         }
+        apply_sandbox(&mut cmd, opts.sandbox);
         cmd.push("--from-pr".to_owned());
         cmd.push(pr_number.to_string());
         Some(cmd)
@@ -144,6 +146,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "abc-123".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         let cmd = provider.launch_cmd(&opts);
         assert_eq!(cmd, vec!["claude", "--session-id", "abc-123"]);
@@ -155,6 +158,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "abc-123".to_owned(),
             approval_mode: ApprovalMode::Auto,
+            sandbox: AgentSandbox::None,
         };
         let cmd = provider.launch_cmd(&opts);
         assert_eq!(
@@ -175,6 +179,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "abc-123".to_owned(),
             approval_mode: ApprovalMode::Yolo,
+            sandbox: AgentSandbox::None,
         };
         let cmd = provider.launch_cmd(&opts);
         assert_eq!(
@@ -186,6 +191,19 @@ mod tests {
                 "abc-123"
             ]
         );
+    }
+
+    #[test]
+    fn test_claude_launch_cmd_with_sandbox_os_is_unchanged() {
+        // ADR-028: AgentSandbox::Os is a documented no-op for claude.
+        let provider = ClaudeProvider;
+        let opts = LaunchOpts {
+            session_id: "abc-123".to_owned(),
+            approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::Os,
+        };
+        let cmd = provider.launch_cmd(&opts);
+        assert_eq!(cmd, vec!["claude", "--session-id", "abc-123"]);
     }
 
     #[test]
@@ -230,6 +248,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "abc-123".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         let cmd = provider.pr_cmd(42, &opts);
         assert_eq!(
@@ -248,6 +267,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "abc-123".to_owned(),
             approval_mode: ApprovalMode::Auto,
+            sandbox: AgentSandbox::None,
         };
         let cmd = provider.pr_cmd(42, &opts);
         assert_eq!(
@@ -268,6 +288,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "abc-123".to_owned(),
             approval_mode: ApprovalMode::Yolo,
+            sandbox: AgentSandbox::None,
         };
         let cmd = provider.pr_cmd(42, &opts);
         assert_eq!(

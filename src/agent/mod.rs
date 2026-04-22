@@ -38,7 +38,7 @@ pub enum ApprovalMode {
 ///
 /// `None`. The CLI layer will make `Os` the effective default when the
 /// selected agent supports it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum)]
 pub enum AgentSandbox {
     /// No agent-level OS sandbox. Agent is launched without any additional
     /// sandbox flag.
@@ -56,12 +56,18 @@ pub enum AgentSandbox {
 }
 
 /// Options for launching a new agent session.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct LaunchOpts {
     /// Deterministic session ID (UUID v5).
     pub session_id: String,
     /// Approval mode for permission prompts.
     pub approval_mode: ApprovalMode,
+    /// Per-agent OS sandbox mode (ADR-028).
+    ///
+    /// When `AgentSandbox::Os`, each provider's `launch_cmd` (and `pr_cmd`)
+    /// calls its own `apply_sandbox` function to append the agent's native
+    /// OS sandbox flag. When `AgentSandbox::None`, the argv is untouched.
+    pub sandbox: AgentSandbox,
 }
 
 /// Options for resuming an agent session.

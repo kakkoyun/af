@@ -71,6 +71,7 @@ fn run_add(args: &AgentAddArgs) -> Result<()> {
     let launch_opts = crate::agent::LaunchOpts {
         session_id: session_id.to_string(),
         approval_mode: crate::agent::ApprovalMode::Default,
+        sandbox: crate::agent::AgentSandbox::None,
     };
     let cmd_parts = agent_provider.launch_cmd(&launch_opts);
     let launch_cmd_str = cmd_parts.join(" ");

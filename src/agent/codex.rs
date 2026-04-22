@@ -65,6 +65,7 @@ impl AgentProvider for CodexProvider {
                 cmd.push("never".to_owned());
             }
         }
+        apply_sandbox(&mut cmd, opts.sandbox);
         // Codex doesn't have --session-id on launch; af tracks the ID externally.
         let _ = &opts.session_id;
         cmd
@@ -117,6 +118,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         assert_eq!(p.launch_cmd(&opts), vec!["codex"]);
     }
@@ -127,6 +129,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Auto,
+            sandbox: AgentSandbox::None,
         };
         assert_eq!(
             p.launch_cmd(&opts),
@@ -140,10 +143,44 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Yolo,
+            sandbox: AgentSandbox::None,
         };
         assert_eq!(
             p.launch_cmd(&opts),
             vec!["codex", "--full-auto", "--ask-for-approval", "never"]
+        );
+    }
+
+    #[test]
+    fn test_codex_launch_cmd_with_sandbox_os_appends_workspace_write() {
+        // TDD wiring test (ADR-028): launch_cmd must call apply_sandbox.
+        let p = CodexProvider;
+        let opts = LaunchOpts {
+            session_id: "x".to_owned(),
+            approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::Os,
+        };
+        assert_eq!(p.launch_cmd(&opts), vec!["codex", "-s", "workspace-write"]);
+    }
+
+    #[test]
+    fn test_codex_launch_cmd_yolo_with_sandbox_os_places_flag_after_approval() {
+        let p = CodexProvider;
+        let opts = LaunchOpts {
+            session_id: "x".to_owned(),
+            approval_mode: ApprovalMode::Yolo,
+            sandbox: AgentSandbox::Os,
+        };
+        assert_eq!(
+            p.launch_cmd(&opts),
+            vec![
+                "codex",
+                "--full-auto",
+                "--ask-for-approval",
+                "never",
+                "-s",
+                "workspace-write",
+            ]
         );
     }
 
@@ -199,6 +236,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         assert!(p.pr_cmd(42, &opts).is_none());
     }

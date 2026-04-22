@@ -64,6 +64,7 @@ impl AgentProvider for GeminiProvider {
             }
             ApprovalMode::Yolo => cmd.push("--yolo".to_owned()),
         }
+        apply_sandbox(&mut cmd, opts.sandbox);
         // Gemini doesn't have a --session-id flag.
         // Session ID is tracked in af's metadata only.
         let _ = &opts.session_id;
@@ -114,6 +115,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         assert_eq!(p.launch_cmd(&opts), vec!["gemini"]);
     }
@@ -124,6 +126,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Auto,
+            sandbox: AgentSandbox::None,
         };
         assert_eq!(
             p.launch_cmd(&opts),
@@ -137,8 +140,21 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Yolo,
+            sandbox: AgentSandbox::None,
         };
         assert_eq!(p.launch_cmd(&opts), vec!["gemini", "--yolo"]);
+    }
+
+    #[test]
+    fn test_gemini_launch_cmd_with_sandbox_os_argv_unchanged() {
+        // ADR-028: gemini has no compatible OS sandbox flag; Os degrades to none.
+        let p = GeminiProvider;
+        let opts = LaunchOpts {
+            session_id: "x".to_owned(),
+            approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::Os,
+        };
+        assert_eq!(p.launch_cmd(&opts), vec!["gemini"]);
     }
 
     #[test]
@@ -183,6 +199,7 @@ mod tests {
         let opts = LaunchOpts {
             session_id: "x".to_owned(),
             approval_mode: ApprovalMode::Default,
+            sandbox: AgentSandbox::None,
         };
         assert!(p.pr_cmd(42, &opts).is_none());
     }

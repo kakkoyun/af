@@ -107,6 +107,7 @@ pub fn run(args: &CreateArgs) -> Result<()> {
     let launch_opts = crate::agent::LaunchOpts {
         session_id: sid.to_string(),
         approval_mode,
+        sandbox: args.agent_sandbox,
     };
 
     // Resolve the SSH host once so both the launch command and the session
@@ -294,6 +295,7 @@ fn run_workspace_mode(
     let launch_opts = crate::agent::LaunchOpts {
         session_id: sid.to_string(),
         approval_mode: crate::agent::ApprovalMode::Default,
+        sandbox: args.agent_sandbox,
     };
     let cmd_parts = agent_provider.launch_cmd(&launch_opts);
     mux.send_keys(&session_name, &format!("{}\n", cmd_parts.join(" ")))?;

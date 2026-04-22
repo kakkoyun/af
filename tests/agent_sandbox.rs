@@ -18,6 +18,7 @@ fn default_opts() -> LaunchOpts {
     LaunchOpts {
         session_id: "test-session".to_owned(),
         approval_mode: ApprovalMode::Default,
+        sandbox: AgentSandbox::None,
     }
 }
 
@@ -72,6 +73,7 @@ fn codex_sandbox_os_with_yolo_mode_places_flag_before_subcommand() {
     let opts = LaunchOpts {
         session_id: "s".to_owned(),
         approval_mode: ApprovalMode::Yolo,
+        sandbox: AgentSandbox::None,
     };
     let p = CodexProvider;
     let mut cmd = p.launch_cmd(&opts);
@@ -90,6 +92,19 @@ fn codex_sandbox_os_with_yolo_mode_places_flag_before_subcommand() {
         s_pos > full_auto_pos,
         "-s must come after --full-auto in argv: {cmd:?}"
     );
+}
+
+#[test]
+fn codex_launch_cmd_with_opts_sandbox_os_appends_workspace_write() {
+    // End-to-end wiring: the LaunchOpts.sandbox field reaches apply_sandbox
+    // through launch_cmd without a separate call.
+    let p = CodexProvider;
+    let opts = LaunchOpts {
+        session_id: "s".to_owned(),
+        approval_mode: ApprovalMode::Default,
+        sandbox: AgentSandbox::Os,
+    };
+    assert_eq!(p.launch_cmd(&opts), vec!["codex", "-s", "workspace-write"]);
 }
 
 // ---------------------------------------------------------------------------
