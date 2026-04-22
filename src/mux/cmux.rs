@@ -102,8 +102,8 @@ struct EnvSidecar {
 /// and the cmux application to be running (its Unix socket must be active).
 ///
 /// The binary is resolved in this order:
-/// 1. The value returned by [`CmuxMultiplexer::binary`] — configurable at
-///    construction time.
+/// 1. The path supplied to [`Self::with_binary`] at construction time
+///    (defaults to `cmux`).
 /// 2. `cmux` on `$PATH`.
 /// 3. The macOS app bundle path (`/Applications/cmux.app/…/cmux`).
 pub struct CmuxMultiplexer {
