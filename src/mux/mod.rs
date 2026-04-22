@@ -1,8 +1,10 @@
 //! Terminal multiplexer abstraction (ADR-002).
 //!
-//! Defines the [`Multiplexer`] trait for session management. The default
-//! implementation uses tmux; a zellij implementation is planned.
+//! Defines the [`Multiplexer`] trait for session management. Two built-in
+//! implementations ship today: [`tmux`] (default) and [`cmux`]. A zellij
+//! implementation is planned.
 
+pub mod cmux;
 pub mod tmux;
 
 use std::path::Path;
