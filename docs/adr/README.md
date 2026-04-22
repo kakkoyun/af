@@ -33,5 +33,6 @@ Each decision is numbered and immutable once accepted. Superseded or amended dec
 | [027](027-remote-ssh-target.md) | Remote = SSH Target (supersedes parts of ADR-004, ADR-017) | Accepted |
 | [028](028-agent-level-os-sandbox.md) | Agent-Level OS Sandbox | Accepted |
 | [029](029-external-tool-testing-addendum.md) | External Tool Testing — `CommandRunner` Dropped (addendum to ADR-018) | Accepted |
+| [030](030-skill-bundle-installer.md) | `af` Skill Bundle — URL-Driven Claude Code Skill Installer | Accepted |
 
 **ADR-026** was drafted (provider-specific liveness) but folded into ADR-027 during the Phase II.5 revision round; it never landed as an independent ADR.
