@@ -709,3 +709,135 @@ The `af` binary has all these working commands:
 - keyring library choice pending ADR-016.
 - slicer daemon on remote host pending ADR-017 review for `--sandbox --remote`.
 - Real exe.dev VM smoke test deferred until user has access during Phase V.
+
+---
+
+## 2026-04-22 — Session 10: Phase II.5 + Phase III dispatch + Phase IV integration + ADR-030
+
+### Done
+
+**Phase II.5 (design, on `phase-2.5-adr-revision` → merged to `main`):**
+
+- Authored ADRs **022** (cmux Multiplexer), **023** (Sandbox Agent-Layer Conflict
+  Resolution), **024** (Remote Sandbox via Daemon URL), **025** (Secret
+  Boundaries), **027** (Remote = SSH Target), **028** (Agent-Level OS
+  Sandbox), and **029** (External Tool Testing — `CommandRunner` Dropped).
+- ADR-026 (provider-specific liveness) explicitly folded into ADR-027 — never
+  landed independently. Documented in `docs/adr/README.md`.
+- Added `docs/reference/external-tools.md` — verified CLI-surface reference
+  for slicer / sbx / workspaces / ssh / gh (G10).
+- Amended ADR-016 (account naming drops `af/` prefix) and ADR-017 (probe uses
+  `accept-new` per ADR-027 and security N2).
+- Lane L-FIX: three `fix(docker):` commits on `lane-l-fix-docker` — workdir
+  passthrough (G4), full `KNOWN_SBX_AGENTS` list (G5), drop double-create
+  (G6). Merged via `757cf06`.
+
+**Phase III (parallel, file-disjoint — all seven lanes merged into
+`phase-iv-integration`):**
+
+- **L-REMOTE** → `47b4bde`: `SshTarget` + `Liveness` types, exe.dev inherent
+  methods, DD Workspaces provider, STATUS column in `af list`.
+- **L-SBX-DAEMON** → `a3ef01e`: slicer `--url`/`--token` forwarding per
+  ADR-024; `SandboxConfig.remote_daemon` field.
+- **L-AUTH** → `4386532`: `af auth setup/reroll/status/clear` skeleton + keystore
+  trait + `SecretString` + tmpfs transport per ADR-025. Subcommand
+  registration + real keyring backend deferred.
+- **L-EDITOR** → `e86e8cd`: remote editor URL builders per ADR-019;
+  `af editor --visual` dispatches to remote host for Remote sessions.
+- **L-MUX-CMUX** → `a4317b2`: `CmuxMultiplexer` implements all 17
+  `Multiplexer` trait methods per ADR-022.
+- **L-AGENT-SANDBOX** → `7104364`: per-agent `AgentSandbox::Os` mapping per
+  ADR-028 — codex → `-s workspace-write`; claude documented no-op;
+  amp/gemini/copilot/pi degrade with info log.
+- **L-BOOK** → `7ada398`: mdBook user guide scaffold + `scripts/book-gen.sh`
+  command-reference generator per ADR-020.
+
+**Phase IV (integration, on `phase-iv-integration`):**
+
+- Seven merge commits (`26677a4`, `1c67627`, `dc614b8`, `1344e38`, `16e278c`,
+  `2a34876`, `1db419c`) fold the lanes together.
+- `7176ca0` → `b5354ff` → `c5ee927` → `81ab504` → `83c84bf` → `c3bbb73` →
+  `47b4bde` → `7997858` → `6dee478` → `e86e8cd` → `7bb1641` → `9778721` →
+  `8121f57` → `7104364` → `4386532` → `9915b13` → `5d76d38` → `4fa228f` →
+  `7ada398` — the individual lane commits in merge order.
+- Post-merge fixups: `3d19372` drop stale doctest note, `6a5a706` promote
+  `target` to `provider::target`, `2d4e865` rustfmt cmux, `bb1dbc6`
+  canonicalize `AgentSandbox` at `agent::AgentSandbox`, `9827d2d` wire cmux
+  into the mux module tree.
+- Session-metadata extension: `78d1077` extends `ExecutionInfo` with
+  `remote_ssh_target`, `remote_host`, `remote_provider` (backwards-compatible
+  via `Option<T>` + `skip_serializing_if`). `e093c6a` populates the fields
+  on create. `12cbd1c` dispatches `af editor` to the remote host for Remote
+  sessions.
+- `--agent-sandbox` flag wired through `LaunchOpts` end-to-end in `f340dc5`:
+  new `AgentSandbox` enum (`#[derive(Default, clap::ValueEnum)]`), new CLI
+  flag `af create --agent-sandbox <none|os>`, plumbed through
+  `LaunchOpts.sandbox` to each provider's `apply_sandbox`. +8 tests.
+- `ce0b79e` fixes a rustdoc warning on a private cmux intra-doc link.
+
+**Documentation:**
+
+- ADR-030 authored and accepted (`18ce1b7`) — URL-driven Claude Code skill
+  bundle installer adapted from the cmux skill pattern. Composes with
+  existing ledger (ADR-011) and Obsidian (ADR-007) surfaces without a new
+  daemon or IPC layer. Lane L-SKILL carries implementation.
+
+### Design decisions
+
+- **ADR-030** — one markdown page at `book/src/skills/af.md` distributes a
+  three-file bundle (`SKILL.md`, `af-workstream.sh`, `af-session-bind.py`).
+  New `af skill install` subcommand parses the page and writes files to
+  canonical Claude Code paths. Hook appends to `<session>/ledger.jsonl` and
+  the Obsidian note's `## Log` section with no new IPC.
+- **Canonical `AgentSandbox` location** (`bb1dbc6`) — one enum at
+  `af::agent::AgentSandbox`, re-exported nowhere else. Prevents the drift
+  that showed up briefly during L-AGENT-SANDBOX merge.
+- **`ExecutionInfo` evolution** (`78d1077`) — backwards-compatible TOML
+  schema growth via `Option<T>` + `#[serde(default, skip_serializing_if)]`.
+  Pre-existing `state.toml` files continue to deserialize cleanly.
+
+### Files touched
+
+- **ADRs:** `docs/adr/{022..025,027..030}.md`, `docs/adr/README.md`,
+  `docs/reference/external-tools.md` (new), amendments to ADR-016 and
+  ADR-017.
+- **Rust (new):** `src/provider/target.rs`, `src/provider/workspaces.rs`,
+  `src/mux/cmux.rs`, `src/cmd/auth.rs`, `src/agent/*.rs` sandbox wiring.
+- **Rust (extended):** `src/cli.rs` (`--agent-sandbox`), `src/cmd/create.rs`
+  (remote-session fields), `src/cmd/editor.rs` (remote dispatch),
+  `src/cmd/list.rs` (STATUS column), `src/session/types.rs`
+  (`ExecutionInfo`), `src/config.rs` (`SandboxConfig.remote_daemon`),
+  `src/agent/mod.rs` (`AgentSandbox`, `LaunchOpts.sandbox`).
+- **Book:** `book/src/{introduction,install,quickstart}.md`,
+  `book/src/concepts/{providers,sessions,approval-modes}.md`,
+  `book/src/commands/*.md`, `scripts/book-gen.sh`.
+- **Tests:** `tests/agent_sandbox.rs` (new), plus per-provider unit tests in
+  each `src/agent/*.rs`.
+
+### Tests
+
+- **626 passing**, 1 ignored, 9 suites, ~39s. Up from 618 at Session 9 end
+  (net +8 agent-sandbox tests).
+- `cargo fmt --check` clean.
+- `cargo clippy --all-targets -- -D warnings` clean.
+- Documentation builds clean (`cargo doc` with `RUSTDOCFLAGS="-D warnings"`).
+
+### Next
+
+1. **Group 5 docs finalization** (this session, in progress): Session 10
+   entry (this block), TODO.md check-off, README.md mdBook link, retire
+   `docs/planning/adr-drafts.md` + `docs/planning/gap-analysis.md`.
+2. **Merge `phase-iv-integration` → `main`** (fast-forward; linear
+   descendant).
+3. **Lane worktree + branch cleanup** — the seven `lane-l-*` worktrees and
+   branches are now safe to remove.
+4. **Lane L-SKILL** (new) — implement ADR-030: `af skill install`
+   subcommand, `book/src/skills/af.md` bundle page, in-tree
+   `hooks/af-session-bind.py`.
+5. **Deferred**: L-AUTH dispatcher wiring + real keyring backend; resume-time
+   `AgentSandbox` persistence; CHANGELOG date stamp at release tag time.
+
+### Blockers
+
+- None. All Phase II.5 ADRs ratified. All Phase III lanes integrated. All
+  gates green.
