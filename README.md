@@ -228,8 +228,10 @@ af create fix-bug
 |---|---|
 | [`docs/SPEC.md`](docs/SPEC.md) | Full specification |
 | [`docs/PLAN.md`](docs/PLAN.md) | Implementation plan & architecture |
-| [`docs/adr/`](docs/adr/) | Architecture Decision Records (11 ADRs) |
-| [GitHub Pages](https://kakkoyun.github.io/af/) | API docs & guides *(coming soon)* |
+| [`docs/adr/`](docs/adr/) | Architecture Decision Records (29 accepted; see [index](docs/adr/README.md)) |
+| [`docs/reference/external-tools.md`](docs/reference/external-tools.md) | Verified CLI-surface reference for external tools (slicer, sbx, workspaces, ssh, gh) |
+| [`book/`](book/) | mdBook user guide — build with `just book-build` (or `cargo install mdbook && mdbook build book`) |
+| [GitHub Pages](https://kakkoyun.github.io/af/) | Published user guide *(after first release)* |
 
 ## Development
 
