@@ -3,8 +3,9 @@
 **Scope:** cold-start entrypoint for any session (human or agent) picking up the
 sprint toward `af 0.1.0`. Transient; delete when `v0.1.0` tags.
 
-**Last updated:** 2026-04-21, end of Session 9 (post critic/security/architect
-synthesis, post directives D1–D7).
+**Last updated:** 2026-04-21, Phase IV in progress (Phase II.5 + all seven
+Phase III lanes landed on `phase-iv-integration`; four gates green as of
+commit `ce0b79e`).
 
 ---
 
@@ -38,57 +39,53 @@ historical; this doc supersedes it for current state.
 | 2 — Multi-Agent + Config | ✅ complete |
 | I — Pattern-Hardening / Lane D foundation | ✅ complete (8 commits, 2026-04) |
 | II — Design ADRs (015–021) | ✅ complete (5 ADRs + release-discipline) |
-| **II.5 — Revision round (ADRs 022–029 − 026)** | 🟡 not started |
-| **III — Implementation (7 lanes)** | 🟡 not started |
-| IV — Integration (lead-only) | ⏳ blocked on III |
+| II.5 — Revision round (ADRs 022–029 − 026) | ✅ complete (7 ADRs + amends + external-tools.md) |
+| III — Implementation (7 lanes) | ✅ complete (L-FIX, L-REMOTE, L-SBX-DAEMON, L-AUTH, L-EDITOR, L-MUX-CMUX, L-AGENT-SANDBOX, L-BOOK) |
+| **IV — Integration (lead-only)** | 🟡 in progress (modules wired, ADR-030 landed; Cargo deps + A-d guard + README/CHANGELOG remaining) |
 | V — Release gate (user-triggered) | ⏳ blocked on IV |
 
-**Codebase state (verified 2026-04-21):** `cargo test` → 392 passed / 4 suites
-/ 7.95s. ~11.4K LOC src. 14 ADRs accepted (001–015, 021 per §7 order). Build
-clean since Lane D lifted the lld-linker override.
+**Codebase state (verified 2026-04-21, branch `phase-iv-integration`):**
+`cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, and
+`RUSTDOCFLAGS="-D warnings" cargo doc` all green at `ce0b79e`. 626 tests pass
+across 9 suites (+234 since Session 9). 28 ADRs accepted (001–030 minus
+dropped 026). 32 commits ahead of `main`.
 
 ---
 
 ## 3. What to do next (exact next-action)
 
-**Step 1 — Lane L-FIX (no ADR dependency, ~1 hour, red-first).**
+Phase IV integration is in flight on branch `phase-iv-integration`. The
+module wiring, ADR-030 (skill bundle installer), and rustdoc gate are all
+landed. **Four items remain before the release gate (Phase V):**
 
-Three standalone `fix(docker):` commits in `src/provider/docker.rs`:
+**Step 1 — Wire `keyring` optional deps in `Cargo.toml` (Lane L-AUTH finisher).**
 
-- **G4** — line 56, `.args(["create", "claude", ".", "--name", name])` drops
-  the caller-supplied workdir. Pass `workdir` through.
-- **G5** — line 29, `KNOWN_SBX_AGENTS = ["claude", "codex"]` is missing the
-  four newer agents. Extend to match `agent/` providers.
-- **G6** — `SandboxProvider::create()` calls `sbx create` then `sbx run` later
-  double-creates. Drop `sbx create`; let `sbx run` create on first use
-  (ADR-023 ratifies this).
+The auth module (`src/auth/*.rs`) is implemented but the feature arrays are
+empty. Add `keyring`, `secrecy`, `zeroize` as `optional = true` deps and
+populate `keyring = ["dep:keyring", "dep:secrecy", "dep:zeroize"]`. Verify
+both `--features keyring` and `--no-default-features` builds compile. The
+fallback path needs to be feature-gated to degrade cleanly when the feature
+is off.
 
-Each commit: red test first, minimum impl, `just check`, commit. No file
-beyond `src/provider/docker.rs` + its test module.
+**Step 2 — Addendum A-d (Overnight-yolo guard).** In `src/cmd/create.rs`,
+when `--yolo` is set AND no sandbox layer is active (`--sandbox=false` AND
+`--agent-sandbox != os`), emit a prominent warning (directive D7). Red-first
+integration test. One commit: `feat(cmd/create): warn on unsandboxed --yolo
+(A-d)`.
 
-**Step 2 — Phase II.5 ADR authoring** (lead-only, single branch
-`phase-2.5-adr-revision`, ~2 hours).
+**Step 3 — `README.md` + `CHANGELOG.md` polish.** Add the new surface
+(`af auth`, `--agent-sandbox`, cmux selection via config, remote editor URL
+schemes) to README. Stamp CHANGELOG `[0.1.0] - YYYY-MM-DD` and add the
+comparison link. Link README to the book.
 
-Author ADRs 022, 023, 024, 025, 027, 028, 029 (A-b addendum) from the text in
-`docs/planning/adr-drafts.md` — lift into Nygard format, commit each as
-`docs(adr): ADR-NNN <title>`. Then:
+**Step 4 — Housekeeping (3 deletes + 1 update).** Update
+`docs/CONVENTIONS.md` worktree table with the L-* lanes. Delete
+`docs/planning/adr-drafts.md` and `docs/planning/gap-analysis.md` once the
+user confirms the planning transients are no longer referenced.
 
-- Write `docs/reference/external-tools.md` (CLI surface reference — G10).
-- Amend ADR-017 probe to `StrictHostKeyChecking=accept-new` (security N2).
-- Amend ADR-016 account naming to `<provider>` (drop `af/` prefix).
-- Update `docs/adr/README.md` with 022–029.
-- Delete `docs/planning/adr-drafts.md` when all ADRs land.
-
-**Step 3 — Scope-call checkpoint.** Take §8.6 open items to the user:
-Windows stance, headless `af auth`, multi-user keyring, `insta` vs
-`include_str!` snapshot, awk vs `git-cliff`, `xtask` vs shell,
-`cargo audit` CVE verify. Most defer to 0.2.0 with one-sentence ADRs.
-
-**Step 4 — Phase III, 7 lanes in parallel** (per `TODO.md` Phase III
-table — L-REMOTE, L-SBX-DAEMON, L-AUTH, L-EDITOR, L-MUX-CMUX,
-L-AGENT-SANDBOX, L-BOOK). Each lane has explicit owns / does-not-touch
-constraints; see §8.4 of gap-analysis.md and the subagent prompt template in
-the original sprint plan §16.
+**Step 5 — Phase V release gate (user-triggered).** `just release-dry-run`
+→ verify 6-matrix build → user approves tag → `git tag -a v0.1.0 && git
+push origin v0.1.0`.
 
 ---
 
