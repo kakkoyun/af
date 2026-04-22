@@ -77,8 +77,7 @@ use crate::mux::{Multiplexer, SessionInfo};
 const DEFAULT_BINARY: &str = "cmux";
 
 /// Absolute path to the cmux binary bundled with the macOS app.
-const MACOS_APP_BINARY: &str =
-    "/Applications/cmux.app/Contents/Resources/bin/cmux";
+const MACOS_APP_BINARY: &str = "/Applications/cmux.app/Contents/Resources/bin/cmux";
 
 // ---------------------------------------------------------------------------
 // Sidecar (env persistence)
@@ -216,10 +215,8 @@ impl CmuxMultiplexer {
         let path = self.sidecar_path(session);
         fs::create_dir_all(path.parent().unwrap_or(&self.data_dir))
             .with_context(|| format!("create cmux data dir {}", self.data_dir.display()))?;
-        let json = serde_json::to_string_pretty(sidecar)
-            .context("serialise cmux env sidecar")?;
-        fs::write(&path, json)
-            .with_context(|| format!("write cmux env sidecar {}", path.display()))
+        let json = serde_json::to_string_pretty(sidecar).context("serialise cmux env sidecar")?;
+        fs::write(&path, json).with_context(|| format!("write cmux env sidecar {}", path.display()))
     }
 }
 
@@ -286,14 +283,8 @@ impl Multiplexer for CmuxMultiplexer {
         let cwd_str = cwd
             .to_str()
             .with_context(|| format!("non-UTF-8 path: {}", cwd.display()))?;
-        self.run_status(&[
-            "new-workspace",
-            "--name",
-            name,
-            "--cwd",
-            cwd_str,
-        ])
-        .with_context(|| format!("cmux new-workspace failed for {name:?}"))
+        self.run_status(&["new-workspace", "--name", name, "--cwd", cwd_str])
+            .with_context(|| format!("cmux new-workspace failed for {name:?}"))
     }
 
     /// Close (kill) the cmux workspace with the given name.
@@ -310,10 +301,7 @@ impl Multiplexer for CmuxMultiplexer {
 
     /// Return `true` if a cmux workspace with the given name exists.
     fn session_exists(&self, name: &str) -> bool {
-        self.workspace_ref_for(name)
-            .ok()
-            .flatten()
-            .is_some()
+        self.workspace_ref_for(name).ok().flatten().is_some()
     }
 
     /// Bring the cmux workspace with the given name to the foreground.
@@ -454,12 +442,7 @@ impl Multiplexer for CmuxMultiplexer {
     /// Send text followed by Enter to a specific surface within a workspace.
     ///
     /// Maps to `cmux send --workspace <ref> --surface <pane> "<keys>\n"`.
-    fn send_keys_to_pane(
-        &self,
-        session: &str,
-        pane: &str,
-        keys: &str,
-    ) -> anyhow::Result<()> {
+    fn send_keys_to_pane(&self, session: &str, pane: &str, keys: &str) -> anyhow::Result<()> {
         let ws_ref = self
             .workspace_ref_for(session)?
             .with_context(|| format!("cmux workspace {session:?} not found"))?;
@@ -483,14 +466,8 @@ impl Multiplexer for CmuxMultiplexer {
         let ws_ref = self
             .workspace_ref_for(session)?
             .with_context(|| format!("cmux workspace {session:?} not found"))?;
-        self.run_status(&[
-            "close-surface",
-            "--workspace",
-            &ws_ref,
-            "--surface",
-            pane,
-        ])
-        .with_context(|| format!("cmux close-surface {pane:?} failed for {session:?}"))
+        self.run_status(&["close-surface", "--workspace", &ws_ref, "--surface", pane])
+            .with_context(|| format!("cmux close-surface {pane:?} failed for {session:?}"))
     }
 
     /// List all pane refs in a workspace.
@@ -557,10 +534,7 @@ pub(crate) fn parse_workspace_ref(output: &str, name: &str) -> Option<String> {
         let mut parts = line.splitn(2, "  ");
         let ref_token = parts.next()?.trim().to_owned();
         let rest = parts.next()?.trim();
-        let ws_name = rest
-            .split_first_token_if('[')
-            .unwrap_or(rest)
-            .trim();
+        let ws_name = rest.split_first_token_if('[').unwrap_or(rest).trim();
         if ws_name == name {
             return Some(ref_token);
         }
@@ -702,7 +676,8 @@ mod tests {
 
     #[test]
     fn test_parse_workspace_ref_found() {
-        let output = "  workspace:2  af\n  workspace:4  dotfiles\n* workspace:5  my session  [selected]";
+        let output =
+            "  workspace:2  af\n  workspace:4  dotfiles\n* workspace:5  my session  [selected]";
         assert_eq!(
             parse_workspace_ref(output, "af"),
             Some("workspace:2".to_owned())
@@ -805,7 +780,8 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let mux = mux_with_tempdir(&tmp);
 
-        mux.set_env("my-session", "AF_SESSION_ID", "abc-123").unwrap();
+        mux.set_env("my-session", "AF_SESSION_ID", "abc-123")
+            .unwrap();
         let val = mux.get_env("my-session", "AF_SESSION_ID").unwrap();
         assert_eq!(val, Some("abc-123".to_owned()));
     }
