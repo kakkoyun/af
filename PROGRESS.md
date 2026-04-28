@@ -841,3 +841,99 @@ The `af` binary has all these working commands:
 
 - None. All Phase II.5 ADRs ratified. All Phase III lanes integrated. All
   gates green.
+
+---
+
+## Session 11 — 2026-04-28
+
+### Goal
+
+Finalize Phase IV documentation, merge all work to `main`, clean up lane
+worktrees and branches, and capture accurate state for handover.
+
+### What was done
+
+#### Phase A — Docs finalization on `phase-iv-integration`
+
+Completed the Group 5 docs pass that Session 10 left mid-flight:
+
+- **`docs/planning/HANDOFF.md`** — refreshed from "Session 9 end" to
+  "Phase IV in progress" state (hook had pre-authored most of this diff).
+  Committed separately from scaffolding deletion per constitution §7.
+- **`docs/planning/adr-drafts.md` + `docs/planning/gap-analysis.md`** —
+  deleted. All content consumed into canonical ADRs 022–030 and
+  `docs/reference/external-tools.md`. Authorized by TODO Phase II.5
+  checklist item.
+
+Commits: `895b7e8` (HANDOFF refresh), `03db316` (scaffolding deletion).
+
+#### Phase B — Fast-forward merge to `main`
+
+`git merge phase-iv-integration --ff-only` from `c46d1d2` to `03db316`.
+Linear topology, no merge commit. 37 commits, 7,331 insertions / 1,247
+deletions across 72 files. Entire Phase II.5, III, IV, and IV.5 surface
+now on `main`.
+
+Gate on `main` immediately after: `cargo fmt --check`, `cargo clippy`,
+`cargo test` — 626 passed / 1 ignored / 9 suites. All green.
+
+#### Phase C — Worktree and branch cleanup
+
+Removed all 7 lane worktrees:
+`af-lane-l-remote`, `af-lane-l-sbx-daemon`, `af-lane-l-auth`,
+`af-lane-l-editor`, `af-lane-l-mux-cmux`, `af-lane-l-agent-sandbox`,
+`af-lane-l-book`.
+
+Deleted 8 merged local branches: all 7 `lane-l-*` branches +
+`phase-iv-integration`.
+
+Remaining: `test-task` orphan at `/private/tmp/af-test-nonexistent/...`
+left intact — path looks like a test fixture; needs user confirmation
+before deletion.
+
+#### Phase D — Full status audit
+
+Discovered `af auth` is only half-wired:
+- `src/auth/` + `src/cmd/auth.rs` exist and compile
+- `src/cmd/mod.rs` declares `pub mod auth`
+- **`src/cli.rs` has no `Auth` variant** — binary returns
+  "unrecognized subcommand 'auth'"
+- `Cargo.toml` feature `keyring = []` is a no-op stub — no actual
+  `dep:keyring`/`dep:secrecy`/`dep:zeroize` optional deps
+
+Also confirmed: `--remote`, `--sandbox`, `--yolo`, `--agent-sandbox` all
+wire correctly in `af create`. cmux works via config. `af list` STATUS
+column works. `af editor` remote URL schemes work.
+
+#### HANDOFF.md refresh (this session)
+
+Rewrote `docs/planning/HANDOFF.md` with accurate Session 11 state:
+wired/not-wired tables, exact file gaps for `af auth`, step-by-step
+next-actions for remaining Phase IV + IV.5 + V work.
+
+### Files touched
+
+- `docs/planning/HANDOFF.md` — full rewrite
+- `docs/planning/adr-drafts.md` — deleted
+- `docs/planning/gap-analysis.md` — deleted
+- `PROGRESS.md` — this entry
+
+### Tests
+
+**626 passing**, 1 ignored, 9 suites. Unchanged from Session 10 (docs-only
+and merge session — no new code).
+
+### Next
+
+1. **Wire `af auth` into `src/cli.rs`** — add `Auth(cmd::auth::AuthArgs)`
+   variant + dispatch arm + `keyring` optional deps in `Cargo.toml`.
+2. **Overnight-yolo guard (A-d)** — warn when `--yolo` without sandbox.
+3. **Fix `README.md`** — remove "Planned" block, add `af auth`,
+   `--agent-sandbox`, cmux config note.
+4. **Fix `CHANGELOG.md`** — move shipped features out of "Deferred to 0.2.0".
+5. **Lane L-SKILL** — `af skill install` per ADR-030 (greenfield, no blockers).
+6. **Phase V** — user-triggered: `just release-dry-run` → tag → push.
+
+### Blockers
+
+- None.
