@@ -1,164 +1,178 @@
+# CLAUDE.md — v1 Project Constitution
+
 ## Context
 
-Rust CLI application — `af` (agentic-flow, automatic-flow, or as-fuck).
-Workflow tooling for agentic/automatic programming.
-Owner: @kakkoyun. Single-crate Rust project, edition 2024, MSRV 1.85.
+`af` (agentic-flow / automatic-flow / as-fuck) — a single-user Go CLI for
+stitching together AI coding agents, tmux, sandboxes, and remote machines.
+Owner: @kakkoyun. Single-module Go project, MSRV pinned in `go.mod` once
+toolchain lands.
+
+**v0 (Rust) is reference material at `src/`.** It is not built and not
+modified. v1 lives at `cmd/af/` and `internal/...` once implementation
+begins. See [`docs/v0/README.md`](docs/v0/README.md) for the archive.
 
 ## Constitution
 
-These rules are non-negotiable. They survive context compaction and session boundaries.
+These rules are non-negotiable. They survive context compaction and
+session boundaries.
 
 ### 1. TDD — No Exceptions
 
 Write the test first. Watch it fail. Implement. Watch it pass. Refactor.
-Never commit code without tests. Never skip the red step.
-See `AGENTS.md` for the full TDD workflow.
+Never commit code without tests. Never skip the red step. Pure-logic
+packages must be 80%+ covered; IO-shimmed packages rely on `testscript`
+golden tests (see ADR-051 once written).
 
 ### 2. Unverified Work Is Unfinished Work
 
-Run `cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test` before
-every commit. If it doesn't pass, it's not done. Use `tracing::debug!` to log assumptions
-and verify them at runtime.
+Run `make check` (or its component commands) before every commit. If it
+doesn't pass, it's not done. The bar:
+
+```bash
+gofumpt -l .                                    # zero output
+goimports -l .                                  # zero output
+golangci-lint run                               # zero warnings (all linters on)
+go test -race -count=1 ./...                    # all green
+```
+
+Use `slog` to log assumptions and verify them at runtime.
 
 ### 3. Documentation Is the Spec
 
-User-facing documentation (`README.md`, `CHANGELOG.md`, `--help` text) is the contract.
-If the code doesn't match the docs, the code is wrong. Update docs with every feature change.
+User-facing documentation (`README.md`, `CHANGELOG.md`, command `--help`
+text, ADR bodies) is the contract. If the code doesn't match the docs,
+the code is wrong. Update docs with every feature change.
 
 ### 4. Immutable References
 
-`docs/PLAN.md` and `docs/SPEC.md` are **immutable**. Never modify them.
-To change a design decision, create a new ADR in `docs/adr/` for review.
+`docs/SPEC.md` and `docs/PLAN.md` are immutable once landed. To change a
+design decision, write a new ADR in `docs/adr/` (append-only from 031).
+v0 ADRs (`docs/v0/adr/`) are frozen historical record.
 
 ### 5. Progress Tracking Is Mandatory
 
 - `PROGRESS.md` — append-only narrative log. Write after every work session.
-- `TODO.md` — checkbox task list by phase. Check off as completed. Add blockers.
-- Use Claude Code Tasks for in-session tracking (resilient to context compaction).
-- Commit after every small achievement, not in large batches.
+- `TODO.md` — checkbox task list mirroring the doc-pass commits and any post-doc-pass implementation work.
+- Use Claude Code Tasks for in-session tracking (resilient to compaction).
+- Commit after every small achievement, never in large batches.
 
 ### 6. No Corners Cut
 
-Every public item gets a doc comment. Every error path gets a test. Clippy pedantic is on.
-`unsafe` is forbidden. No `todo!()` in committed code. No `unwrap()` in library code.
+Every exported identifier gets a doc comment. Every error path gets a
+test. All `golangci-lint` linters are on. Mandatory: `unparam`,
+`nolintlint`, `revive`, `staticcheck`, `errcheck`, `gocritic`, `gosec`.
+No `panic()` in library code outside genuinely-unreachable arms.
 
 ### 7. Tight Commit Discipline
 
-Format: `<type>(<scope>): <description>`. Stage specific files, never `git add .`.
-One logical change per commit. Never commit interim files (plans, scratch notes).
+Format: `<type>(<scope>): <description>`. Stage specific files, never
+`git add .` blindly. One logical change per commit. Never commit interim
+files (plans, scratch notes). The `secret-guard` pre-commit hook will
+flag suspicious diffs — review the warning, don't bypass.
 
-### 8. Blockers Are Documented, Not Hidden
+### 8. Stdlib-First Dependencies
 
-If blocked, record the blocker in `PROGRESS.md` and mark the TODO item with a note.
-Move on to the next task. Never silently skip work.
+Reach for the Go standard library before any third-party package.
+External deps require an ADR justification. The approved v1 set is in
+ADR-031 (master). Adding a dep is a new ADR or an amendment, not a
+silent `go get`.
+
+### 9. Blockers Are Documented, Not Hidden
+
+If blocked, record the blocker in `PROGRESS.md` and mark the TODO item
+with a note. Move on to the next task. Never silently skip work.
+
+### 10. v0 Tree Is Read-Only
+
+`src/`, `Cargo.toml`, `Cargo.lock`, `clippy.toml`, `deny.toml`,
+`rust-toolchain.toml`, `rustfmt.toml`, `.cargo/`, `justfile` are kept
+in-tree as reference until v1 has parity. **Do not modify them.** Do
+not build them. Refer to them for behavioural questions only.
 
 ## Session Start Protocol
 
 Every new session, before writing any code:
 
-1. Read `PROGRESS.md` — understand what was done and what's next
-2. Read `TODO.md` — find the current phase and next unchecked task
-3. Run `cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test`
-4. Verify baseline is green before making changes
-5. Follow the TDD workflow in `AGENTS.md`
+1. Read `PROGRESS.md` — understand what was done last.
+2. Read `TODO.md` — find the current stage and next unchecked task.
+3. Run `make check` (once it exists) or its component commands.
+4. Verify baseline is green before making changes.
+5. Follow the TDD workflow in `AGENTS.md`.
 
-Note: `just` may not be available in all environments. Use raw `cargo` commands as fallback.
+During the doc pass (no Go code yet), step 3 is reduced to "no v0
+files modified" — `git status -- src/ Cargo.toml Cargo.lock` should
+be empty.
 
 ## Documentation Hierarchy
 
 | File | Purpose | Mutability |
 |---|---|---|
-| `CLAUDE.md` | **Constitution** — rules, context, build commands | Update when process changes |
-| `AGENTS.md` | **Working agreement** — TDD, quality standards, process | Update when process changes |
-| `README.md` | **User-facing contract** — must match reality | Update with every feature |
-| `CHANGELOG.md` | **Release notes** — Keep a Changelog format | Update with every feature |
-| `PROGRESS.md` | **Narrative log** — what was done, blockers, decisions | Append after each session |
-| `TODO.md` | **Task list** — checkbox items by phase + backlog | Check off / add as needed |
-| `docs/SPEC.md` | Full specification | **IMMUTABLE** |
-| `docs/PLAN.md` | Implementation plan with architecture diagram | **IMMUTABLE** |
-| `docs/adr/` | Architecture Decision Records (11 ADRs) | Add new, never modify existing |
+| `CLAUDE.md` | Constitution — rules, context, build commands | Update when process changes |
+| `AGENTS.md` | Working agreement — TDD, quality, subagent rules | Update when process changes |
+| `README.md` | User-facing contract — must match reality | Update with every feature |
+| `CHANGELOG.md` | Release notes — Keep a Changelog format | Update with every feature |
+| `PROGRESS.md` | Narrative log per session | Append after each session |
+| `TODO.md` | Task list per stage + backlog | Check off / add as needed |
+| `docs/SPEC.md` | v1 specification | **IMMUTABLE** |
+| `docs/PLAN.md` | v1 plan (lightweight; references ADRs) | **IMMUTABLE** |
+| `docs/CONVENTIONS.md` | Go conventions, file ownership | Append, never overwrite |
+| `docs/adr/` | v1 ADRs 031–053 (append-only) | New ADRs only |
+| `docs/v0/` | Frozen Rust-era archive | **READ-ONLY** |
 
-## Build & Test
+## Build & Test (target state, once Go scaffold lands)
 
 ```bash
-cargo fmt --check       # Check formatting
-cargo fmt               # Auto-format
-cargo clippy --all-targets -- -D warnings  # Lint (pedantic, warnings=errors)
-cargo test              # Run all tests
-cargo build             # Debug build
-cargo build --release   # Release build
-cargo run -- <args>     # Run the CLI
-cargo doc               # Build rustdoc (RUSTDOCFLAGS="-D warnings")
+make build              # go build ./cmd/af
+make test               # go test -race -count=1 ./...
+make lint               # golangci-lint run
+make fmt                # gofumpt -w . && goimports -w .
+make fmt-check          # gofumpt -l . && goimports -l . (zero output)
+make check              # fmt-check + lint + test — MUST pass before commit
+make install            # go install ./cmd/af
 ```
 
-If `just` is available:
-```bash
-just check              # fmt + lint + test + deny + doc — MUST pass before commit
-just deny               # License/advisory/ban checks
-```
+Until the `Makefile` exists, run the equivalent `go ...` commands
+directly. Do **not** run `cargo` or `just` — those target v0.
 
-## Architecture
-
-See `docs/PLAN.md` for the full module map. Three orthogonal layers:
-
-- **Agent layer** (`agent/`) — 7 providers: claude, pi, codex, gemini, amp, copilot
-- **Remote layer** (`provider/exedev`, `provider/workspaces`) — where the machine lives
-- **Sandbox layer** (`provider/slicer`, `provider/docker`) — isolation around the agent
-
-These compose: `--remote --sandbox --agent codex` = remote machine + sandbox + codex inside.
+## Architecture (target state, per ADRs to be written)
 
 ```
-src/
-├── main.rs          # Thin: parse args, init tracing, dispatch
-├── cli.rs           # Clap derive definitions (all subcommands)
-├── lib.rs           # Library crate — all core logic
-├── config/          # TOML config system (ADR-003)
-├── platform/        # OS detection, deps, package managers (ADR-009, ADR-010)
-├── session/         # Session types, metadata store, ledger (ADR-006, ADR-011)
-├── git/             # Worktree, branch, remote, PR helpers
-├── mux/             # Multiplexer trait + tmux (ADR-002)
-├── agent/           # Agent providers: claude, pi, codex, gemini, amp, copilot (ADR-001)
-├── provider/        # Remote (exedev, workspaces) + sandbox (slicer, docker) (ADR-004, ADR-005)
-├── provision/       # SSH bootstrap + dotfiles pipeline (ADR-009)
-├── obsidian/        # Workstream notes integration (ADR-007)
-├── cmd/             # Subcommand implementations
-└── util/            # UUID v5, notifications, shared utilities
+cmd/af/
+└── main.go             # Entry point: parse args, init slog, dispatch via cobra
+
+internal/
+├── agent/              # Agent interface + claude/pi/codex impls (ADR-043)
+├── config/             # TOML loader, layered (ADR-036)
+├── git/                # Worktree, branch, remote, PR helpers
+├── mux/                # Multiplexer interface + tmux impl (ADR-040)
+├── obsidian/           # Notes + Bases (ADR-047)
+├── remote/             # SSH host model (ADR-041)
+├── sandbox/            # slicer + sbx (ADR-042)
+├── secret/             # keyring + tmpfs envelope transport (ADR-049)
+├── session/            # state.toml + ledger.jsonl (ADR-037)
+└── workstream/         # Worktree layout, sub-worktrees (ADR-038)
+
+docs/
+├── adr/                # v1 ADRs (031+, append-only)
+├── SPEC.md, PLAN.md, CONVENTIONS.md
+└── v0/                 # frozen Rust-era archive
 ```
 
-## Working Commands (current state)
-
-```
-af create [name]        # worktree + mux + agent (--remote, --sandbox, --yolo, --from-pr)
-af done [session]       # teardown with confirmation, archive, remote cleanup
-af list                 # grouped by repo
-af resume [session]     # fzf picker, multi-agent recovery, --respawn for dead VMs
-af agent add/stop/list  # multi-agent pane management
-af gc [--dry-run] [--all]  # merge detection + cleanup
-af editor [--terminal] [--visual]  # open codebase in editor
-af diff [session]       # visual diff via diffity/delta
-af pr [session]         # create GitHub PR from session metadata
-af note [session]       # open Obsidian workstream note
-af stats                # workstream analytics from ledger data
-af export [--format]    # export ledger data as JSON/CSV
-af doctor [--fix] [--verbose]  # dependency check + auto-install
-af config show/init     # config management
-af completions bash/zsh/fish  # shell completions
-af session-branch       # branch-tied agent launch
-af version              # version info
-```
+Module path: `github.com/kakkoyun/af` (set in `go.mod` once scaffold lands).
 
 ## Conventions
 
-- **Edition 2024**, MSRV 1.85. Phased delivery per `docs/adr/008-phased-delivery.md`.
-- **Clippy pedantic** with `-D warnings`. Fix every warning.
-- `unsafe` is **forbidden** (`#[forbid(unsafe_code)]`).
-- `print_stdout` / `print_stderr` / `dbg_macro` are warnings — use `tracing` in library code.
-- Use `anyhow::Result` in the binary, `thiserror` for typed errors in the library.
-- All public items require doc comments (`missing_docs = "warn"`).
-- Commit format: `<type>(<scope>): <description>` (see `AGENTS.md` for scopes).
+- **Edition**: latest stable Go (the version pinned in `go.mod`).
+- **Lint**: `golangci-lint` with all linters on. See ADR-050.
+- **Format**: `gofumpt` (stricter `gofmt`); `goimports` for import order.
+- **Errors**: wrap with `fmt.Errorf("...: %w", err)`; sentinel errors per package as `var ErrThing = errors.New("...")`.
+- **Logging**: `log/slog` from stdlib; structured fields, never `fmt.Println` outside `cmd/af/main.go`.
+- **Context**: every function that calls an external command (`exec.Command`, `os.Open` for big reads, `net.Dial`) takes a `context.Context`.
+- **No `init()`**: wiring lives in `main()`. Tests may use `TestMain` sparingly.
+- **Commit format**: `<type>(<scope>): <description>` — types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`, `style`. Scopes follow package names: `agent`, `config`, `mux`, etc., or `v0`/`v1` for doc-pass commits.
 
 ## Release
 
-- Tag with `vX.Y.Z` to trigger the release workflow.
-- Builds for: x86_64/aarch64 Linux (glibc + musl), x86_64/aarch64 macOS.
-- Checksums (SHA256) are published alongside binaries.
+**v1 has no release.** Single-user. Install via `go install` or
+`make install`. `goreleaser` config lives at `.goreleaser.yml` for
+local cross-compile only — see ADR-053.

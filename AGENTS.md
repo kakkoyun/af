@@ -1,76 +1,87 @@
-# Working Agreement
+# Working Agreement — v1
 
-Ground rules for all agents (human and AI) working on this project.
-**Read this before writing any code.**
+Ground rules for every agent (human or AI) working on this project.
+**Read this before writing any code.** See [`CLAUDE.md`](CLAUDE.md) for
+the constitution and [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) for
+file-ownership and subagent dispatch protocol.
+
+> **v0 boundary.** The Rust source tree (`src/`, `Cargo.toml`, `justfile`,
+> etc.) is reference material only. Do not modify it. v1 implementation
+> goes under `cmd/af/` and `internal/...`.
 
 ---
 
 ## Core Principles
 
-1. **TDD — Test first, always.** Write the test, watch it fail, implement, watch it pass.
-   No exceptions. No "I'll add tests later." If you can't write a test for it, you don't
-   understand the requirement well enough.
+1. **TDD — Test first, always.** Write the test, watch it fail, implement,
+   watch it pass. No exceptions. If you can't write a test for it, you
+   don't understand the requirement well enough.
 
-2. **No corners cut.** Every function gets a doc comment. Every error path gets a test.
-   Every public API gets an example in the doc comment. Clippy pedantic is on for a reason.
+2. **No corners cut.** Every exported identifier gets a doc comment. Every
+   error path gets a test. Every public API gets an example in the doc
+   comment when non-obvious. `golangci-lint` pedantic is on for a reason.
 
-3. **Small, reviewable commits.** One logical change per commit. If a commit message needs
-   "and" more than once, split it.
+3. **Small, reviewable commits.** One logical change per commit. If a
+   commit message needs "and" more than once, split it.
 
-4. **Progress is tracked, not assumed.** Update `PROGRESS.md` after completing any task.
-   Update `TODO.md` checkboxes. Future sessions start by reading these files.
+4. **Progress is tracked, not assumed.** Update `PROGRESS.md` after
+   completing any task. Update `TODO.md` checkboxes. Future sessions
+   start by reading these files.
+
+5. **Stdlib first.** Reach for Go's standard library before any
+   third-party package. New deps require an ADR justification.
 
 ---
 
 ## TDD Workflow
 
 ```
-1. Pick a task from TODO.md (Phase 0 first, then Phase 1, etc.)
-2. Write the test(s) that define the expected behaviour
-3. Run `just test` — confirm the test FAILS (red)
-4. Write the minimum implementation to pass the test
-5. Run `just test` — confirm it PASSES (green)
-6. Refactor if needed (keep tests green)
-7. Run `just check` — fmt + clippy + test + deny must all pass
-8. Commit with a descriptive message
-9. Update PROGRESS.md and check off TODO.md
+1. Pick a task from TODO.md (in stage order).
+2. Write the test(s) that define the expected behaviour.
+3. Run `go test ./...` — confirm the test FAILS (red).
+4. Write the minimum implementation to pass the test.
+5. Run `go test ./...` — confirm it PASSES (green).
+6. Refactor if needed (keep tests green).
+7. Run `make check` (or fmt-check + lint + race test) — must all pass.
+8. Commit with a descriptive message.
+9. Update PROGRESS.md and check off TODO.md.
 ```
 
-**Never skip step 3.** A test that passes before implementation is not testing anything.
+**Never skip step 3.** A test that passes before implementation is not
+testing anything.
 
 ---
 
 ## Code Quality Standards
 
-### Rust
+### Go
 
-- **Every public item** has a `///` doc comment explaining what, why, and edge cases.
-- **Every module** has a `//!` module-level doc comment.
-- **Error types** use `thiserror` with human-readable messages.
-- **No `unwrap()`** in library code. Use `?` or `expect("reason")` with a clear justification.
-- **No `todo!()`** in committed code. Use `unimplemented!("reason: tracking issue #X")` if
-  truly needed, with a tracking reference.
-- **Clippy pedantic** warnings are errors in CI. Fix them, don't suppress them (unless
-  explicitly justified with a comment citing the lint name and reason).
+- **Every exported identifier** has a `// Foo does ...` doc comment whose first word is the identifier name (per `revive`/`golint` convention).
+- **Every package** has a `// Package <name> does ...` doc comment in one file (typically `doc.go` or the same-named `.go` file).
+- **Errors** wrap with `fmt.Errorf("context: %w", err)`. Sentinel errors are package-level `var Err... = errors.New(...)`. Custom error types embed via `errors.Is`/`errors.As`.
+- **No `panic()`** outside `cmd/af/main.go` and genuinely unreachable code paths. Use `errors.New` or typed errors.
+- **No `fmt.Print*` / `fmt.Println` / `os.Stdout.Write` outside `cmd/af/main.go`** — use `slog` for diagnostics, return values for output.
+- **`golangci-lint`** with all linters enabled. Mandatory: `errcheck`, `staticcheck`, `unparam`, `revive`, `gocritic`, `gosec`, `nolintlint`. Exceptions justified inline (`//nolint:name // reason`).
+- **Format**: `gofumpt -w .` (stricter `gofmt`) + `goimports -w .` (import order). CI checks `-l` (zero output).
 
 ### Tests
 
-- **Unit tests** live in the same file as the code, in a `#[cfg(test)] mod tests {}` block.
-- **Integration tests** live in `tests/` and test the binary or public API boundaries.
-- **Test names** describe the scenario: `test_sanitize_replaces_slash_with_double_dash`,
-  not `test_sanitize` or `test1`.
-- **Edge cases are mandatory:** empty input, Unicode, path separators, error paths.
-- **No test depends on external state** (no real tmux, no real git remote, no network).
-  Mock via traits.
+- **Unit tests** live in the same package as the code, in `<file>_test.go`.
+- **Black-box tests** for exported API live in `<package>_test.go` (declared `package foo_test`).
+- **Integration tests** for the binary live under `cmd/af/` as `<command>_test.go` using `rogpeppe/go-internal/testscript`.
+- **Test names** follow `TestThing_DoesX_WhenY`. e.g., `TestSanitize_ReplacesSlashWithDoubleDash`.
+- **Edge cases are mandatory:** empty input, Unicode, path separators, error paths, context cancellation.
+- **No test depends on external state** — no real tmux, no real git remote, no network. Mock via interface seams (per-package, narrow).
 
 ### Commits
 
-- Format: `<scope>: <what changed>`
-- Scopes: `feat`, `fix`, `test`, `refactor`, `docs`, `chore`
+- Format: `<type>(<scope>): <description>`
+- Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`, `style`.
+- Scopes: package names (`agent`, `config`, `mux`, `git`, ...) or `v0`/`v1` for doc-pass commits.
 - Examples:
-  - `feat(session): add session name sanitization`
-  - `test(git): add main branch detection tests for all variants`
-  - `refactor(config): extract TOML merging into dedicated function`
+  - `feat(session): record schema_version=1 on save`
+  - `test(workstream): cover sub-worktree path collision`
+  - `refactor(config): extract layered merge into dedicated function`
 
 ---
 
@@ -78,13 +89,15 @@ Ground rules for all agents (human and AI) working on this project.
 
 | File | Purpose | Updated when |
 |---|---|---|
-| `TODO.md` | Checkbox task list by phase | Task started or completed |
-| `PROGRESS.md` | Narrative log of what was done, decisions made, blockers | After each work session |
-| `docs/PLAN.md` | Original plan (immutable reference) | Never (create ADR for changes) |
-| `docs/SPEC.md` | Specification (immutable reference) | Only via ADR for spec changes |
-| `docs/adr/*.md` | Architecture decisions | When a design decision is made |
-| `CLAUDE.md` | Agent context and build instructions | When build/test commands change |
+| `TODO.md` | Checkbox task list by stage + backlog | Task started or completed |
+| `PROGRESS.md` | Narrative log per session | After each work session |
+| `docs/SPEC.md` | v1 specification (immutable reference) | Never (create ADR) |
+| `docs/PLAN.md` | Lightweight pointer to ADR groups (immutable) | Never (create ADR) |
+| `docs/CONVENTIONS.md` | Go style + file-ownership manifest | Append, don't overwrite |
+| `docs/adr/NNN-*.md` | Architecture decisions (append-only from 031) | New ADRs only |
+| `CLAUDE.md` | Constitution | When non-negotiable rules change |
 | `AGENTS.md` | This file — working agreement | When process changes |
+| `docs/v0/**` | Frozen Rust-era archive | **NEVER** |
 
 ---
 
@@ -94,69 +107,60 @@ Documentation is not an afterthought — it ships with the code.
 
 ### README.md is the contract
 
-`README.md` shows the **target user experience**. Every command example in the README must
-work (or be clearly marked as `🔜 Planned`). If the implementation doesn't match the README,
-the implementation is wrong, not the README.
+Every command example in the README must work, or be clearly marked as
+`🔜 Planned`. If the implementation doesn't match the README, the
+implementation is wrong.
 
 **Update README.md when:**
+- A new command is implemented (add usage example).
+- A command's flags change.
+- A new agent or provider is added.
+- Installation instructions change.
 
-- A new command is implemented (add usage example)
-- A command's flags change
-- A new agent or provider is added
-- Installation instructions change
+### Godoc
 
-### Rustdoc
+- `go doc ./...` must produce useful output for every exported identifier.
+- Every exported type, function, and method has a `// Foo ...` comment.
+- Doc comments include **examples** where the API is non-obvious. Use
+  `Example*` test functions for executable examples that `go doc` renders.
+- Package docs (`// Package foo ...`) explain the package's role in the
+  architecture and link to the relevant ADR.
 
-- `cargo doc` must build without warnings (`RUSTDOCFLAGS="-D warnings"`).
-- Every public type, function, trait, and module has a `///` doc comment.
-- Doc comments include **examples** where the API is non-obvious.
-- `//!` module-level docs explain the module's role in the architecture.
+### ADRs
 
-### GitHub Pages (docs site)
-
-The project deploys documentation to GitHub Pages via a CI workflow:
-
-- **Rustdoc API reference** — auto-generated from source
-- **User guide** — `docs/guide/` (mdBook or similar, set up when content warrants it)
-- **ADRs** — linked from the guide
-
-The docs site is the canonical URL for non-developers. README links to it.
+- Append-only from ADR-031. Numbering never reused.
+- Frontmatter format defined in ADR-032 (status + implementation lifecycle).
+- Max 3 pages of body. Code listings: type signatures only.
+- Every ADR that supersedes another lists it in `supersedes` frontmatter and backreferences it in `## References`.
 
 ### Doc update rule
 
-Every PR that changes user-facing behaviour must update:
+Every commit that changes user-facing behaviour must update:
 
-1. `README.md` — if the command surface changes
-2. Rustdoc — if the public API changes
-3. `docs/SPEC.md` — only via ADR (immutable reference)
-4. Relevant ADR — if a design decision changes
-
-### Changelog
-
-We'll maintain `CHANGELOG.md` (Keep a Changelog format) starting from the first release.
-Each entry corresponds to a version tag. Unreleased changes accumulate under `## [Unreleased]`.
+1. `README.md` if the command surface changes.
+2. Godoc if the public API changes.
+3. The relevant ADR's `implementation` frontmatter (`pending → in-progress → complete`).
+4. `CHANGELOG.md` `[Unreleased]` block.
 
 ---
 
 ## Subagent Coordination
 
-**Default: do the work yourself.** Only spawn subagents when there are genuinely independent,
-non-overlapping modules that benefit from parallelism. Two tasks? Do them sequentially.
+**Default: do the work yourself.** Only spawn subagents when there are
+genuinely independent, non-overlapping packages that benefit from
+parallelism. Two tasks? Do them sequentially.
 
 When spawning subagents:
 
 1. **Commit all pending work first.** Subagents can overwrite uncommitted files.
-   This is not theoretical — it happened in Phase 0 (ledger.rs was overwritten).
-2. **Each subagent works on a branch**, not directly on `main`. The lead reviews
-   and merges. This prevents file conflicts and enforces review.
-3. **Each subagent gets a clear, scoped task** — one module, one trait, one set of tests.
-4. **No subagent modifies shared files** (`Cargo.toml`, `cli.rs`, `lib.rs`, `mod.rs` parent
-   declarations) without coordination. Only the lead agent modifies shared files.
-5. **Subagents write their module + tests**, then report back.
-6. **Integration is the lead agent's job** — wiring modules together, fixing lint
-   violations, resolving conflicts.
-7. **The lead runs `just check` after integration** — subagent code is not trusted to
-   be lint-clean until verified in the full crate context.
+2. **Each subagent works on a branch**, not directly on `main`. The lead reviews and merges.
+3. **Each subagent gets a clear, scoped task** — one package, one interface, one set of tests.
+4. **No subagent modifies shared files** (`go.mod`, `cmd/af/main.go`, `internal/.../doc.go` parents) without coordination. Only the lead modifies shared files.
+5. **Subagents write their package + tests**, then report back.
+6. **Integration is the lead's job** — wiring packages together, fixing lint violations, resolving conflicts.
+7. **The lead runs `make check` after integration** — subagent code is not trusted to be lint-clean until verified in the full module context.
+
+The full file-ownership manifest lives in `docs/CONVENTIONS.md`.
 
 ---
 
@@ -164,12 +168,14 @@ When spawning subagents:
 
 A task is "done" when:
 
-- [ ] Tests exist and pass (`just test`)
-- [ ] Clippy is clean (`just lint`)
-- [ ] Formatting is clean (`just fmt-check`)
-- [ ] Doc comments are complete for all public items
-- [ ] `cargo doc` builds without warnings
+- [ ] Tests exist and pass (`go test -race -count=1 ./...`)
+- [ ] `golangci-lint run` is clean (zero warnings)
+- [ ] `gofumpt -l . && goimports -l .` is clean (zero output)
+- [ ] Doc comments are complete for all exported identifiers
+- [ ] `go doc ./...` builds without warnings
 - [ ] README.md is updated if user-facing behaviour changed
+- [ ] CHANGELOG.md `[Unreleased]` block updated
 - [ ] PROGRESS.md is updated
 - [ ] TODO.md checkbox is checked
+- [ ] Relevant ADR's `implementation` frontmatter advanced
 - [ ] Code is committed with a proper commit message
