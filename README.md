@@ -1,254 +1,104 @@
 # af
 
-**af** (agentic-flow · automatic-flow · as-fuck) — isolated development sessions for AI coding agents.
+**af** (agentic-flow / automatic-flow / as-fuck) — a single-user CLI for
+stitching together the AI coding agents, terminal multiplexer, sandbox,
+and remote machines that I actually use.
 
-Create a worktree, launch an agent, track everything. One command.
+> **Status — v1 doc pass.** This repository is mid-rewrite. Source is
+> Rust (v0, in `src/`); v1 is being written in Go and currently exists
+> only as documentation under `docs/`. The Rust tree is **reference
+> material only** until v1 has functional parity. See
+> [`docs/v0/README.md`](docs/v0/README.md) for the v0 archive.
 
-## Why
+## What it does
 
-You're working on a repo. You want Claude (or pi, or Codex, or Gemini, or Amp) to focus on
-one task without touching your main checkout. You want the branch, the worktree, and the agent
-session tied together. When the PR merges, you want everything cleaned up.
+I work on a repo. I want pi (or claude, or codex) to focus on one task
+without touching my main checkout. I want the worktree, the branch, and
+the agent session tied together. When I'm done, I want everything cleaned
+up. When I want to step away, I want to suspend the workstream — tear down
+the VM, kill the tmux server processes, free resources — and pick it back
+up later as if nothing happened.
 
 `af` does that.
 
-## Quickstart
+## v1 goals (not yet implemented)
 
-```bash
-# Install
-cargo install --locked --git https://github.com/kakkoyun/af
+- **Single binary**, written in Go, cross-compiled for `linux/{amd64,arm64}` and `darwin/{amd64,arm64}`.
+- **Stdlib-first** dependency policy. Five runtime deps total: cobra, BurntSushi/toml, google/uuid, gopkg.in/yaml.v3, zalando/go-keyring.
+- **Pedantic** lint (all `golangci-lint` linters on).
+- **Atomic commits**.
+- **No release** — single-user; install via `go install` or `make install`.
 
-# Check your environment
-af doctor
+## v1 scope (planned)
 
-# Create a workstream — worktree + tmux session + agent
-af create fix-auth-bug
-
-# You're now in a tmux session with Claude running.
-# The worktree is at ~/Workspace/.worktrees/<repo>/fix-auth-bug/
-
-# Add a second agent for review
-af agent add --slot review --agent pi
-
-# List active workstreams
-af list
-
-# Resume a workstream after detaching
-af resume fix-auth-bug
-
-# Done — tears down tmux, removes worktree, deletes branch
-af done
-```
-
-## Commands
-
-| Command | What it does |
+| Capability | Detail |
 |---|---|
-| `af create [task]` | New workstream: worktree + mux session + agent |
-| `af done [session]` | Tear down a workstream |
-| `af list` | Show active workstreams |
-| `af resume [session]` | Re-attach to a workstream |
-| `af gc` | Clean up merged/closed workstreams |
-| `af agent add` | Add another agent to the current workstream |
-| `af agent stop` | Stop an agent slot |
-| `af agent list` | List agents in the current workstream |
-| `af editor` | Open codebase in editor (terminal or GUI) |
-| `af doctor` | Check dependencies, optionally install them |
-| `af config` | Show or initialize configuration |
-| `af completions` | Generate shell completions (bash/zsh/fish) |
-| `af session-branch` | Launch agent tied to current branch |
+| Multiplexer | tmux only |
+| Agents | pi (default), claude, codex |
+| Remote | SSH host (alias from `~/.ssh/config`, `user@host`, or IP); no provider plugin layer |
+| Sandbox | slicer (Firecracker) and sbx (Docker AI Sandboxes) |
+| Worktree layout | Stable `~/Workspace/.worktrees/<repo>/<branch>/`; sibling sub-worktrees for subagents |
+| State | TOML state file + JSONL ledger per workstream, global at `~/.local/share/af/v1/sessions/`; per-repo discovery symlink at `<repo>/.af/state.toml` |
+| Obsidian | One markdown note per workstream, versioned frontmatter, optional Obsidian Bases aggregator |
+| Secrets | macOS Keychain / Linux Secret Service via `zalando/go-keyring`; tmpfs envelope file for transport (never SSH `SetEnv`) |
 
-### `af create` options
-
-```bash
-af create fix-bug                    # Fork from main, launch default agent
-af create --agent pi fix-bug         # Use pi instead of claude
-af create --from develop hotfix      # Fork from a specific branch
-af create --current spike            # Fork from current branch
-af create --from-pr 42               # Work on an existing PR (requires gh CLI)
-af create --bare review-pr           # Run agent on host worktree (no VM)
-```
-
-Planned (not yet implemented):
-
-```bash
-af create --remote fix-infra         # Agent runs on a remote VM
-af create --sandbox untrusted-code   # Agent runs in a Firecracker VM
-af create --yolo --sandbox fast-fix  # Skip permission prompts
-```
-
-### `af done` options
-
-```bash
-af done                    # Tear down current workstream (with confirmation)
-af done fix-bug            # Tear down a named workstream
-af done --force fix-bug    # Skip confirmation, force-delete unmerged branch
-```
-
-## Multi-Agent Workstreams
-
-A single workstream can run multiple agents concurrently in separate panes:
-
-```bash
-af create implement-feature          # Claude in pane 0 (primary)
-af agent add --slot review --agent pi    # pi in pane 1
-af agent add --slot tests --agent codex  # Codex in pane 2
-af agent list                        # Show all running agents
-af agent stop review                 # Stop pi, keep others
-```
-
-All agents share the same worktree and branch. Each gets its own multiplexer pane
-and independent session state.
-
-## Three-Layer Architecture
-
-`af` composes three independent concerns:
-
-| Layer | What it does | Options |
-|---|---|---|
-| **Agent** | The AI coding agent | claude, pi, codex, gemini, amp, copilot |
-| **Remote** | Where the machine lives | local (default), exe.dev, DD Workspaces |
-| **Sandbox** | Isolation around the agent | none (default), slicer (Firecracker), docker (sbx) |
-
-These compose orthogonally:
-
-```bash
-af create task                              # local + no sandbox + claude
-af create --agent codex task                # local + no sandbox + codex
-af create --sandbox task                    # local + slicer sandbox + claude
-af create --remote task                     # exe.dev remote + no sandbox + claude
-af create --remote --sandbox task           # exe.dev remote + slicer sandbox + claude
-af create --remote host --agent pi task     # specific remote + no sandbox + pi
-```
-
-## Supported Agents
-
-| Agent | Binary | Status |
-|---|---|---|
-| [Claude Code](https://claude.ai) | `claude` | ✅ Default |
-| [pi](https://github.com/mariozechner/pi-coding-agent) | `pi` | ✅ Supported |
-| [Codex](https://openai.com/codex) | `codex` | ✅ Supported |
-| [Gemini CLI](https://ai.google.dev) | `gemini` | ✅ Supported |
-| [Amp](https://amp.dev) | `amp` | ✅ Supported |
-| [Copilot CLI](https://githubnext.com/projects/copilot-cli) | `copilot` | ✅ Supported |
-
-## Sandbox Providers
-
-| Provider | Binary | Isolation | Status |
-|---|---|---|---|
-| [Slicer](https://slicervm.com) | `slicer` | Firecracker microVM | ✅ Supported |
-| [Docker AI Sandboxes](https://docs.docker.com/ai/sandboxes/) | `sbx` | microVM + Docker daemon | ✅ Supported |
-
-## Remote Providers
-
-| Provider | Access | Status |
-|---|---|---|
-| [exe.dev](https://exe.dev) | `ssh exe.dev` | ✅ Supported |
-| DD Workspaces | `workspaces` CLI | Planned |
-
-## Configuration
-
-```bash
-af config init    # Create default config at ~/.config/af/config.toml
-af config show    # Show effective configuration
-```
-
-```toml
-# ~/.config/af/config.toml
-
-[general]
-default_agent = "claude"
-multiplexer = "tmux"
-max_sessions = 10
-worktree_root = "~/Workspace/.worktrees"
-
-[branch]
-prefix = "kakkoyun"
-prefix_on_fork_only = true
-
-[editor]
-terminal = "nvim"
-visual = ""          # auto-detect: code > zed
-
-[lifecycle]
-retention_days = 90
-```
-
-Project-level overrides go in `<repo>/.af/config.toml`.
-
-## Installation
-
-### From source
-
-```bash
-cargo install --locked --git https://github.com/kakkoyun/af
-```
-
-### From release binaries
-
-Download from [GitHub Releases](https://github.com/kakkoyun/af/releases):
-
-| Target | Description |
-|---|---|
-| `x86_64-unknown-linux-gnu` | Linux x86_64 (glibc) |
-| `x86_64-unknown-linux-musl` | Linux x86_64 (static) |
-| `aarch64-unknown-linux-gnu` | Linux ARM64 (glibc) |
-| `aarch64-unknown-linux-musl` | Linux ARM64 (static) |
-| `x86_64-apple-darwin` | macOS Intel |
-| `aarch64-apple-darwin` | macOS Apple Silicon |
-
-### Prerequisites
-
-```bash
-af doctor        # Shows what's missing
-af doctor --fix  # Installs missing dependencies
-```
-
-Required: `git`, a terminal multiplexer (`tmux`), at least one AI agent (`claude`, `pi`, etc.)
-
-## How It Works
+## Planned commands
 
 ```
-af create fix-bug
-│
-├── 1. Detect repo, resolve base branch (fetch upstream/origin)
-├── 2. Create git worktree at ~/Workspace/.worktrees/<repo>/fix-bug
-├── 3. Create tmux session "fix-bug"
-├── 4. Generate deterministic session ID (UUID v5 of repo/branch)
-├── 5. Launch agent: claude --session-id <uuid>
-├── 6. Write session state to ~/.local/share/af/sessions/fix-bug/
-│      ├── state.toml    (live snapshot)
-│      └── ledger.jsonl  (append-only event log)
-└── 7. Attach to tmux session
+af create [task-name]       # worktree + tmux + primary agent (pi by default)
+af done [session]           # tear down a workstream
+af list                     # list active workstreams
+af resume [session]         # re-attach to a workstream
+af suspend [session]        # save state, tear down VMs/remote/tmux to free resources
+af session-branch           # launch agent tied to current branch (no worktree)
+
+af agent add/stop/list      # add or stop additional agents in a workstream
+af gc                       # clean merged/closed workstreams
+
+af setup                    # one-shot user-scope setup (gitignore, completions, config init, vault hint)
+af doctor [--remote <host>] # probe deps; print install commands; never auto-install
+af note [session]           # open the Obsidian note for a workstream
+
+af editor                   # open worktree in $EDITOR (config-driven)
+af diff [session]           # git diff against the workstream's base branch (config-driven)
+af pr [session]             # create a PR via gh (config-driven)
+
+af config show/init         # print or initialise config
+af completions <shell>      # generate shell completion script
+af version                  # print version
 ```
+
+## v0 → v1 boundary
+
+- **v0** (Rust, `src/`, `Cargo.toml`, `justfile`, etc.) is in this tree as reference. **Do not modify.** It will be removed once v1 has parity.
+- **v1** (Go) lives under `cmd/af/` and `internal/...` (paths to be created during implementation). Documentation is under `docs/`.
+- All v0 design history is at [`docs/v0/`](docs/v0/) (30 ADRs, full SPEC, full PLAN, eleven-session PROGRESS log).
 
 ## Documentation
 
 | Resource | Description |
 |---|---|
-| [`docs/SPEC.md`](docs/SPEC.md) | Full specification |
-| [`docs/PLAN.md`](docs/PLAN.md) | Implementation plan & architecture |
-| [`docs/adr/`](docs/adr/) | Architecture Decision Records (29 accepted; see [index](docs/adr/README.md)) |
-| [`docs/reference/external-tools.md`](docs/reference/external-tools.md) | Verified CLI-surface reference for external tools (slicer, sbx, workspaces, ssh, gh) |
-| [`book/`](book/) | mdBook user guide — build with `just book-build` (or `cargo install mdbook && mdbook build book`) |
-| [GitHub Pages](https://kakkoyun.github.io/af/) | Published user guide *(after first release)* |
+| [`CHANGELOG.md`](CHANGELOG.md) | Keep-a-Changelog format; `[Unreleased]` for v1 |
+| [`PROGRESS.md`](PROGRESS.md) | Narrative log per work session |
+| [`TODO.md`](TODO.md) | Doc-pass and post-doc-pass checklist |
+| [`docs/SPEC.md`](docs/SPEC.md) | v1 specification *(written in stage C of the doc pass)* |
+| [`docs/PLAN.md`](docs/PLAN.md) | Lightweight pointer to ADR groupings *(stage C)* |
+| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Go style, commit format, file ownership *(stage C)* |
+| [`docs/adr/`](docs/adr/) | v1 ADRs 031–053 *(stage D, append-only)* |
+| [`docs/v0/`](docs/v0/) | Frozen v0 (Rust era) archive |
+| [`AGENTS.md`](AGENTS.md) | Working agreement for AI agents touching this repo |
+| [`CLAUDE.md`](CLAUDE.md) | Project constitution (rules that survive context compaction) |
 
-## Development
-
-Requires: Rust 1.85+ (edition 2024)
+## Installation (planned)
 
 ```bash
-# With just (recommended)
-just check            # fmt + clippy + test + deny (run before every commit)
-just test             # Run tests
-just lint             # Run clippy (pedantic)
-just doc              # Generate and open rustdoc
-
-# Without just (raw cargo)
-cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
+go install github.com/kakkoyun/af@latest
+# or
+git clone https://github.com/kakkoyun/af && cd af && make install
 ```
 
-See [`AGENTS.md`](AGENTS.md) for the full working agreement (TDD workflow, code standards).
+Neither command works yet — there is no Go code in this repository. The
+documentation is the contract until implementation begins.
 
 ## License
 
