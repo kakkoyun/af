@@ -1,9 +1,11 @@
 # af — v1 Specification
 
 > Specification for the v1 (Go) iteration of `af`. This document is
-> **immutable** once landed: design changes go through ADRs in
-> `docs/adr/`. The Rust era's spec is preserved at `docs/v0/SPEC.md`
-> for historical context only.
+> **editable during the planning phase** so it can be kept consistent
+> with the v1 ADRs as they iterate. It freezes once all v1 ADRs are
+> `accepted` (per ADR-032's status lifecycle); after that, design
+> changes go through new ADRs in `docs/adr/`. The Rust era's spec is
+> preserved at `docs/v0/SPEC.md` for historical context only.
 
 ---
 

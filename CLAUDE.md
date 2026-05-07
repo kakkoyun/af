@@ -43,11 +43,14 @@ User-facing documentation (`README.md`, `CHANGELOG.md`, command `--help`
 text, ADR bodies) is the contract. If the code doesn't match the docs,
 the code is wrong. Update docs with every feature change.
 
-### 4. Immutable References
+### 4. Versioned References
 
-`docs/SPEC.md` and `docs/PLAN.md` are immutable once landed. To change a
-design decision, write a new ADR in `docs/adr/` (append-only from 031).
-v0 ADRs (`docs/v0/adr/`) are frozen historical record.
+`docs/SPEC.md` and `docs/PLAN.md` are **editable during the planning
+phase** so they can be kept consistent with the v1 ADRs as those
+iterate. They freeze once all v1 ADRs are `accepted` (per ADR-032's
+lifecycle). **After freeze, they are immutable** — design changes go
+through new ADRs in `docs/adr/` (append-only from 031). v0 ADRs
+(`docs/v0/adr/`) are frozen historical record at all times.
 
 ### 5. Progress Tracking Is Mandatory
 
@@ -105,19 +108,19 @@ be empty.
 
 ## Documentation Hierarchy
 
-| File | Purpose | Mutability |
-|---|---|---|
-| `CLAUDE.md` | Constitution — rules, context, build commands | Update when process changes |
-| `AGENTS.md` | Working agreement — TDD, quality, subagent rules | Update when process changes |
-| `README.md` | User-facing contract — must match reality | Update with every feature |
-| `CHANGELOG.md` | Release notes — Keep a Changelog format | Update with every feature |
-| `PROGRESS.md` | Narrative log per session | Append after each session |
-| `TODO.md` | Task list per stage + backlog | Check off / add as needed |
-| `docs/SPEC.md` | v1 specification | **IMMUTABLE** |
-| `docs/PLAN.md` | v1 plan (lightweight; references ADRs) | **IMMUTABLE** |
-| `docs/CONVENTIONS.md` | Go conventions, file ownership | Append, never overwrite |
-| `docs/adr/` | v1 ADRs 031–053 (append-only) | New ADRs only |
-| `docs/v0/` | Frozen Rust-era archive | **READ-ONLY** |
+| File                  | Purpose                                          | Mutability                  |
+| --------------------- | ------------------------------------------------ | --------------------------- |
+| `CLAUDE.md`           | Constitution — rules, context, build commands    | Update when process changes |
+| `AGENTS.md`           | Working agreement — TDD, quality, subagent rules | Update when process changes |
+| `README.md`           | User-facing contract — must match reality        | Update with every feature   |
+| `CHANGELOG.md`        | Release notes — Keep a Changelog format          | Update with every feature   |
+| `PROGRESS.md`         | Narrative log per session                        | Append after each session   |
+| `TODO.md`             | Task list per stage + backlog                    | Check off / add as needed   |
+| `docs/SPEC.md`        | v1 specification                                 | Editable during planning; **IMMUTABLE** after freeze |
+| `docs/PLAN.md`        | v1 plan (lightweight; references ADRs)           | Editable during planning; **IMMUTABLE** after freeze |
+| `docs/CONVENTIONS.md` | Go conventions, file ownership                   | Append, never overwrite     |
+| `docs/adr/`           | v1 ADRs 031–053 (append-only)                    | New ADRs only               |
+| `docs/v0/`            | Frozen Rust-era archive                          | **READ-ONLY**               |
 
 ## Build & Test (target state, once Go scaffold lands)
 

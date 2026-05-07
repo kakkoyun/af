@@ -5,8 +5,11 @@
 > per user directive, all implementation work is captured inside the
 > ADRs themselves via their `implementation` frontmatter lifecycle.
 >
-> This document is **immutable** once landed. Design or sequencing
-> changes go through new ADRs in `docs/adr/`. The Rust-era plan is
+> This document is **editable during the planning phase** so it can
+> stay consistent with the v1 ADRs as they iterate. It freezes once
+> all v1 ADRs are `accepted` (per ADR-032's status lifecycle); after
+> that, design or sequencing changes go through new ADRs in
+> `docs/adr/`. The Rust-era plan is
 > archived at [`docs/v0/PLAN.md`](v0/PLAN.md).
 
 ---
@@ -63,17 +66,17 @@ those status flips.
 
 The ADR dependency graph dictates the order:
 
-| Stage | What | Gating ADRs |
-|---|---|---|
-| **Meta** | Master, conventions, archival policy | 031, 032, 033 |
-| **Bootstrap** | Module layout, CLI framework, lint/test harness, build | 034, 035, 050, 051, 053 |
-| **Foundation** | Config, session schema, worktree layout, mux, agents | 036, 037, 038, 039, 040, 043 |
-| **Core commands** | `create`, `done`, `list`, `resume`, `session-branch`, `agent {add,stop,list}` | depends on Foundation |
-| **Lifecycle** | `setup`, `suspend`/`resume`, `gc`, `doctor`, `note`, `config`, `completions` | 044, 045, 046, 047 |
-| **Remote & sandbox** | `--remote`, `--sandbox`, secret management | 041, 042, 049 |
-| **Proxies** | `editor`, `diff`, `pr` | 048 |
-| **Polish** | Formal verification experiments | 052 |
-| **v0 retirement** | Remove `src/`, `Cargo.toml`, `justfile`, etc. | (no ADR; one-line commit) |
+| Stage                | What                                                                          | Gating ADRs                  |
+| -------------------- | ----------------------------------------------------------------------------- | ---------------------------- |
+| **Meta**             | Master, conventions, archival policy                                          | 031, 032, 033                |
+| **Bootstrap**        | Module layout, CLI framework, lint/test harness, build                        | 034, 035, 050, 051, 053      |
+| **Foundation**       | Config, session schema, worktree layout, mux, agents                          | 036, 037, 038, 039, 040, 043 |
+| **Core commands**    | `create`, `done`, `list`, `resume`, `session-branch`, `agent {add,stop,list}` | depends on Foundation        |
+| **Lifecycle**        | `setup`, `suspend`/`resume`, `gc`, `doctor`, `note`, `config`, `completions`  | 044, 045, 046, 047           |
+| **Remote & sandbox** | `--remote`, `--sandbox`, secret management                                    | 041, 042, 049                |
+| **Proxies**          | `editor`, `diff`, `pr`                                                        | 048                          |
+| **Polish**           | Formal verification experiments                                               | 052                          |
+| **v0 retirement**    | Remove `src/`, `Cargo.toml`, `justfile`, etc.                                 | (no ADR; one-line commit)    |
 
 This sequence is descriptive, not prescriptive. Two stages can be in
 flight at once if their ADRs don't conflict; the `implementation`
@@ -93,7 +96,7 @@ frontmatter is the source of truth for what's currently in progress.
 
 ## References
 
-- [`docs/SPEC.md`](SPEC.md) — v1 specification (immutable).
+- [`docs/SPEC.md`](SPEC.md) — v1 specification (editable during planning, frozen after).
 - [`docs/CONVENTIONS.md`](CONVENTIONS.md) — Go conventions, file ownership.
 - [`docs/adr/`](adr/) — v1 ADRs 031–053.
 - [`docs/v0/PLAN.md`](v0/PLAN.md) — v0 (Rust era) plan, archived.

@@ -67,35 +67,35 @@
 <type>(<scope>): <description>
 ```
 
-| Type | Use for |
-|---|---|
-| `feat` | New user-facing functionality |
-| `fix` | Bug fix |
-| `docs` | Documentation only |
+| Type       | Use for                                                 |
+| ---------- | ------------------------------------------------------- |
+| `feat`     | New user-facing functionality                           |
+| `fix`      | Bug fix                                                 |
+| `docs`     | Documentation only                                      |
 | `refactor` | Code change that neither fixes a bug nor adds a feature |
-| `test` | Adding or fixing tests |
-| `chore` | Tooling, build, dotfiles |
-| `perf` | Performance improvement |
-| `ci` | CI/build workflow change |
-| `build` | Build system change (Makefile, goreleaser) |
-| `style` | Formatting, whitespace |
+| `test`     | Adding or fixing tests                                  |
+| `chore`    | Tooling, build, dotfiles                                |
+| `perf`     | Performance improvement                                 |
+| `ci`       | CI/build workflow change                                |
+| `build`    | Build system change (Makefile, goreleaser)              |
+| `style`    | Formatting, whitespace                                  |
 
-| Scope | Use for |
-|---|---|
-| `agent` | `internal/agent/...` |
-| `config` | `internal/config/...` |
-| `git` | `internal/git/...` |
-| `mux` | `internal/mux/...` |
-| `obsidian` | `internal/obsidian/...` |
-| `remote` | `internal/remote/...` |
-| `sandbox` | `internal/sandbox/...` |
-| `secret` | `internal/secret/...` |
-| `session` | `internal/session/...` |
-| `workstream` | `internal/workstream/...` |
-| `cmd` | `cmd/af/...` |
-| `adr` | `docs/adr/...` |
-| `v0` | Anything under `docs/v0/` (rare; archive should be frozen) |
-| `v1` | Top-level v1 doc files: README, CHANGELOG, PROGRESS, TODO, CLAUDE, AGENTS, SPEC, PLAN, CONVENTIONS |
+| Scope        | Use for                                                                                            |
+| ------------ | -------------------------------------------------------------------------------------------------- |
+| `agent`      | `internal/agent/...`                                                                               |
+| `config`     | `internal/config/...`                                                                              |
+| `git`        | `internal/git/...`                                                                                 |
+| `mux`        | `internal/mux/...`                                                                                 |
+| `obsidian`   | `internal/obsidian/...`                                                                            |
+| `remote`     | `internal/remote/...`                                                                              |
+| `sandbox`    | `internal/sandbox/...`                                                                             |
+| `secret`     | `internal/secret/...`                                                                              |
+| `session`    | `internal/session/...`                                                                             |
+| `workstream` | `internal/workstream/...`                                                                          |
+| `cmd`        | `cmd/af/...`                                                                                       |
+| `adr`        | `docs/adr/...`                                                                                     |
+| `v0`         | Anything under `docs/v0/` (rare; archive should be frozen)                                         |
+| `v1`         | Top-level v1 doc files: README, CHANGELOG, PROGRESS, TODO, CLAUDE, AGENTS, SPEC, PLAN, CONVENTIONS |
 
 Body explains **why**, not what. Keep under 72 chars per line. Reference
 the relevant ADR(s) when the commit implements a decision.
@@ -116,18 +116,18 @@ are spawned. Every file in the repo has exactly one **primary owner**.
 
 ### Top-level
 
-| Path | Primary owner |
-|---|---|
-| `README.md` | Lead (any agent updating after a feature change). |
-| `CHANGELOG.md` | Lead (every feature commit appends here). |
-| `PROGRESS.md` | Lead (one append per session). |
-| `TODO.md` | Lead. Subagents do not edit. |
-| `CLAUDE.md`, `AGENTS.md`, `docs/CONVENTIONS.md` | Lead only. |
-| `docs/SPEC.md`, `docs/PLAN.md` | **Immutable.** No owner. New ADR required. |
-| `docs/adr/NNN-*.md` | The author of that ADR. Reviewed by the owner. |
-| `docs/v0/**` | **Frozen.** No owner. |
-| `Makefile`, `.golangci.yml`, `.goreleaser.yml`, `go.mod`, `go.sum` | Lead only. |
-| `cmd/af/main.go` | Lead only. |
+| Path                                                               | Primary owner                                     |
+| ------------------------------------------------------------------ | ------------------------------------------------- |
+| `README.md`                                                        | Lead (any agent updating after a feature change). |
+| `CHANGELOG.md`                                                     | Lead (every feature commit appends here).         |
+| `PROGRESS.md`                                                      | Lead (one append per session).                    |
+| `TODO.md`                                                          | Lead. Subagents do not edit.                      |
+| `CLAUDE.md`, `AGENTS.md`, `docs/CONVENTIONS.md`                    | Lead only.                                        |
+| `docs/SPEC.md`, `docs/PLAN.md`                                     | Editable during planning to stay consistent with ADRs; **immutable after freeze**. No owner post-freeze; new ADR required. |
+| `docs/adr/NNN-*.md`                                                | The author of that ADR. Reviewed by the owner.    |
+| `docs/v0/**`                                                       | **Frozen.** No owner.                             |
+| `Makefile`, `.golangci.yml`, `.goreleaser.yml`, `go.mod`, `go.sum` | Lead only.                                        |
+| `cmd/af/main.go`                                                   | Lead only.                                        |
 
 ### Per-package
 

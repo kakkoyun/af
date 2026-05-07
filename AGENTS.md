@@ -87,17 +87,17 @@ testing anything.
 
 ## File Responsibilities
 
-| File | Purpose | Updated when |
-|---|---|---|
-| `TODO.md` | Checkbox task list by stage + backlog | Task started or completed |
-| `PROGRESS.md` | Narrative log per session | After each work session |
-| `docs/SPEC.md` | v1 specification (immutable reference) | Never (create ADR) |
-| `docs/PLAN.md` | Lightweight pointer to ADR groups (immutable) | Never (create ADR) |
-| `docs/CONVENTIONS.md` | Go style + file-ownership manifest | Append, don't overwrite |
-| `docs/adr/NNN-*.md` | Architecture decisions (append-only from 031) | New ADRs only |
-| `CLAUDE.md` | Constitution | When non-negotiable rules change |
-| `AGENTS.md` | This file — working agreement | When process changes |
-| `docs/v0/**` | Frozen Rust-era archive | **NEVER** |
+| File                  | Purpose                                       | Updated when                     |
+| --------------------- | --------------------------------------------- | -------------------------------- |
+| `TODO.md`             | Checkbox task list by stage + backlog         | Task started or completed        |
+| `PROGRESS.md`         | Narrative log per session                     | After each work session          |
+| `docs/SPEC.md`        | v1 specification                              | Editable during planning; never after freeze (create ADR)               |
+| `docs/PLAN.md`        | Lightweight pointer to ADR groups             | Editable during planning; never after freeze (create ADR)               |
+| `docs/CONVENTIONS.md` | Go style + file-ownership manifest            | Append, don't overwrite          |
+| `docs/adr/NNN-*.md`   | Architecture decisions (append-only from 031) | New ADRs only                    |
+| `CLAUDE.md`           | Constitution                                  | When non-negotiable rules change |
+| `AGENTS.md`           | This file — working agreement                 | When process changes             |
+| `docs/v0/**`          | Frozen Rust-era archive                       | **NEVER**                        |
 
 ---
 
@@ -112,6 +112,7 @@ Every command example in the README must work, or be clearly marked as
 implementation is wrong.
 
 **Update README.md when:**
+
 - A new command is implemented (add usage example).
 - A command's flags change.
 - A new agent or provider is added.
