@@ -42,12 +42,12 @@ af create   ────►  active   ────►  af suspend  ────�
                                                                                           (or abandoned)
 ```
 
-| State | Meaning | Tmux server processes | VM / Remote |
-|---|---|---|---|
-| `active` | Workstream running | Up | Up (if any) |
-| `suspended` | User invoked `af suspend` to free resources | Down (the workstream's session is killed) | Down (VM destroyed, remote SSH session killed) |
-| `completed` | `af done` ran cleanly; PR may be open/merged | Down (cleaned up) | Down |
-| `abandoned` | `af done --force` on unmerged work | Down | Down |
+| State       | Meaning                                      | Tmux server processes                     | VM / Remote                                    |
+| ----------- | -------------------------------------------- | ----------------------------------------- | ---------------------------------------------- |
+| `active`    | Workstream running                           | Up                                        | Up (if any)                                    |
+| `suspended` | User invoked `af suspend` to free resources  | Down (the workstream's session is killed) | Down (VM destroyed, remote SSH session killed) |
+| `completed` | `af done` ran cleanly; PR may be open/merged | Down (cleaned up)                         | Down                                           |
+| `abandoned` | `af done --force` on unmerged work           | Down                                      | Down                                           |
 
 Suspended workstreams are reconstructible: `af resume <name>` recreates
 the tmux session, recreates VMs/remote connections, and relaunches each
@@ -61,48 +61,50 @@ persist to its own session log is lost.
 
 ### 3.1 Creation, teardown, listing
 
-| Command | Purpose |
-|---|---|
-| `af create [name]` | Create a workstream: branch, worktree, tmux session, primary agent (pi by default). |
-| `af done [session]` | Tear down a workstream: kill tmux, remove worktree, delete branch (if `--force` or branch is merged), tear down remote/sandbox if applicable, archive state and ledger. |
-| `af list` | List active workstreams grouped by repo. Includes status column (`active`, `suspended`). |
-| `af resume [session]` | Re-attach to an active workstream, or rehydrate a suspended one. |
-| `af suspend [session]` | Persist state, tear down tmux + remote/sandbox to free resources. Workstream becomes `suspended`. |
-| `af session-branch` | Launch the default agent with a session ID derived from the current branch (no worktree). For ad-hoc work in the existing checkout. |
+| Command                | Purpose                                                                                                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `af create [name]`     | Create a workstream: branch, worktree, tmux session, primary agent (pi by default).                                                                                     |
+| `af done [session]`    | Tear down a workstream: kill tmux, remove worktree, delete branch (if `--force` or branch is merged), tear down remote/sandbox if applicable, archive state and ledger. |
+| `af list`              | List active workstreams grouped by repo. Includes status column (`active`, `suspended`).                                                                                |
+| `af resume [session] [--bare] [--respawn]` | Re-attach to an active workstream, or rehydrate a suspended one. `--bare` skips multiplexer; `--respawn` recreates dead sandbox VMs.                                    |
+| `af suspend [session]` | Persist state, tear down tmux + remote/sandbox to free resources. Workstream becomes `suspended`.                                                                       |
+| `af session-branch`    | Launch the default agent with a session ID derived from the current branch (no worktree). For ad-hoc work in the existing checkout.                                     |
 
 ### 3.2 Multi-agent management
 
-| Command | Purpose |
-|---|---|
-| `af agent add --slot <name> --agent <provider>` | Add a new agent in a new tmux pane. |
-| `af agent stop <slot>` | Stop the agent in the named slot. |
-| `af agent list` | Tabular output of slot, agent, status, pane. |
+All three subcommands accept `--session NAME` to target a workstream other than the current one.
+
+| Command                                                          | Purpose                                                                                  |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `af agent add --slot <name> --agent <provider> [--session NAME]` | Add a new agent in a new tmux pane. Creates a sibling sub-worktree if `slot != primary`. |
+| `af agent stop <slot> [--remove-worktree] [--session NAME]`      | Stop the agent in the named slot. `--remove-worktree` also removes the sub-worktree.     |
+| `af agent list [--session NAME]`                                 | Tabular output of slot, agent, status, pane.                                             |
 
 ### 3.3 Lifecycle utilities
 
-| Command | Purpose |
-|---|---|
-| `af gc [--dry-run] [--all]` | List or clean merged/closed workstreams. |
-| `af setup` | One-shot user-scope environment setup: gitignore entry, completions, config init, vault hint. |
-| `af doctor [--remote <host>] [--verbose]` | Probe required tools; print install commands. **Never** auto-installs. |
-| `af note [session]` | Open the workstream's Obsidian note. |
-| `af config show \| init` | Print effective config or write defaults. |
-| `af completions <shell>` | Emit shell completion script (bash, zsh, fish, powershell). |
+| Command                                   | Purpose                                                                                       |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `af gc [--dry-run] [--all]`               | List or clean merged/closed workstreams.                                                      |
+| `af setup`                                | One-shot user-scope environment setup: gitignore entry, completions, config init, vault hint. |
+| `af doctor [--remote <host>] [--verbose]` | Probe required tools; print install commands. **Never** auto-installs.                        |
+| `af note [session]`                       | Open the workstream's Obsidian note.                                                          |
+| `af config show \| init`                  | Print effective config or write defaults.                                                     |
+| `af completions <shell>`                  | Emit shell completion script (bash, zsh, fish, powershell).                                   |
 
 ### 3.4 Proxy commands (config-driven, thin wrappers)
 
-| Command | Default behaviour | Config knob |
-|---|---|---|
-| `af editor [--terminal\|--visual]` | `$EDITOR` in a tmux split, or `code .` / `zed .` for visual. | `[editor].terminal`, `[editor].visual` |
-| `af diff [session] [--base <ref>]` | `git diff <base_branch>...HEAD` in the workstream's worktree, paged. | `[diff].cmd` |
-| `af pr [session] [--title <t>] [--draft] [--web]` | `gh pr create --base <base_branch> --head <branch>`. | `[pr].cmd` |
+| Command                                           | Default behaviour                                                    | Config knob                            |
+| ------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------- |
+| `af editor [--terminal\|--visual]`                | `$EDITOR` in a tmux split, or `code .` / `zed .` for visual.         | `[editor].terminal`, `[editor].visual` |
+| `af diff [session] [--base <ref>]`                | `git diff <base_branch>...HEAD` in the workstream's worktree, paged. | `[diff].cmd`                           |
+| `af pr [session] [--title <t>] [--draft] [--web]` | `gh pr create --base <base_branch> --head <branch>`.                 | `[pr].cmd`                             |
 
 ### 3.5 Meta
 
-| Command | Purpose |
-|---|---|
-| `af version` | Print version, commit, build date. |
-| `af --help` | Top-level help. Subcommand help via `af <cmd> --help`. |
+| Command      | Purpose                                                |
+| ------------ | ------------------------------------------------------ |
+| `af version` | Print version, commit, build date.                     |
+| `af --help`  | Top-level help. Subcommand help via `af <cmd> --help`. |
 
 ---
 
@@ -116,8 +118,9 @@ persist to its own session log is lost.
 
 ### 4.2 Session IDs
 
-- Each agent slot has a deterministic UUID v5 derived from `(repo_name, branch_name, slot_name)`.
-- The same workstream resumes against the same session IDs across machines and reboots.
+- The **slot identity** `(repo_name, branch_name, slot_name)` is stable across machines and reboots.
+- Each agent **launch** within a slot mints a new UUID v5: `uuid5(NAMESPACE_DNS, "{repo}/{branch}/{slot}/{launch-timestamp-ns}")`. Resumes within a slot append to `state.toml`'s `session_ids[]`.
+- Some agents accept the session ID via flag (claude `--session-id <uuid>`); others (pi, codex) use their native resume mechanism (`pi --continue`, `codex resume --last`) and the session ID is recorded for `af`'s tracking only. See ADR-039.
 
 ### 4.3 Worktree path
 
@@ -155,10 +158,11 @@ Full schema is defined in ADR-037. Top-level shape:
 schema_version = 1
 
 [session]
-name = "kakkoyun--issue-42"
-id   = "<uuid v5>"
-created_at = 2026-05-06T12:00:00Z
-status     = "active"     # active | suspended | completed | abandoned
+name         = "kakkoyun--issue-42"
+id           = "<uuid v5>"
+created_at   = 2026-05-06T12:00:00Z
+status       = "active"       # active | suspended | completed | abandoned
+suspended_at = null           # set when status = "suspended"
 
 [worktree]
 path        = "/Users/kemal/Workspace/.worktrees/af/kakkoyun--issue-42"
@@ -167,21 +171,24 @@ base_branch = "upstream/main"
 git_root    = "/Users/kemal/Workspace/Projects/Personal/af"
 
 [execution]
-mode            = "local"     # local | bare | remote | sandbox
-multiplexer     = "tmux"
-tmux_session    = "kakkoyun--issue-42"
-ssh_host        = ""          # populated for remote mode
-remote_path     = ""
+mode             = "local"    # local | bare | remote | sandbox
+multiplexer      = "tmux"
+tmux_session     = "kakkoyun--issue-42"
+ssh_host         = ""         # populated for remote mode
+remote_path      = ""
 sandbox_provider = ""         # "" | "slicer" | "sbx"
-sandbox_id      = ""
+sandbox_id       = ""
 
 [[agents]]
-slot       = "primary"
-provider   = "pi"
-session_ids = ["<uuid v5>"]   # all session IDs ever associated with this slot
-pane       = "%0"
-status     = "running"        # running | stopped | crashed
-sub_worktree = ""             # path to sibling sub-worktree, if any
+slot            = "primary"
+provider        = "pi"
+session_ids     = ["<uuid v5>"]   # all session IDs ever associated with this slot
+pane            = "%0"
+status          = "running"   # running | stopped | crashed | suspended
+sub_worktree    = ""          # absolute path to sibling sub-worktree, if any
+sub_branch      = ""          # branch name of the sub-worktree
+created_at      = 2026-05-06T12:00:00Z
+last_resumed_at = null        # null until first resume
 
 [pr]
 number = 0
@@ -189,8 +196,8 @@ url    = ""
 state  = ""
 
 [versions]
-af              = "1.0.0"
-agent_versions  = { pi = "...", claude = "..." }
+af             = "1.0.0"
+agent_versions = { pi = "...", claude = "..." }
 ```
 
 ### 5.3 `ledger.jsonl` events
@@ -210,11 +217,11 @@ Every agent-scoped event carries `slot`, `agent`, and (where relevant)
 
 ### 6.1 Files
 
-| Path | Purpose |
-|---|---|
-| Compiled defaults | Built into the binary. |
+| Path                       | Purpose                                                         |
+| -------------------------- | --------------------------------------------------------------- |
+| Compiled defaults          | Built into the binary.                                          |
 | `~/.config/af/config.toml` | User-level (vaults, default agent, prefix, lifecycle, secrets). |
-| `<repo>/.af/config.toml` | Per-repo overrides (project-specific defaults). |
+| `<repo>/.af/config.toml`   | Per-repo overrides (project-specific defaults).                 |
 
 Merge order: defaults → user → repo. Last writer wins per field.
 
@@ -229,8 +236,8 @@ Full schema in ADR-036. Sections:
 - `[pr]` — `cmd` (default: `gh pr create`), `template`.
 - `[remote]` — `default_host`, `ssh_options`.
 - `[sandbox]` — `default_provider`, `slicer.*`, `sbx.*`.
-- `[obsidian.vaults]` — **global only**; map of vault name → absolute path. Default: `enabled = false`.
-- `[obsidian.notes]` — `vault`, `folder`, `template`.
+- `[obsidian]` — `notes_vault` (key from `[obsidian.vaults]`), `notes_folder`, `notes_template`.
+- `[obsidian.vaults]` — **global only**; map of vault-name → absolute path on this machine.
 - `[doctor]` — `extra_tools`.
 - `[secret]` — `keyring_service`.
 - `[lifecycle]` — `retention_days`, `auto_archive`.
@@ -245,11 +252,11 @@ vault paths are a per-machine concern unrelated to any project.
 Three providers in v1, all behind a single `internal/agent.Agent`
 interface. Defined in ADR-043.
 
-| Agent | Binary | Default? | Resume flag | Yolo flag |
-|---|---|---|---|---|
-| `pi` | `pi` | ✅ | `--continue` | (TBD per agent's CLI) |
-| `claude` | `claude` |  | `--continue` (with `--session-id <uuid>`) | `--dangerously-skip-permissions` |
-| `codex` | `codex` |  | `resume --last` | `--full-auto` |
+| Agent    | Binary   | Default? | Resume flag                               | Yolo flag                        |
+| -------- | -------- | -------- | ----------------------------------------- | -------------------------------- |
+| `pi`     | `pi`     | ✅       | `--continue`                              | (TBD per agent's CLI)            |
+| `claude` | `claude` |          | `--continue` (with `--session-id <uuid>`) | `--dangerously-skip-permissions` |
+| `codex`  | `codex`  |          | `resume --last`                           | `--full-auto`                    |
 
 Each provider exposes:
 
@@ -288,10 +295,10 @@ SSH host name.
 Two providers behind a single `internal/sandbox.Sandbox` interface.
 Defined in ADR-042.
 
-| Provider | Binary | Backend | Local | Remote |
-|---|---|---|---|---|
-| `slicer` | `slicer` | Firecracker microVM | ✅ | ✅ (composes with `--remote`) |
-| `sbx` | `sbx` | Docker AI Sandboxes | ✅ | ✅ |
+| Provider | Binary   | Backend             | Local | Remote                        |
+| -------- | -------- | ------------------- | ----- | ----------------------------- |
+| `slicer` | `slicer` | Firecracker microVM | ✅    | ✅ (composes with `--remote`) |
+| `sbx`    | `sbx`    | Docker AI Sandboxes | ✅    | ✅                            |
 
 Composition: `af create --remote <host> --sandbox slicer` runs the
 slicer daemon on the remote, builds a VM there, and launches the agent
@@ -345,11 +352,11 @@ Defined in ADR-047.
 
 ## 13. Doctor + Setup
 
-| Command | Scope | Auto-install? |
-|---|---|---|
-| `af doctor` | Probe local tools (`tmux`, `git`, `pi`, `claude`, `codex`, `gh`, `slicer`, `sbx`, `fzf`); print install commands. | **No.** |
-| `af doctor --remote <host>` | Same probe over SSH; print install commands for the remote's package manager. | **No.** |
-| `af setup` | Idempotent user-scope setup: add `.af/` to `~/.config/git/ignore`; install shell completions for the detected shell; create `~/.local/share/af/v1/` tree; run `af config init` if no config exists; print Obsidian vault hint. | Local user files only. **No** `sudo`, **no** package installs. |
+| Command                     | Scope                                                                                                                                                                                                                          | Auto-install?                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `af doctor`                 | Probe local tools (`tmux`, `git`, `pi`, `claude`, `codex`, `gh`, `slicer`, `sbx`, `fzf`); print install commands.                                                                                                              | **No.**                                                        |
+| `af doctor --remote <host>` | Same probe over SSH; print install commands for the remote's package manager.                                                                                                                                                  | **No.**                                                        |
+| `af setup`                  | Idempotent user-scope setup: add `.af/` to `~/.config/git/ignore`; install shell completions for the detected shell; create `~/.local/share/af/v1/` tree; run `af config init` if no config exists; print Obsidian vault hint. | Local user files only. **No** `sudo`, **no** package installs. |
 
 Per-platform install hints in `af doctor` output:
 
