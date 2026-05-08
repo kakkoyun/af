@@ -199,11 +199,13 @@ Full schema is defined in ADR-037. Top-level shape:
 schema_version = 1
 
 [session]
-name         = "kakkoyun--issue-42"
-id           = "<uuid v5>"
-created_at   = 2026-05-06T12:00:00Z
-status       = "active"       # active | suspended | completed | abandoned
-suspended_at = null           # set when status = "suspended"
+name            = "kakkoyun--issue-42"
+id              = "<uuid v5>"
+repo_slug       = "kakkoyun/af"   # owner/name parsed from upstream/origin remote; "" for non-GitHub
+created_at      = 2026-05-06T12:00:00Z
+last_touched_at = 2026-05-06T12:00:00Z   # bumped by mutating commands; ADR-054 sorts on this
+status          = "active"       # active | suspended | completed | abandoned
+suspended_at    = null           # set when status = "suspended"
 
 [worktree]
 path        = "/Users/kemal/Workspace/.worktrees/af/kakkoyun--issue-42"
@@ -235,6 +237,11 @@ last_resumed_at = null        # null until first resume
 number = 0
 url    = ""
 state  = ""
+
+[stack]
+parent_session = ""           # workstream name of the parent; "" = no parent (ADR-059)
+parent_branch  = ""           # resolved branch name of the parent at link time
+linked_at      = null         # timestamp the parent was set
 
 [versions]
 af             = "1.0.0"
@@ -300,11 +307,13 @@ interface. Defined in ADR-043.
 | `claude` | `claude` |          | `--continue` (with `--session-id <uuid>`) | `--dangerously-skip-permissions` |
 | `codex`  | `codex`  |          | `resume --last`                           | `--full-auto`                    |
 
-Each provider exposes:
+Each provider exposes (full signatures in ADR-043):
 
-- `LaunchCmd(LaunchOpts) []string`
-- `ResumeCmd(ResumeOpts) []string`
-- `IsAvailable() bool`
+- `Name() string`, `Binary() string`, `IsAvailable(ctx) bool`
+- `LaunchCmd(LaunchOpts) []string` — argv for new session.
+- `ResumeCmd(ResumeOpts) []string` — argv for resumed session.
+- `PRCmd(prNumber, LaunchOpts) ([]string, bool)` — argv for PR-review session, when supported.
+- `BodyCmd(BodyOpts) ([]string, bool)` — argv for non-interactive print mode, used by `af pr --ai` (ADR-057). Returns `(_, false)` if the agent has no headless mode.
 - `SessionLogPaths(sessionID, projectPath) []string` — for analysis only; `af` never deletes agent log files.
 
 ---
@@ -372,19 +381,29 @@ Defined in ADR-049.
 
 Defined in ADR-047.
 
-- `af create` writes `<vault>/<folder>/<session>.md` with frontmatter:
+- `af create` writes `<vault>/<folder>/<session>.md` with frontmatter (`af_schema: 1`):
   ```yaml
   ---
   af_schema: 1
   af_session: kakkoyun--issue-42
   af_repo: af
   af_branch: kakkoyun/issue-42
+  af_base_branch: upstream/main
   af_status: active
-  af_agents: [pi]
+  af_agents:
+    - slot: primary
+      provider: pi
+      status: running
   af_started_at: 2026-05-06T12:00:00Z
   af_completed_at: null
+  af_pr_number: 0
+  af_pr_url: ""
+  af_pr_state: ""
+  tags: [af]
+  af_tags: []
   ---
   ```
+  Top-level `tags: [af]` is what the example Obsidian Base filters on (`taggedWith: af`); `af_tags` is the user-editable extension list.
 - `af done` updates `af_status` to `completed` (or `abandoned`) and
   sets `af_completed_at`.
 - `af suspend` sets `af_status: suspended`. `af resume` reverts to

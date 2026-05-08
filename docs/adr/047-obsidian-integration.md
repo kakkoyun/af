@@ -57,19 +57,30 @@ af_status: active # active | suspended | completed | abandoned
 af_agents: # array, one entry per slot
   - slot: primary
     provider: pi
+    status: running # running | stopped | crashed | suspended
   - slot: review
     provider: claude
+    status: running
 af_started_at: 2026-05-06T12:00:00Z
 af_completed_at: null
 af_pr_number: 0 # 0 = no PR
 af_pr_url: ""
-af_tags: # user-editable
-  - workstream
+af_pr_state: "" # "" | "open" | "merged" | "closed"
+tags: [af] # top-level tag for Obsidian Base filtering (taggedWith: af)
+af_tags: [] # user-editable extension list (project, area, etc.)
 ---
 ```
 
-The `af_*` prefix namespaces the frontmatter so user-added fields
-(`tags`, `aliases`, etc.) don't conflict.
+The `af_*` prefix namespaces structured workstream fields so they
+don't collide with user-added Obsidian fields (`aliases`, `cssclasses`,
+etc.). Two tag-shaped fields exist deliberately:
+
+- `tags` (top-level, value `[af]`): what the example Obsidian Base
+  uses to identify workstream notes via `taggedWith: af`. Obsidian's
+  built-in tag index also picks it up.
+- `af_tags`: free-form user-editable list (e.g. `["work", "infra"]`).
+  Not consumed by the example Base; users may write their own Base
+  filtering on it.
 
 ### Body template
 
@@ -149,7 +160,7 @@ owner configures it manually in their pi/claude/codex hook config.
 ```yaml
 filters:
   and:
-    - taggedWith: af
+    - taggedWith: af # matches the top-level `tags: [af]` field of every workstream note
     - or:
         - field: af_status
           equals: active
