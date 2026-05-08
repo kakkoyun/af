@@ -106,14 +106,30 @@ on the table directly govern the runtime.
 A `docs/specs/lifecycle.tla` TLA+ model encodes the same state machine
 with TLA+'s temporal-logic operators. Properties:
 
-- `[]<>(state = Completed \/ state = Abandoned)` — eventually a
-  workstream reaches a terminal state.
-- `[](state = Completed => [](state = Completed))` — terminal states
-  are sticky.
-- Action-fairness: if `Done` is enabled, it eventually fires.
+**v1 verifies safety properties only.** The earlier draft of this
+ADR also specified a liveness property ("every workstream eventually
+reaches `Completed` or `Abandoned`"), but that's wrong: a `Suspended`
+workstream is allowed to stay suspended indefinitely — the user's whole
+point of `af suspend` is to park work without ending it. v1 makes no
+liveness claim about workstream termination.
+
+Safety properties (these *do* hold):
+
+- **Valid transitions only**: `[](Next \in AllowedTransitions(state))`.
+  No path through the system reaches a state via an unallowed event.
+- **Terminal stickiness**: `[](state = Completed => [](state = Completed))`
+  and the equivalent for `Abandoned`. Once terminal, always terminal.
+- **No mutation after terminal**: ledger events that would change
+  `state.toml` (status, agents, pr) are forbidden once `state =
+  Completed` or `state = Abandoned`. Modeled as: every action
+  precondition checks `state \notin {Completed, Abandoned}`.
+- **Suspend idempotency**: `Suspend` from `Suspended` is a no-op (an
+  error path that doesn't transition).
+- **Resume reachability**: from `Suspended`, `Resume` is always
+  enabled and transitions to `Active`.
 
 The TLC model checker runs over a small bounded universe (e.g. ≤ 4
-slot transitions) and verifies the temporal properties.
+slot transitions) and verifies these safety properties.
 
 The TLA+ model is **not run in CI**. It's a research artefact,
 checked manually if a state-machine bug surfaces.
