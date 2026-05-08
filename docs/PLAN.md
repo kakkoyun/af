@@ -66,20 +66,20 @@ those status flips.
 
 The ADR dependency graph dictates the order:
 
-| Stage                | What                                                                          | Gating ADRs                  |
-| -------------------- | ----------------------------------------------------------------------------- | ---------------------------- |
-| **Meta**             | Master, conventions, archival policy                                          | 031, 032, 033                |
-| **Bootstrap**        | Module layout, CLI framework, lint/test harness, build                        | 034, 035, 050, 051, 053      |
-| **Foundation**       | Config, session schema, worktree layout, mux, agents                          | 036, 037, 038, 039, 040, 043 |
-| **Core commands**    | `create`, `done`, `list`, `resume`, `session-branch`, `agent {add,stop,list}` | depends on Foundation        |
+| Stage                | What                                                                            | Gating ADRs                  |
+| -------------------- | ------------------------------------------------------------------------------- | ---------------------------- |
+| **Meta**             | Master, conventions, archival policy                                            | 031, 032, 033                |
+| **Bootstrap**        | Module layout, CLI framework, lint/test harness, build                          | 034, 035, 050, 051, 053      |
+| **Foundation**       | Config, session schema, worktree layout, mux, agents                            | 036, 037, 038, 039, 040, 043 |
+| **Core commands**    | `create`, `done`, `list`, `resume`, `session-branch`, `agent {add,stop,list}`   | depends on Foundation        |
 | **Lifecycle**        | `setup`, `suspend`/`resume`, `clean`, `doctor`, `note`, `config`, `completions` | 044, 045, 046, 047, 056      |
-| **Inspection**       | `list`, `status`, `info`                                                      | 054, 055                     |
-| **Stacking**         | `stack`, `unstack`, `sync`                                                    | 059                          |
-| **Retro**            | `retro` (post-archive note mining)                                            | 058                          |
-| **Remote & sandbox** | `--remote`, `--sandbox`, secret management                                    | 041, 042, 049                |
-| **Proxies**          | `editor`, `diff`, `pr --ai`                                                   | 048, 057                     |
-| **Polish**           | Formal verification experiments                                               | 052                          |
-| **v0 retirement**    | Remove `src/`, `Cargo.toml`, `justfile`, etc.                                 | (no ADR; one-line commit)    |
+| **Inspection**       | `list`, `status`, `info`                                                        | 054, 055                     |
+| **Stacking**         | `stack`, `unstack`, `sync`                                                      | 059                          |
+| **Retro**            | `retro` (post-archive note mining)                                              | 058                          |
+| **Remote & sandbox** | `--remote`, `--sandbox`, secret management                                      | 041, 042, 049                |
+| **Proxies**          | `editor`, `diff`, `pr --ai`                                                     | 048, 057                     |
+| **Polish**           | Formal verification experiments                                                 | 052                          |
+| **v0 retirement**    | Remove `src/`, `Cargo.toml`, `justfile`, etc.                                   | (no ADR; one-line commit)    |
 
 This sequence is descriptive, not prescriptive. Two stages can be in
 flight at once if their ADRs don't conflict; the `implementation`
