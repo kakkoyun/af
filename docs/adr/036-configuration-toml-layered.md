@@ -153,9 +153,23 @@ sections from any repo-config layer with a `slog.Warn`.
 | `{title}`    | PR title (if provided via `--title`) |
 | `{body}`     | PR body                              |
 
-Tokens are simple `strings.ReplaceAll`; no shell expansion. The command
-is then split via `shlex` (or hand-rolled equivalent — TBD per ADR-048
-implementation) and executed via `exec.CommandContext`.
+Token substitution rules differ per execution mode (per ADR-048):
+
+- **Argv mode** (`shell = false`, default): each `cmd` array element
+  is independently passed through `strings.ReplaceAll`. Tokens with
+  spaces (e.g. multi-word `{title}`) survive intact because each
+  element is independent. `af` invokes
+  `exec.CommandContext(ctx, cmd[0], cmd[1:]...)` directly — no shell
+  is involved, so `|`, `&&`, `;`, etc. inside argv elements pass
+  literally to the spawned binary.
+- **Shell mode** (`shell = true`): `cmd` is a single string. Token
+  values are **shell-quoted** before substitution to prevent
+  metacharacter injection through tokens (workstream-derived values
+  like `{title}` or `{worktree}`). The expanded string is invoked
+  via `exec.CommandContext(ctx, "sh", "-c", expanded)`.
+
+ADR-048 §"Command parsing: explicit argv vs. shell" is the canonical
+spec for parsing semantics; this section documents only the schema.
 
 ### `~` expansion
 

@@ -48,11 +48,13 @@ distilled to two lines of conditional URL construction.
 
 Runs `[diff].cmd` with token interpolation (per ADR-036).
 
-Default config:
+Default config (argv form, per §"Command parsing: explicit argv vs.
+shell" below):
 
 ```toml
 [diff]
-cmd = "git diff {base}...HEAD"
+shell = false
+cmd   = ["git", "diff", "{base}...HEAD"]
 ```
 
 The `{base}`, `{head}`, `{worktree}` tokens are substituted from
@@ -85,11 +87,12 @@ cmd = "git diff --color=always {base}...HEAD | diff-so-fancy | less"
 Runs `[pr].cmd` with token interpolation. Pushes the workstream's
 branch first if not pushed.
 
-Default config:
+Default config (argv form):
 
 ```toml
 [pr]
-cmd = "gh pr create --base {base} --head {head}"
+shell = false
+cmd   = ["gh", "pr", "create", "--base", "{base}", "--head", "{head}"]
 ```
 
 Flags map to additional arguments through a configurable
