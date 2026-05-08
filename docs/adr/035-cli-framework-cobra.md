@@ -4,10 +4,10 @@ title: "CLI Framework — cobra + pflag"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "034", "044", "045", "046"]
+related: ["031", "034", "044", "045", "046", "054", "055", "056", "057", "058", "059"]
 tags: ["go", "cli", "cobra"]
 ---
 
@@ -41,35 +41,102 @@ as the CLI framework.
 
 ### Command tree
 
+**ADR-035 is the authoritative CLI contract.** SPEC §3, README, and any
+per-command ADR must agree with this tree; if a per-command ADR adds a
+flag, this tree is updated in the same commit batch (see
+`docs/CONVENTIONS.md` §"Command-surface drift"). Currently:
+
 ```
-af [--verbose|-v] [--config PATH]
+af [--verbose|-v] [--config PATH] [--session NAME]
 ├── version
-├── create [name] [--from BRANCH] [--current] [--from-pr N] [--bare] [--remote HOST] [--sandbox PROVIDER] [--agent NAME] [--yolo] [--auto]
+│
+│   # Lifecycle (ADR-046)
+├── create [name] [--from BRANCH] [--current] [--from-pr N] [--bare]
+│         [--remote HOST] [--sandbox PROVIDER] [--agent NAME]
+│         [--yolo] [--auto]
 ├── done [session] [--force]
-├── list
-├── resume [session] [--bare] [--respawn]
 ├── suspend [session]
+├── resume [session] [--bare] [--respawn]
 ├── session-branch
+│
+│   # Multi-agent (ADR-039)
 ├── agent
-│   ├── add --slot NAME --agent PROVIDER [--session NAME]
-│   ├── stop SLOT [--session NAME]
+│   ├── add [--slot NAME] --agent PROVIDER [--session NAME]
+│   ├── stop SLOT [--remove-worktree] [--session NAME]
 │   └── list [--session NAME]
-├── gc [--dry-run] [--all]
+│
+│   # Inspection (ADR-054, ADR-055)
+├── list                           # one-line per workstream, current repo first
+├── status [--json] [--all] [--filter STATE]
+├── info [session] [--json] [--ledger N]
+│
+│   # Reaping (ADR-056) — supersedes the v0/early-v1 `af gc`
+├── clean [--dry-run] [--include-abandoned] [--max-age DURATION]
+│         [--force [<name>...]]
+│
+│   # Stacking (ADR-059)
+├── stack [session] [--parent PARENT]
+├── unstack [session]
+├── sync [session]
+│
+│   # Environment / setup (ADR-044, ADR-045)
 ├── setup
 ├── doctor [--remote HOST] [--verbose]
-├── note [session]
+│
+│   # Notes / Obsidian (ADR-047, ADR-058)
+├── note [session] [--append TEXT]
+├── retro [--since DURATION] [--tag TAG]... [--search QUERY] [--ai]
+│         [--limit N]
+│
+│   # Proxy commands (ADR-048, ADR-057)
 ├── editor [--terminal|-t|--visual|-v] [session]
 ├── diff [session] [--base REF]
-├── pr [session] [--title T] [--draft] [--web]
+├── pr [session] [--title T] [--draft] [--web] [--ai] [--ai-model MODEL]
+│
+│   # Secrets (ADR-049)
+├── auth
+│   ├── set <key>
+│   ├── get <key>
+│   ├── status
+│   ├── clear <key>
+│   └── list
+│
+│   # Config + completions
 ├── config
 │   ├── show
 │   └── init
 └── completions <bash|zsh|fish|powershell>
 ```
 
-`mangen` is **not** included for v1 (no man pages — single-user, no
-distribution). If users want one, `cobra-cli gen man-page` from the
-cobra ecosystem can be invoked manually.
+Notes on the surface:
+
+- `--session NAME` is a **persistent flag on the root command** so any
+  subcommand that reads workstream state can target a workstream other
+  than the one resolved by the discovery rules in ADR-037 §"File-discovery
+  rules." Subcommands that don't apply (e.g. `version`, `setup`,
+  `completions`, `doctor`) ignore it.
+- `agent add --slot` is **optional**. If omitted, `af` auto-assigns from
+  the agent's binary name (`pi`, `pi-2`, …) per ADR-039.
+- `agent stop` accepts `--remove-worktree` per ADR-039.
+- `note --append <text>` is the agent-side hook surface from ADR-047.
+- `clean` replaces the early-v1 `gc` per ADR-056; the rename is
+  documented in ADR-056 §"Supersession of `af gc` mention in ADR-038."
+- `mangen` is **not** included for v1 (no man pages — single-user, no
+  distribution). If users want one, `cobra-cli gen man-page` can be
+  invoked manually.
+
+### Single-source rule for command-surface drift
+
+When a new ADR adds, removes, or modifies a command/flag:
+
+1. The ADR's `## Decision` section lists the exact CLI surface.
+2. The same commit batch updates this command tree, `docs/SPEC.md` §3,
+   and `README.md` to match. Drift between ADRs and these surfaces is
+   a review blocker.
+3. The new/changed ADR carries `035` in its `related:` frontmatter to
+   make the dependency explicit.
+
+This convention is also captured in `docs/CONVENTIONS.md`.
 
 ### Idioms
 
