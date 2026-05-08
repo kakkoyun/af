@@ -4,10 +4,10 @@ title: "Agent Providers (claude, pi, codex; pi default)"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "036", "039", "044"]
+related: ["031", "036", "039", "044", "057"]
 tags: ["go", "agent", "pi", "claude", "codex"]
 ---
 
@@ -57,7 +57,13 @@ type Agent interface {
     LaunchCmd(opts LaunchOpts) []string                          // argv for new session
     ResumeCmd(opts ResumeOpts) []string                          // argv for resumed session
     PRCmd(prNumber int, opts LaunchOpts) ([]string, bool)        // argv if supported
+    BodyCmd(opts BodyOpts) ([]string, bool)                      // argv for non-interactive print mode (ADR-057)
     SessionLogPaths(sessionID, projectPath string) []string      // for analysis only
+}
+
+type BodyOpts struct {
+    Cwd   string // worktree path
+    Model string // optional model override; "" = agent default
 }
 ```
 

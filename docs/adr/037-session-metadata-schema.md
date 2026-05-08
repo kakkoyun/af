@@ -4,10 +4,10 @@ title: "Session Metadata Schema (state.toml + ledger.jsonl)"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "036", "038", "039", "046"]
+related: ["031", "036", "038", "039", "046", "059"]
 tags: ["go", "session", "state", "ledger"]
 ---
 
@@ -92,6 +92,11 @@ number = 0                          # 0 = no PR yet
 url    = ""
 state  = ""                         # "" | "open" | "merged" | "closed"
 
+[stack]
+parent_session = ""                 # workstream name of the parent; "" = no parent (ADR-059)
+parent_branch  = ""                 # resolved branch name of the parent at link time
+linked_at      = null               # timestamp the parent was set
+
 [versions]
 af = "1.0.0"
 agent_versions = { pi = "...", claude = "..." }
@@ -143,9 +148,18 @@ with `O_SYNC` to ensure ordering on disk. Each line ends with `\n`.
 A single workstream has one writer at a time (the `af` invocation
 operating on it). Cross-process locks via `flock(2)` on
 `<session>/state.toml.lock`. Acquired on entry to mutating operations
-(`af create`, `af agent add`, `af suspend`, `af done`, `af resume` on
-cold rehydrate); read-only operations (`af list`, `af note`) take a
-shared lock.
+(`af create`, `af agent add`, `af agent stop`, `af suspend`, `af done`,
+`af gc`, `af resume` on cold rehydrate); read-only operations
+(`af list`, `af note`, `af note --append` against a single workstream)
+take a shared lock.
+
+**`af list` is strictly read-only.** It displays whatever is in
+`state.toml` for each workstream. Drift between `state.toml` and the
+actual tmux/sandbox state (e.g. a slot whose pane has been killed
+out-of-band) is reconciled lazily by the next mutating command that
+touches the affected slot — see ADR-039 §"Crash detection (lazy)". A
+user who wants explicit reconciliation without side-effecting any
+workstream runs `af gc`.
 
 `flock` is stdlib via `golang.org/x/sys/unix` (a quasi-stdlib package).
 Approved as a transitive-of-stdlib dep, no separate ADR.

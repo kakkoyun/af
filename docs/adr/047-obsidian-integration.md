@@ -4,10 +4,10 @@ title: "Obsidian Integration — Notes + Bases"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "036", "037", "045", "048"]
+related: ["031", "036", "037", "045", "048", "054", "058"]
 tags: ["go", "obsidian", "notes"]
 ---
 

@@ -4,10 +4,10 @@ title: "af suspend / af resume Lifecycle"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "037", "039", "041", "042", "043"]
+related: ["031", "037", "039", "041", "042", "043", "056"]
 tags: ["go", "lifecycle", "suspend", "resume"]
 ---
 

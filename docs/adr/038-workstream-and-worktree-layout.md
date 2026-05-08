@@ -4,10 +4,10 @@ title: "Workstream + Worktree Layout (stable paths, sub-worktrees, per-repo disc
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "037", "039", "045"]
+related: ["031", "037", "039", "045", "056"]
 tags: ["go", "worktree", "workstream", "fs"]
 ---
 
@@ -126,7 +126,7 @@ resolve back to the workstream.
 ### Cleanup
 
 - `af done` performs `git worktree remove --force` on the workstream's primary worktree, recursively for sub-worktrees.
-- `af gc` cleans workstreams whose branch is merged or closed (per merge-detection rules carried over from v0 ADR-011 §3.5; v1 keeps the same three-strategy approach: PR state → ancestry → squash fingerprint).
+- `af clean` (ADR-056) batch-reaps workstreams whose branch is merged or closed. It uses the three-strategy merge detection from v0 ADR-011 §3.5 (PR state → ancestry → squash fingerprint) and is the dedicated ADR for that command.
 
 ## Consequences
 
