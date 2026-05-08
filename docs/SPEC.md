@@ -76,33 +76,33 @@ persist to its own session log is lost.
 
 All three subcommands accept `--session NAME` to target a workstream other than the current one.
 
-| Command                                                            | Purpose                                                                                                                       |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Command                                                            | Purpose                                                                                                                         |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | `af agent add [--slot <name>] --agent <provider> [--session NAME]` | Add a new agent in a new tmux pane. `--slot` is optional; auto-assigned from the agent name. Sub-worktree if `slot != primary`. |
-| `af agent stop <slot> [--remove-worktree] [--session NAME]`        | Stop the agent in the named slot. `--remove-worktree` also removes the sub-worktree.                                          |
-| `af agent list [--session NAME]`                                   | Tabular output of slot, agent, status, pane.                                                                                  |
+| `af agent stop <slot> [--remove-worktree] [--session NAME]`        | Stop the agent in the named slot. `--remove-worktree` also removes the sub-worktree.                                            |
+| `af agent list [--session NAME]`                                   | Tabular output of slot, agent, status, pane.                                                                                    |
 
 ### 3.3 Inspection (ADR-054, ADR-055)
 
-| Command                                          | Purpose                                                                              |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `af list`                                        | One-line per workstream, grouped by repo, current repo first. Read-only.             |
-| `af status [--json] [--all] [--filter STATE]`    | Multi-line dashboard with per-slot status. `--all` includes archived; `--filter` narrows by lifecycle state. |
-| `af info [session] [--json] [--ledger N]`        | Detail view for one workstream. `--ledger N` shows the last N events.                |
+| Command                                       | Purpose                                                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `af list`                                     | One-line per workstream, grouped by repo, current repo first. Read-only.                                     |
+| `af status [--json] [--all] [--filter STATE]` | Multi-line dashboard with per-slot status. `--all` includes archived; `--filter` narrows by lifecycle state. |
+| `af info [session] [--json] [--ledger N]`     | Detail view for one workstream. `--ledger N` shows the last N events.                                        |
 
 ### 3.4 Reaping (ADR-056)
 
-| Command                                                                            | Purpose                                                                                                                                              |
-| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command                                                                                 | Purpose                                                                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `af clean [--dry-run] [--include-abandoned] [--max-age DURATION] [--force [<name>...]]` | Reap workstreams verified as merged by three-strategy detection (PR state → ancestry → squash fingerprint). `--dry-run` previews; `--include-abandoned` adds `abandoned` ones; `--force <name>...` skips merge detection for named workstreams only. Replaces v0/early-v1 `af gc`. |
 
 ### 3.5 Stacking (ADR-059)
 
-| Command                                | Purpose                                                                                          |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Command                                | Purpose                                                                                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `af stack [session] [--parent PARENT]` | Link a workstream to a parent so subsequent operations base off the parent's branch. Without `--parent`, prints the current parent transitively. |
-| `af unstack [session]`                 | Clear the workstream's parent link; subsequent ops use `base_branch` again.                      |
-| `af sync [session]`                    | Rebase/fast-forward the workstream onto its parent's current head. If parent merged, fall back to `base_branch`. |
+| `af unstack [session]`                 | Clear the workstream's parent link; subsequent ops use `base_branch` again.                                                                      |
+| `af sync [session]`                    | Rebase/fast-forward the workstream onto its parent's current head. If parent merged, fall back to `base_branch`.                                 |
 
 ### 3.6 Environment & utilities
 
@@ -115,28 +115,28 @@ All three subcommands accept `--session NAME` to target a workstream other than 
 
 ### 3.7 Notes & retro (ADR-047, ADR-058)
 
-| Command                                                                            | Purpose                                                                                                              |
-| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `af note [session] [--append TEXT]`                                                | Open the workstream's Obsidian note. With `--append TEXT`, append a timestamped log entry under `## Log`.            |
-| `af retro [--since DURATION] [--tag TAG]... [--search QUERY] [--ai] [--limit N]`   | Mine archived workstream notes for patterns. `--ai` summarises via the configured agent.                             |
+| Command                                                                          | Purpose                                                                                                   |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `af note [session] [--append TEXT]`                                              | Open the workstream's Obsidian note. With `--append TEXT`, append a timestamped log entry under `## Log`. |
+| `af retro [--since DURATION] [--tag TAG]... [--search QUERY] [--ai] [--limit N]` | Mine archived workstream notes for patterns. `--ai` summarises via the configured agent.                  |
 
 ### 3.8 Proxy commands (config-driven, thin wrappers)
 
-| Command                                                                | Default behaviour                                                    | Config knob                            |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------- |
-| `af editor [--terminal\|--visual]`                                     | `$EDITOR` in a tmux split, or `code .` / `zed .` for visual.         | `[editor].terminal`, `[editor].visual` |
-| `af diff [session] [--base <ref>]`                                     | `git diff <base_branch>...HEAD` in the workstream's worktree, paged. | `[diff].cmd`                           |
+| Command                                                                 | Default behaviour                                                                                                         | Config knob                            |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `af editor [--terminal\|--visual]`                                      | `$EDITOR` in a tmux split, or `code .` / `zed .` for visual.                                                              | `[editor].terminal`, `[editor].visual` |
+| `af diff [session] [--base <ref>]`                                      | `git diff <base_branch>...HEAD` in the workstream's worktree, paged.                                                      | `[diff].cmd`                           |
 | `af pr [session] [--title <t>] [--draft] [--web] [--ai] [--ai-model M]` | `gh pr create --base <base_branch> --head <branch>`. With `--ai`, the body is authored by the configured agent (ADR-057). | `[pr].cmd`                             |
 
 ### 3.9 Secrets (ADR-049)
 
-| Command                | Purpose                                              |
-| ---------------------- | ---------------------------------------------------- |
-| `af auth set <key>`    | Prompt for value (echo-off) and store in keyring.    |
-| `af auth get <key>`    | Print value to stdout (TTY only; redacted otherwise).|
-| `af auth status`       | List known keys with availability + source.         |
-| `af auth clear <key>`  | Remove from keyring.                                 |
-| `af auth list`         | List names of all `af`-stored keys (no values).      |
+| Command               | Purpose                                               |
+| --------------------- | ----------------------------------------------------- |
+| `af auth set <key>`   | Prompt for value (echo-off) and store in keyring.     |
+| `af auth get <key>`   | Print value to stdout (TTY only; redacted otherwise). |
+| `af auth status`      | List known keys with availability + source.           |
+| `af auth clear <key>` | Remove from keyring.                                  |
+| `af auth list`        | List names of all `af`-stored keys (no values).       |
 
 ### 3.10 Meta
 
@@ -354,12 +354,17 @@ Defined in ADR-049.
 
 - **Storage**: `zalando/go-keyring` (macOS Keychain, Linux Secret Service).
 - **Service name**: `af` (no `af/` prefix on accounts).
-- **Transport to sandbox / remote**: tmpfs envelope file. Never SSH `SetEnv`/`SendEnv`.
-- **Transport mechanics**:
-  1. `af` writes `/run/user/$UID/af-<session>/.env` with `chmod 600`.
-  2. The agent's launch command sources the file once (`. /run/user/$UID/af-<session>/.env`).
-  3. After agent launch, `af` deletes the file (or leaves it for the agent's lifetime — TBD per ADR-049).
-- **Redaction**: `slog` handlers redact known secret-bearing keys.
+- **Transport to sandbox / remote**: ephemeral envelope file. Never SSH `SetEnv`/`SendEnv`.
+- **Storage location** (selected at runtime):
+  - Linux with `/run/user/$UID/` writable: `/run/user/$UID/af-<session>/.env` (tmpfs).
+  - macOS, or Linux without `/run/user/$UID/`: `~/.local/share/af/v1/secrets/af-<session>/.env` (persistent disk).
+- **Transport mechanics** (no TBD; the launch wrapper is one shell snippet):
+  1. `af` writes the envelope at the path above with `chmod 600`.
+  2. Mount/copy/`scp` into the sandbox or remote as required.
+  3. The launch wrapper runs `. <path>/.env && rm -f <path>/.env && exec <agent-cmd>`. The delete is non-optional — the wrapper will not exec the agent without first removing the envelope.
+  4. Stray envelopes from crashes are reaped by `af setup`'s periodic cleanup hook (60-min stale-file sweep).
+- **Redaction**: `slog` handlers redact known secret-bearing keys plus any user-listed `[secret].redact_keys`.
+- **Threat model boundary**: see ADR-049 §"Threat model". Crash-window leakage on persistent-disk fallback is acknowledged and capped by the 60-minute sweep; users who need a hard guarantee run exclusively on Linux tmpfs.
 
 ---
 

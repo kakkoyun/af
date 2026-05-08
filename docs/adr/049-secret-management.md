@@ -1,6 +1,6 @@
 ---
 adr: 049
-title: "Secret Management (keyring + tmpfs envelope)"
+title: "Secret Management (keyring + ephemeral envelope)"
 status: proposed
 implementation: pending
 date: 2026-05-06
@@ -11,7 +11,7 @@ related: ["031", "036", "041", "042", "045"]
 tags: ["go", "secrets", "keyring", "security"]
 ---
 
-# ADR-049: Secret Management (keyring + tmpfs envelope)
+# ADR-049: Secret Management (keyring + ephemeral envelope)
 
 ## Context
 
@@ -22,8 +22,15 @@ visible to every process on the remote machine.
 
 v0's secret management grew across multiple ADRs (016, 025) with a
 multi-tier lookup chain, custom redaction, and Linux dbus tweaks. v1
-collapses this to: **keyring for storage + tmpfs envelope file for
-transport, no SSH `SetEnv`/`SendEnv`**.
+collapses this to: **keyring for storage + an ephemeral envelope file
+for transport, no SSH `SetEnv`/`SendEnv`**.
+
+"Ephemeral" here means: written, sourced once, then deleted before
+the agent's first shell prompt. The file lives on whichever filesystem
+is available — tmpfs on Linux when `/run/user/$UID/` exists; otherwise
+the user-data dir on disk (see §"Storage location" below). The threat
+model relies on the **delete-after-source** invariant, not on the
+backing filesystem being non-persistent.
 
 ## Decision
 
@@ -54,18 +61,45 @@ af auth clear <key>          # removes from keyring
 af auth list                 # lists all af-stored keys (names only, no values)
 ```
 
-### Transport to local sandbox / remote: tmpfs envelope file
+### Storage location
+
+The envelope path is selected at runtime:
+
+| Platform | Path | Filesystem |
+|---|---|---|
+| Linux with `/run/user/$UID/` writable | `/run/user/$UID/af-<session>/.env` | tmpfs (RAM-backed) |
+| macOS, or Linux without `/run/user/$UID/` | `~/.local/share/af/v1/secrets/af-<session>/.env` | persistent disk |
+
+On the persistent-disk fallback, the directory tree is created by `af
+setup` with mode `0700`. The envelope file itself is `0600`.
+
+### Transport: write → mount/copy → source → delete
 
 When `af` launches an agent in a sandbox or via SSH, secrets reach the
-agent via a **tmpfs envelope file**:
+agent via the envelope:
 
-1. **Write**: `af` writes `/run/user/$UID/af-<session>/.env` with mode `0600`. Lines like `ANTHROPIC_API_KEY=sk-...`.
+1. **Write**: `af` writes the envelope at the path above with mode `0600`. Lines like `ANTHROPIC_API_KEY=sk-...`.
 2. **Mount/copy**:
-   - **slicer**: VM mount `/run/user/$UID/af-<session>/` into the VM at the same path via VirtioFS.
+   - **slicer**: VM mount the envelope's directory into the VM at the same path via VirtioFS.
    - **sbx**: container `--env-file` flag pointing at the host envelope, OR `cp` the envelope into the container before agent launch.
-   - **remote (no sandbox)**: `scp` the envelope to the same path on the remote, with `chmod 600`.
-3. **Source**: agent's launch wrapper sources the envelope (`. /run/user/$UID/af-<session>/.env`) once, then exec's the agent.
-4. **Cleanup**: after agent launch, `af` deletes the envelope. (For sbx, the in-container copy is removed via the post-launch cleanup step.)
+   - **remote (no sandbox)**: `scp` the envelope to `/run/user/$UID/af-<session>/.env` (or `~/.local/share/af/v1/secrets/af-<session>/.env`, matching the remote's available filesystems) with `chmod 600`.
+3. **Source**: agent's launch wrapper sources the envelope (`. /path/to/.env`) once, then exec's the agent.
+4. **Delete**: **immediately after source-and-exec**, the launch wrapper deletes the envelope (`rm -f /path/to/.env`). The agent process keeps the env vars in its own `environ`; nothing on disk persists past launch.
+
+### Cleanup invariants
+
+- Step 4 is **not optional**. The launch wrapper is structured as a
+  single shell snippet (`. /path/to/.env && rm -f /path/to/.env && exec
+  <agent-cmd>`) so the delete cannot be skipped without also failing
+  the launch.
+- If `af` crashes between step 1 and step 4 — e.g. the user `^C`s
+  during `af resume` — a stray envelope can remain on disk. To
+  mitigate this, `af setup` registers a periodic cleanup hook that
+  deletes any `~/.local/share/af/v1/secrets/af-*` older than 60
+  minutes. (On Linux tmpfs the contents disappear on reboot.)
+- The remote tmpfs path is cleaned up by `af done` and `af suspend`
+  via an explicit `ssh <host> rm -rf /run/user/$UID/af-<session>` step.
+  Failures are logged but do not block teardown.
 
 ### Why never `SSH SetEnv`/`SendEnv`
 
@@ -89,35 +123,52 @@ extends it.
 
 ### Threat model
 
-In scope:
+**In scope** (the design defends against these):
 
-- Local file leakage: `state.toml` and `ledger.jsonl` never contain secrets.
-- Process env leakage: only the agent process gets the secret env, not
-  every shell command run on the remote.
-- Log leakage: redaction handler scrubs known keys.
+- **Local file leakage** of long-lived secrets: `state.toml` and
+  `ledger.jsonl` never contain secrets at any point. The keyring is
+  the only durable storage.
+- **Process-env leakage** to unrelated processes on the remote: only
+  the agent process gets the secret env, not every shell command run
+  on the remote (which is what `SSH SendEnv` would cause).
+- **Log leakage**: redaction handler scrubs known sensitive keys.
+- **Persistent-on-disk envelopes**: the source-and-delete launch
+  invariant (§"Cleanup invariants") ensures envelopes don't outlive
+  agent launch under normal flow.
 
-Out of scope:
+**Out of scope** (acknowledged limitations):
 
-- Memory dumps from the running agent process.
-- Compromised agent binaries.
-- Compromised user account on the local machine (the keyring is only
-  as secure as the user's login session).
+- **Memory dumps** from the running agent process.
+- **Compromised agent binaries**.
+- **Compromised user account** on the local machine (the keyring is
+  only as secure as the user's login session).
+- **Crash-window envelope leakage**: an envelope can persist on disk
+  if `af` is killed (`kill -9` from another process) between the
+  write and source-and-delete. The 60-minute cleanup hook caps the
+  exposure window. If this is unacceptable, the user can run
+  exclusively on Linux with `/run/user/$UID/` (tmpfs guarantees
+  reboot clears state).
+- **Filesystem snapshots / Time Machine**: macOS Time Machine may
+  snapshot `~/.local/share/af/v1/secrets/` between write and delete.
+  Adding the directory to Time Machine's exclusion list is a manual
+  step the user takes; `af setup` does not configure this.
 
 ### Local-only workstreams
 
 Local workstreams (no `--remote`, no `--sandbox`) inherit the user's
-ambient env. No tmpfs envelope is created; the agent inherits whatever
+ambient env. No envelope is created; the agent inherits whatever
 `ANTHROPIC_API_KEY` etc. are already set in the parent shell. The
 keyring is consulted only when the env var is missing.
 
 ### `af setup` and the secrets directory
 
 `af setup` (per ADR-045) creates `~/.local/share/af/v1/secrets/` with
-mode `0700`. This is the **fallback** location for envelope files
-when `/run/user/$UID/` is not available (e.g. macOS, where `tmpfs` at
-that path doesn't exist by default). On macOS, `af` uses
-`~/.local/share/af/v1/secrets/af-<session>/.env` instead, with the
-same `0600` cleanup discipline.
+mode `0700`. This serves two purposes:
+
+1. **Fallback envelope location** when `/run/user/$UID/` is unavailable
+   (macOS, or Linux without systemd-style user runtime dirs).
+2. **Stale-envelope cleanup target** for the periodic hook described
+   under §"Cleanup invariants."
 
 ## Consequences
 
