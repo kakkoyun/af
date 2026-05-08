@@ -32,10 +32,10 @@ use fakes.
 
 | Layer             | Tool                              | Scope                                                                               |
 | ----------------- | --------------------------------- | ----------------------------------------------------------------------------------- |
-| Unit              | stdlib `testing`                  | Pure logic in `internal/<pkg>/`                                                     |
-| Property          | stdlib `testing/quick`            | Invariants over generated inputs (e.g. naming, sanitization, lifecycle transitions) |
-| Integration (CLI) | `rogpeppe/go-internal/testscript` | `cmd/af/...` end-to-end against a built binary                                      |
-| Manual            | (none)                            | Real tmux/ssh/sandbox interactions, run by the owner before merging risky PRs       |
+| Unit                     | stdlib `testing`                  | Pure logic in `internal/<pkg>/`. No external processes.                                                                                              |
+| Property                 | stdlib `testing/quick`            | Invariants over generated inputs (naming, sanitization, lifecycle transitions). No external processes.                                              |
+| Integration (mocked CLI) | `rogpeppe/go-internal/testscript` | `cmd/af/...` end-to-end against a built binary. **No real `tmux`/`ssh`/`slicer`/`sbx`** — fakes are injected via per-scenario env vars (see below). |
+| Manual smoke (out-of-CI) | (none)                            | Real `tmux`, `ssh`, `slicer`, `sbx`. Owner runs the full flow on a workstation before merging risky PRs.                                            |
 
 ### Interface seams (replaces v0 CommandRunner)
 
@@ -101,7 +101,13 @@ af done mytask --force
 ```
 
 The framework runs each scenario in an isolated tempdir with mocked
-external commands (configurable per scenario via `script` directives).
+external commands. Real `tmux`, `ssh`, `slicer`, `sbx` are **never**
+invoked from testscript; instead, the binary's interface seams
+(`Multiplexer`, `Agent`, `Sandbox`, `Remote`) read an env var like
+`AF_TEST_MUX=fake` at start-up and load in-process fakes. The fakes
+implement the same interfaces; their behaviour is configurable per
+scenario via `script` directives. ADR-040 §"Testing" cross-references
+this arrangement.
 
 ### What's NOT tested
 

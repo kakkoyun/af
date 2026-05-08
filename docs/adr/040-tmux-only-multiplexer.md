@@ -85,8 +85,11 @@ The single implementation lives at `internal/mux/tmux.go` as
 ### Testing
 
 Per ADR-051: `Multiplexer` interface enables a `FakeMultiplexer` for
-unit tests. Real tmux is touched only in `cmd/af/...` testscript
-integration tests against a built binary.
+unit tests, and the `testscript` integration tests run against the
+built binary with that fake injected via env var. **No test in CI
+ever touches a real tmux server**; that's reserved for the manual
+smoke-test tier (also defined in ADR-051) where the owner exercises
+the full flow on a workstation before merging risky PRs.
 
 ## Consequences
 
