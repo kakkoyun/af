@@ -96,7 +96,9 @@ The expected lane sequence (subject to change once ADRs settle):
 2. Foundation packages: config, session, git, naming, uuid, mux/tmux (ADRs 036, 037, 038, 040).
 3. Agent providers (ADR 043).
 4. Core commands `create`/`done`/`list`/`resume`/`session-branch` (ADRs 039, 044).
-5. Lifecycle commands `setup`/`suspend`/`resume`/`doctor`/`note`/`gc`/`config`/`completions` (ADRs 045, 046, 047).
+5. Lifecycle commands `setup`/`suspend`/`resume`/`doctor`/`note`/`clean`/`config`/`completions` (ADRs 045, 046, 047, 056).
+5b. Workstream introspection: `af status`, `af info`, `af retro` (ADRs 054, 055, 058).
+5c. Stack support: `af stack`, `af unstack`, `af sync` (ADR 059).
 6. Remote and sandbox (ADRs 041, 042, 049).
 7. Proxy commands `editor`/`diff`/`pr` (ADR 048).
 8. Formal-verification experimentation (ADR 052).
@@ -117,6 +119,5 @@ not lost.
 - Auto-install in `af doctor` (v1 doctor is hint-only; revisit if the per-platform install surface stabilises).
 - Workspace templates / pre-configured sessions per project.
 - `af log` (append a structured log entry to the Obsidian note).
-- `af sync` (sync local worktree ↔ remote sandbox state).
 - Dataview dashboards in Obsidian (Bases approach in ADR-047 may obsolete this).
 - Homebrew tap / GitHub Releases (re-evaluate if v1 escapes single-user scope).

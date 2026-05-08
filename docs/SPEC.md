@@ -76,37 +76,76 @@ persist to its own session log is lost.
 
 All three subcommands accept `--session NAME` to target a workstream other than the current one.
 
-| Command                                                          | Purpose                                                                                  |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `af agent add --slot <name> --agent <provider> [--session NAME]` | Add a new agent in a new tmux pane. Creates a sibling sub-worktree if `slot != primary`. |
-| `af agent stop <slot> [--remove-worktree] [--session NAME]`      | Stop the agent in the named slot. `--remove-worktree` also removes the sub-worktree.     |
-| `af agent list [--session NAME]`                                 | Tabular output of slot, agent, status, pane.                                             |
+| Command                                                            | Purpose                                                                                                                       |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `af agent add [--slot <name>] --agent <provider> [--session NAME]` | Add a new agent in a new tmux pane. `--slot` is optional; auto-assigned from the agent name. Sub-worktree if `slot != primary`. |
+| `af agent stop <slot> [--remove-worktree] [--session NAME]`        | Stop the agent in the named slot. `--remove-worktree` also removes the sub-worktree.                                          |
+| `af agent list [--session NAME]`                                   | Tabular output of slot, agent, status, pane.                                                                                  |
 
-### 3.3 Lifecycle utilities
+### 3.3 Inspection (ADR-054, ADR-055)
+
+| Command                                          | Purpose                                                                              |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `af list`                                        | One-line per workstream, grouped by repo, current repo first. Read-only.             |
+| `af status [--json] [--all] [--filter STATE]`    | Multi-line dashboard with per-slot status. `--all` includes archived; `--filter` narrows by lifecycle state. |
+| `af info [session] [--json] [--ledger N]`        | Detail view for one workstream. `--ledger N` shows the last N events.                |
+
+### 3.4 Reaping (ADR-056)
+
+| Command                                                                            | Purpose                                                                                                                                              |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `af clean [--dry-run] [--include-abandoned] [--max-age DURATION] [--force [<name>...]]` | Reap workstreams verified as merged by three-strategy detection (PR state → ancestry → squash fingerprint). `--dry-run` previews; `--include-abandoned` adds `abandoned` ones; `--force <name>...` skips merge detection for named workstreams only. Replaces v0/early-v1 `af gc`. |
+
+### 3.5 Stacking (ADR-059)
+
+| Command                                | Purpose                                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `af stack [session] [--parent PARENT]` | Link a workstream to a parent so subsequent operations base off the parent's branch. Without `--parent`, prints the current parent transitively. |
+| `af unstack [session]`                 | Clear the workstream's parent link; subsequent ops use `base_branch` again.                      |
+| `af sync [session]`                    | Rebase/fast-forward the workstream onto its parent's current head. If parent merged, fall back to `base_branch`. |
+
+### 3.6 Environment & utilities
 
 | Command                                   | Purpose                                                                                       |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `af gc [--dry-run] [--all]`               | List or clean merged/closed workstreams.                                                      |
 | `af setup`                                | One-shot user-scope environment setup: gitignore entry, completions, config init, vault hint. |
 | `af doctor [--remote <host>] [--verbose]` | Probe required tools; print install commands. **Never** auto-installs.                        |
-| `af note [session]`                       | Open the workstream's Obsidian note.                                                          |
 | `af config show \| init`                  | Print effective config or write defaults.                                                     |
 | `af completions <shell>`                  | Emit shell completion script (bash, zsh, fish, powershell).                                   |
 
-### 3.4 Proxy commands (config-driven, thin wrappers)
+### 3.7 Notes & retro (ADR-047, ADR-058)
 
-| Command                                           | Default behaviour                                                    | Config knob                            |
-| ------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------- |
-| `af editor [--terminal\|--visual]`                | `$EDITOR` in a tmux split, or `code .` / `zed .` for visual.         | `[editor].terminal`, `[editor].visual` |
-| `af diff [session] [--base <ref>]`                | `git diff <base_branch>...HEAD` in the workstream's worktree, paged. | `[diff].cmd`                           |
-| `af pr [session] [--title <t>] [--draft] [--web]` | `gh pr create --base <base_branch> --head <branch>`.                 | `[pr].cmd`                             |
+| Command                                                                            | Purpose                                                                                                              |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `af note [session] [--append TEXT]`                                                | Open the workstream's Obsidian note. With `--append TEXT`, append a timestamped log entry under `## Log`.            |
+| `af retro [--since DURATION] [--tag TAG]... [--search QUERY] [--ai] [--limit N]`   | Mine archived workstream notes for patterns. `--ai` summarises via the configured agent.                             |
 
-### 3.5 Meta
+### 3.8 Proxy commands (config-driven, thin wrappers)
+
+| Command                                                                | Default behaviour                                                    | Config knob                            |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------- |
+| `af editor [--terminal\|--visual]`                                     | `$EDITOR` in a tmux split, or `code .` / `zed .` for visual.         | `[editor].terminal`, `[editor].visual` |
+| `af diff [session] [--base <ref>]`                                     | `git diff <base_branch>...HEAD` in the workstream's worktree, paged. | `[diff].cmd`                           |
+| `af pr [session] [--title <t>] [--draft] [--web] [--ai] [--ai-model M]` | `gh pr create --base <base_branch> --head <branch>`. With `--ai`, the body is authored by the configured agent (ADR-057). | `[pr].cmd`                             |
+
+### 3.9 Secrets (ADR-049)
+
+| Command                | Purpose                                              |
+| ---------------------- | ---------------------------------------------------- |
+| `af auth set <key>`    | Prompt for value (echo-off) and store in keyring.    |
+| `af auth get <key>`    | Print value to stdout (TTY only; redacted otherwise).|
+| `af auth status`       | List known keys with availability + source.         |
+| `af auth clear <key>`  | Remove from keyring.                                 |
+| `af auth list`         | List names of all `af`-stored keys (no values).      |
+
+### 3.10 Meta
 
 | Command      | Purpose                                                |
 | ------------ | ------------------------------------------------------ |
 | `af version` | Print version, commit, build date.                     |
 | `af --help`  | Top-level help. Subcommand help via `af <cmd> --help`. |
+
+ADR-035 is the **authoritative CLI contract**; this section is kept consistent with it. When a per-command ADR adds or changes a flag, both ADR-035 and this section are updated in the same commit.
 
 ---
 
@@ -235,7 +274,8 @@ Full schema in ADR-036. Sections:
 - `[branch]` — `prefix`, `prefix_on_fork_only`.
 - `[editor]` — `terminal`, `visual`.
 - `[diff]` — `cmd` (default: `git diff <base>...HEAD`).
-- `[pr]` — `cmd` (default: `gh pr create`), `template`.
+- `[pr]` — `cmd` (default: `gh pr create`), `template`, `ai_model` (default model for `--ai`; `""` = agent default).
+- `[status]` — `max_parallel` (default 8; cap on concurrent `gh pr view` fetches).
 - `[remote]` — `default_host`, `ssh_options`.
 - `[sandbox]` — `default_provider`, `slicer.*`, `sbx.*`.
 - `[obsidian]` — `notes_vault` (key from `[obsidian.vaults]`), `notes_folder`, `notes_template`.
@@ -387,7 +427,7 @@ Defined in ADR-053.
 - Zellij / Ghostty / cmux multiplexers.
 - Skill bundle installer (v0 ADR-030).
 - Auto-install in doctor.
-- `af log`, `af sync`, workspace templates, Dataview dashboards.
+- `af log`, workspace templates, Dataview dashboards.
 - gemini, amp, copilot agents.
 - mdBook user guide.
 - Migration from v0 state files (`af migrate`).
@@ -400,6 +440,6 @@ later iteration; they do not block v1.
 
 ## 16. References
 
-- [`docs/adr/`](adr/) — v1 ADRs 031–053.
+- [`docs/adr/`](adr/) — v1 ADRs 031–059.
 - [`docs/v0/SPEC.md`](v0/SPEC.md) — v0 (Rust era) spec, immutable.
 - [`docs/v0/adr/`](v0/adr/) — 30 v0 ADRs, frozen.

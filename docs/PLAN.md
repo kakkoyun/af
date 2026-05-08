@@ -72,9 +72,12 @@ The ADR dependency graph dictates the order:
 | **Bootstrap**        | Module layout, CLI framework, lint/test harness, build                        | 034, 035, 050, 051, 053      |
 | **Foundation**       | Config, session schema, worktree layout, mux, agents                          | 036, 037, 038, 039, 040, 043 |
 | **Core commands**    | `create`, `done`, `list`, `resume`, `session-branch`, `agent {add,stop,list}` | depends on Foundation        |
-| **Lifecycle**        | `setup`, `suspend`/`resume`, `gc`, `doctor`, `note`, `config`, `completions`  | 044, 045, 046, 047           |
+| **Lifecycle**        | `setup`, `suspend`/`resume`, `clean`, `doctor`, `note`, `config`, `completions` | 044, 045, 046, 047, 056      |
+| **Inspection**       | `list`, `status`, `info`                                                      | 054, 055                     |
+| **Stacking**         | `stack`, `unstack`, `sync`                                                    | 059                          |
+| **Retro**            | `retro` (post-archive note mining)                                            | 058                          |
 | **Remote & sandbox** | `--remote`, `--sandbox`, secret management                                    | 041, 042, 049                |
-| **Proxies**          | `editor`, `diff`, `pr`                                                        | 048                          |
+| **Proxies**          | `editor`, `diff`, `pr --ai`                                                   | 048, 057                     |
 | **Polish**           | Formal verification experiments                                               | 052                          |
 | **v0 retirement**    | Remove `src/`, `Cargo.toml`, `justfile`, etc.                                 | (no ADR; one-line commit)    |
 
@@ -98,5 +101,5 @@ frontmatter is the source of truth for what's currently in progress.
 
 - [`docs/SPEC.md`](SPEC.md) — v1 specification (editable during planning, frozen after).
 - [`docs/CONVENTIONS.md`](CONVENTIONS.md) — Go conventions, file ownership.
-- [`docs/adr/`](adr/) — v1 ADRs 031–053.
+- [`docs/adr/`](adr/) — v1 ADRs 031–059.
 - [`docs/v0/PLAN.md`](v0/PLAN.md) — v0 (Rust era) plan, archived.

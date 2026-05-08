@@ -44,28 +44,55 @@ up later as if nothing happened.
 
 ## Planned commands
 
+ADR-035 is the authoritative CLI contract; the table below is the
+user-facing summary kept consistent with it.
+
 ```
-af create [task-name]       # worktree + tmux + primary agent (pi by default)
+# Lifecycle
+af create [task]            # worktree + tmux + primary agent (pi by default)
 af done [session]           # tear down a workstream
-af list                     # list active workstreams
-af resume [session]         # re-attach to a workstream
-af suspend [session]        # save state, tear down VMs/remote/tmux to free resources
-af session-branch           # launch agent tied to current branch (no worktree)
+af suspend [session]        # tear down tmux/VM/remote to free resources; preserve identity
+af resume [session]         # re-attach (warm) or rehydrate (cold)
+af session-branch           # ad-hoc agent on the current branch (no worktree)
 
-af agent add/stop/list      # add or stop additional agents in a workstream
-af gc                       # clean merged/closed workstreams
+# Multi-agent
+af agent add [--slot N] --agent P    # add another agent in a new pane (sub-worktree if non-primary)
+af agent stop SLOT [--remove-worktree]
+af agent list
 
-af setup                    # one-shot user-scope setup (gitignore, completions, config init, vault hint)
+# Inspection
+af list                     # one-line per workstream, grouped by repo
+af status                   # multi-line dashboard with per-slot status
+af info [session]           # detail view + ledger tail
+
+# Reaping
+af clean                    # reap merged/closed workstreams (replaces v0/early-v1 'gc')
+
+# Stacking
+af stack [session] [--parent P]
+af unstack [session]
+af sync [session]           # rebase/ff onto parent's current head
+
+# Environment
+af setup                    # one-shot user-scope setup (gitignore, completions, config init)
 af doctor [--remote <host>] # probe deps; print install commands; never auto-install
-af note [session]           # open the Obsidian note for a workstream
+af config show / init
+af completions <shell>
 
-af editor                   # open worktree in $EDITOR (config-driven)
-af diff [session]           # git diff against the workstream's base branch (config-driven)
-af pr [session]             # create a PR via gh (config-driven)
+# Notes & retro
+af note [session] [--append TEXT]   # open the Obsidian note (or append a log line)
+af retro [--since D] [--tag T]...   # mine archived notes for patterns
 
-af config show/init         # print or initialise config
-af completions <shell>      # generate shell completion script
-af version                  # print version
+# Proxy commands (config-driven)
+af editor                   # open worktree in $EDITOR / VS Code / Zed
+af diff [session]           # git diff <base>...HEAD in the worktree
+af pr  [session] [--ai]     # gh pr create; --ai authors the body via the configured agent
+
+# Secrets
+af auth set/get/status/clear/list   # zalando/go-keyring backed
+
+# Meta
+af version
 ```
 
 ## v0 → v1 boundary
@@ -84,7 +111,7 @@ af version                  # print version
 | [`docs/SPEC.md`](docs/SPEC.md)               | v1 specification _(written in stage C of the doc pass)_      |
 | [`docs/PLAN.md`](docs/PLAN.md)               | Lightweight pointer to ADR groupings _(stage C)_             |
 | [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Go style, commit format, file ownership _(stage C)_          |
-| [`docs/adr/`](docs/adr/)                     | v1 ADRs 031–053 _(stage D, append-only)_                     |
+| [`docs/adr/`](docs/adr/)                     | v1 ADRs 031–059 _(stage D, append-only)_                     |
 | [`docs/v0/`](docs/v0/)                       | Frozen v0 (Rust era) archive                                 |
 | [`AGENTS.md`](AGENTS.md)                     | Working agreement for AI agents touching this repo           |
 | [`CLAUDE.md`](CLAUDE.md)                     | Project constitution (rules that survive context compaction) |
