@@ -273,8 +273,8 @@ Full schema in ADR-036. Sections:
 - `[general]` — `default_agent`, `multiplexer`, `max_sessions`, `worktree_root`.
 - `[branch]` — `prefix`, `prefix_on_fork_only`.
 - `[editor]` — `terminal`, `visual`.
-- `[diff]` — `cmd` (default: `git diff <base>...HEAD`).
-- `[pr]` — `cmd` (default: `gh pr create`), `template`, `ai_model` (default model for `--ai`; `""` = agent default).
+- `[diff]` — `shell` (bool, default false), `cmd` (argv array or string per `shell`). Argv default: `["git", "diff", "{base}...HEAD"]`.
+- `[pr]` — `shell` (bool, default false), `cmd` (argv or string), `flag_template` (table mapping `--title`/`--draft`/`--web` to argv fragments), `template`, `ai_model` (default model for `--ai`; `""` = agent default).
 - `[status]` — `max_parallel` (default 8; cap on concurrent `gh pr view` fetches).
 - `[remote]` — `default_host`, `ssh_options`.
 - `[sandbox]` — `default_provider`, `slicer.*`, `sbx.*`.

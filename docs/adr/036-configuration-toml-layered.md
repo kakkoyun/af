@@ -60,18 +60,30 @@ worktree_root  = "~/Workspace/.worktrees"
 prefix              = ""          # empty = no prefix; e.g. "kakkoyun"
 prefix_on_fork_only = true        # only apply when `upstream` remote exists
 
+# ── Proxy commands (ADR-048) ──
+# Each proxy section accepts cmd as either:
+#   - argv form (default): cmd is an array of strings, executed directly
+#     via exec. No shell. Recommended.
+#   - shell form (opt-in): set shell = true and cmd is a single string,
+#     executed via sh -c. Tokens are shell-quoted before substitution.
+# There is no auto-detection. The user picks the mode explicitly.
+
 [editor]
 terminal = "$EDITOR"              # falls back to nvim if $EDITOR unset
 visual   = ""                     # empty = auto-detect: code > zed
 
 [diff]
-cmd      = "git diff {base}...HEAD"
+shell = false                     # default: argv-mode (safer, no shell)
+cmd   = ["git", "diff", "{base}...HEAD"]
                                   # tokens: {base}, {head}, {worktree}
+
 [pr]
-cmd      = "gh pr create --base {base} --head {head}"
-                                  # tokens: {base}, {head}, {title}, {body}
-template = ""                     # path to PR template file (default: repo's .github/PULL_REQUEST_TEMPLATE.md)
-ai_model = ""                     # default model override for `af pr --ai`; "" = agent default (ADR-057)
+shell         = false             # default: argv-mode
+cmd           = ["gh", "pr", "create", "--base", "{base}", "--head", "{head}"]
+flag_template = { title = ["--title", "{title}"], draft = ["--draft"], web = ["--web"] }
+                                  # tokens: {title}, {body}
+template      = ""                # path to PR template file (default: repo's .github/PULL_REQUEST_TEMPLATE.md)
+ai_model      = ""                # default model override for `af pr --ai`; "" = agent default (ADR-057)
 
 [remote]
 default_host = ""                 # empty = remote requires explicit --remote arg

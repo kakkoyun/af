@@ -70,9 +70,13 @@ unchanged.
 User customisations:
 
 ```toml
+# argv-style (default; recommended)
 [diff]
-cmd = "delta --paging always {base}...HEAD"
-# or
+cmd = ["delta", "--paging", "always", "{base}...HEAD"]
+
+# shell-style (when you need pipes, redirects, &&, etc.)
+[diff]
+shell = true
 cmd = "git diff --color=always {base}...HEAD | diff-so-fancy | less"
 ```
 
@@ -88,16 +92,25 @@ Default config:
 cmd = "gh pr create --base {base} --head {head}"
 ```
 
-Flags map to additional arguments **only if** the configured command
-supports them. v1 implements:
+Flags map to additional arguments through a configurable
+`flag_template` table on the `[pr]` section. v1 ships defaults that
+match `gh pr create`:
 
-- `--title T` → appended as `--title T` to the configured command (the default `gh pr create` accepts it).
-- `--draft` → appended as `--draft`.
-- `--web` → appended as `--web`.
+```toml
+[pr]
+cmd = ["gh", "pr", "create", "--base", "{base}", "--head", "{head}"]
+flag_template = { title = ["--title", "{title}"], draft = ["--draft"], web = ["--web"] }
+```
 
-For configurations that don't use `gh`, the user can override the flag
-mapping in `[pr]` with `flag_template = "..."`. v1 ships sensible
-defaults for `gh` only.
+When the user passes `--title T`, `af` appends `flag_template.title`
+with `{title}` substituted. When `--draft` is passed, `af` appends
+`flag_template.draft` verbatim. Boolean flags whose template is empty
+or missing are silently ignored.
+
+For configurations that don't use `gh` (e.g. `glab` for GitLab), the
+user overrides `flag_template` in their config; v1 ships only the `gh`
+defaults. The flag-template surface is documented under ADR-036's
+`[pr]` section.
 
 After the command exits successfully, `af`:
 
@@ -117,18 +130,64 @@ runs `gh pr view` themselves to update PR tracking.
   `{title}`, `{body}`) to maintain by hand.
 - Bugs in the underlying tools are not `af`'s problem.
 
-### Command parsing
+### Command parsing: explicit argv vs. shell
 
-`[diff].cmd` and `[pr].cmd` are parsed with a small `shlex`-style
-splitter (hand-rolled or via the stdlib `strings.Fields` for simple
-cases — TBD at impl time). Token replacement happens **before**
-splitting, so tokens with spaces (e.g. a multi-word PR title) are
-preserved correctly.
+Each proxy section (`[editor]`, `[diff]`, `[pr]`) accepts `cmd` in one
+of two shapes, with an explicit `shell` flag that picks the execution
+mode. **There is no auto-detection from string contents** — the user
+declares intent.
 
-If the command after substitution begins with a recognized shell
-metacharacter (`|`, `&&`, `;`), `af` runs it via `sh -c "<cmd>"`
-instead of direct `exec`. This lets users build pipelines without `af`
-parsing them.
+#### Argv form (default)
+
+```toml
+[diff]
+cmd = ["delta", "--paging", "always", "{base}...HEAD"]
+# shell = false  (the default)
+```
+
+- `cmd` is a TOML array of strings.
+- Each element is independently passed through token substitution
+  (`{base}`, `{head}`, `{worktree}`, `{title}`, `{body}`).
+- `af` invokes `exec.CommandContext(ctx, cmd[0], cmd[1:]...)` directly.
+- Tokens with spaces (e.g. a multi-word `{title}`) survive intact
+  because each argv element is independent.
+- **No shell is involved.** `|`, `&&`, `;`, `>`, `*`, `~`, etc. inside
+  argv elements are passed literally to the spawned binary; they do
+  not have shell semantics.
+
+#### Shell form (opt-in)
+
+```toml
+[diff]
+shell = true
+cmd = "git diff --color=always {base}...HEAD | diff-so-fancy | less"
+```
+
+- `cmd` is a single string.
+- Token substitution is applied to the string, then `af` invokes
+  `exec.CommandContext(ctx, "sh", "-c", expandedCmd)`.
+- Pipes, redirects, glob expansion, environment variable expansion,
+  and other shell features all work normally.
+- Token values containing single quotes or shell metacharacters are
+  shell-quoted before substitution to prevent injection of structure.
+  (Tokens are workstream-derived: branch names, paths, PR titles. Shell
+  quoting them is sufficient for v1's threat model.)
+
+#### Why explicit and not auto-detected
+
+The original draft of this ADR proposed auto-detecting shell mode by
+scanning for metacharacters. That is unreliable: `git diff X...Y |
+delta` does not begin with `|` so the heuristic misses it; conversely
+a branch name containing `&&` or `|` triggers a false positive. The
+user knows which mode they want; an explicit flag eliminates the
+guesswork. This also gives `af` a clean place to apply per-mode
+security policy (no shell expansion in argv mode means no path
+injection through `{worktree}`).
+
+#### Default-form recommendation
+
+Defaults ship in argv form because it's safer and faster (no shell
+fork). Users who want pipes opt in via `shell = true`.
 
 ## Consequences
 
