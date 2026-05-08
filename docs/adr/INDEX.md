@@ -35,8 +35,14 @@ convention defined in [ADR-032](032-adr-conventions.md).
 | [051](051-testing-strategy.md)                    | Testing Strategy                                                               | proposed | pending        | go, testing                    |
 | [052](052-formal-verification.md)                 | Formal Verification Experimentation                                            | proposed | pending        | go, verification, experimental |
 | [053](053-build-and-release-goreleaser-make.md)   | Build & Release — goreleaser + Make                                            | proposed | pending        | go, build, release, goreleaser |
+| [054](054-af-status-dashboard.md)                 | `af status` — Workstream Dashboard                                             | proposed | pending        | go, command, status, dashboard       |
+| [055](055-af-info-detail.md)                      | `af info` — Workstream Detail View                                             | proposed | pending        | go, command, info, introspection     |
+| [056](056-af-clean-reaper.md)                     | `af clean` — Reap Completed Workstreams                                        | proposed | pending        | go, command, lifecycle, cleanup      |
+| [057](057-af-pr-ai-body.md)                       | `af pr --ai` — Agent-Authored PR Body                                          | proposed | pending        | go, command, agent, pr, ai           |
+| [058](058-af-retro-mining.md)                     | `af retro` — Mine Archived Workstream Notes                                    | proposed | pending        | go, command, obsidian, retrospective |
+| [059](059-stack-aware-branches.md)                | Stack-Aware Branch Model                                                       | proposed | pending        | go, stack, branch, rebase, lifecycle |
 
-23 ADRs total.
+29 ADRs total.
 
 ---
 
@@ -71,6 +77,7 @@ How `af` thinks about its workstreams and the things attached to them.
 Each user-facing command and the integrations that back it.
 
 - 044 doctor / 045 setup / 046 suspend-resume / 047 Obsidian / 048 proxies
+- 054 status / 055 info / 056 clean / 057 pr --ai / 058 retro / 059 stack
 
 ### Cross-cutting
 
@@ -122,7 +129,7 @@ ADR-026 was retired without being finalised in v0.
 
 ## How to add a new ADR
 
-1. Pick the next available number (next available is 054 as of this writing).
+1. Pick the next available number (next available is 060 as of this writing).
 2. Create `docs/adr/NNN-kebab-case-title.md` with the frontmatter from ADR-032.
 3. Body: Context → Decision → Consequences → Alternatives → References.
 4. Add a row to the catalogue table above.
