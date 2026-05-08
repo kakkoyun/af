@@ -201,12 +201,20 @@ refuse new schemas; new binaries upgrade old schemas in place.
 
 ### File-discovery rules
 
-`af` resolves "the current workstream" as follows, in order:
+`af` resolves "the current workstream" as follows, in order. The cwd
+symlink wins over tmux env vars because it's a more precise signal
+(the user is literally inside the worktree); tmux is the fallback
+for cases where the user is in a workstream's tmux session but cwd
+is elsewhere.
 
 1. If `--session NAME` is passed: load `~/.local/share/af/v1/sessions/NAME/state.toml`.
-2. Else if inside a tmux session named after a workstream: load that.
-3. Else if the cwd has `<repo>/.af/state.toml` symlink: follow it.
-4. Else: error "no current workstream; specify --session NAME or run inside a workstream's tmux session."
+2. Else, walk upward from the cwd looking for a `.af/state.toml`
+   symlink. If found, follow it.
+3. Else if inside a tmux session whose `@AF_SESSION` option is set
+   and whose name resolves to `~/.local/share/af/v1/sessions/<name>/`:
+   load that.
+4. Else: error "no current workstream; specify --session NAME, cd
+   into a workstream's worktree, or run inside its tmux session."
 
 ADR-038 specifies the symlink mechanics.
 
