@@ -288,7 +288,7 @@ Full schema in ADR-036. Sections:
 - `[obsidian]` — `notes_vault` (key from `[obsidian.vaults]`), `notes_folder`, `notes_template`.
 - `[obsidian.vaults]` — **global only**; map of vault-name → absolute path on this machine.
 - `[doctor]` — `extra_tools`.
-- `[secret]` — `keyring_service`.
+- `[secret]` — `keyring_service`, `redact_keys` (extra slog attribute keys to redact on top of the built-in list per ADR-049).
 - `[lifecycle]` — `retention_days`, `auto_archive`.
 
 `[obsidian.vaults]` lives **only** in the user-level config because

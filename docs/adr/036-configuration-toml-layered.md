@@ -121,6 +121,9 @@ extra_tools = []
 
 [secret]
 keyring_service = "af"            # service name passed to zalando/go-keyring (ADR-049)
+redact_keys     = []               # extra slog attribute keys to redact, on top of the
+                                  # built-in list (api_key, token, password, bearer,
+                                  # secret, auth). Per ADR-049.
 
 [status]
 max_parallel = 8                  # cap on concurrent gh pr view fetches (ADR-054)
