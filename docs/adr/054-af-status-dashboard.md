@@ -47,7 +47,11 @@ kakkoyun--issue-42            kakkoyun/issue-42           active     pi+claude #
 kakkoyun--refactor-config     kakkoyun/refactor-config    suspended  pi        #138   pending  3h ago
 ```
 
-- `STATE` from `state.toml.[session].status`.
+- `STATE` from `state.toml.[session].status`. **Stacked workstreams**
+  (per ADR-059, with `[stack].parent_session` non-empty) get a
+  `→<parent_session>` suffix appended to STATE: e.g.
+  `active→feat-a` or `suspended→feat-a`. The arrow makes the parent
+  link visible at a glance without widening the table.
 - `AGENTS` is `+`-joined slot providers from `state.toml.[[agents]]`.
 - `PR` from `state.toml.[pr].number`; resolved live via `gh pr view --json state,statusCheckRollup`.
 - `CI` from `gh` JSON `statusCheckRollup`; one of `passing | failing | pending | none`.

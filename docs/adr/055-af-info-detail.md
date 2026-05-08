@@ -71,10 +71,24 @@ last set to (by `af pr` per ADR-048). For live PR state, the user runs `af statu
   "execution": { "..." },
   "agents": [ "..." ],
   "pr": { "..." },
+  "stack": {
+    "parent_session": "feat-a",
+    "parent_branch": "kakkoyun/feat-a",
+    "linked_at": "2026-05-08T10:00:00Z",
+    "chain": ["feat-a", "feat-base"]
+  },
   "note_path": "...",
   "ledger_tail": [ {"ts": "...", "event": "...", "...": "..."} ]
 }
 ```
+
+The `stack` object is present whenever `state.toml.[stack].parent_session`
+is non-empty (per ADR-059). `stack.chain` lists ancestor workstream
+names in walk-order from immediate parent to root, computed at read
+time by following `parent_session` transitively. For non-stacked
+workstreams, the entire `stack` field is omitted from the JSON
+output. Human output renders the chain as `parent: feat-a → feat-base`
+on a dedicated line under the `Worktree` section.
 
 Field order is stable. Adding fields is a minor (non-breaking) change; removing a field
 requires a schema bump.
