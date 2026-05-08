@@ -1,6 +1,6 @@
 ---
 adr: 053
-title: "Build & Release — goreleaser + Make"
+title: "Build & Distribution — goreleaser + Make"
 status: proposed
 implementation: pending
 date: 2026-05-06
@@ -11,7 +11,15 @@ related: ["031", "034", "050", "051"]
 tags: ["go", "build", "release", "goreleaser"]
 ---
 
-# ADR-053: Build & Release — goreleaser + Make
+# ADR-053: Build & Distribution — goreleaser + Make
+
+> **Naming.** This ADR was originally drafted as "Build & Release" but
+> renamed to "Build & Distribution" because v1 explicitly does **not**
+> release (no tags, no GitHub Releases, no Homebrew tap — see ADR-031
+> §3 "No release"). `goreleaser` is used in `--snapshot` mode only,
+> producing **snapshot artifacts** for local cross-compile verification.
+> The word "release" is reserved throughout v1 for the future
+> hypothetical case where someone other than the owner needs binaries.
 
 ## Context
 
@@ -201,9 +209,13 @@ download`. There are no signed checksums.
 - Build is one `make` invocation away.
 - Cross-compile is verified locally, not in CI.
 - Tooling versions are explicit in the Makefile; no drift.
-- The release path stays small: when v1.0 is "complete," the owner
-  builds locally, smoke-tests, and uses the binary. No tag, no
-  changelog update, no announcement.
+- There is no "release path" in the conventional sense. When the
+  owner considers v1 feature-complete, the workflow is: pull main,
+  `make install`, smoke-test, use the binary. No tag, no changelog
+  version-link update, no announcement, no GitHub Release. If `go
+  install github.com/kakkoyun/af@latest` ever becomes the path other
+  users take, that's a future ADR — ADR-031 still says no release
+  for v1.
 
 ## Alternatives Considered
 

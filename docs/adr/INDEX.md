@@ -34,7 +34,7 @@ convention defined in [ADR-032](032-adr-conventions.md).
 | [050](050-code-quality-golangci-lint-pedantic.md) | Code Quality — golangci-lint Pedantic                                          | proposed | pending        | go, lint, quality              |
 | [051](051-testing-strategy.md)                    | Testing Strategy                                                               | proposed | pending        | go, testing                    |
 | [052](052-formal-verification.md)                 | Formal Verification Experimentation                                            | proposed | pending        | go, verification, experimental |
-| [053](053-build-and-release-goreleaser-make.md)   | Build & Release — goreleaser + Make                                            | proposed | pending        | go, build, release, goreleaser |
+| [053](053-build-and-release-goreleaser-make.md)   | Build & Distribution — goreleaser + Make                                       | proposed | pending        | go, build, distribution, goreleaser |
 | [054](054-af-status-dashboard.md)                 | `af status` — Workstream Dashboard                                             | proposed | pending        | go, command, status, dashboard       |
 | [055](055-af-info-detail.md)                      | `af info` — Workstream Detail View                                             | proposed | pending        | go, command, info, introspection     |
 | [056](056-af-clean-reaper.md)                     | `af clean` — Reap Completed Workstreams                                        | proposed | pending        | go, command, lifecycle, cleanup      |

@@ -23,7 +23,7 @@
 │  Ring 3 — Polish & cross-cutting               │
 │  ADR-052 formal verification                    │
 │  ADR-050 lint, ADR-051 testing                 │
-│  ADR-053 build & release                       │
+│  ADR-053 build & distribution                  │
 │  ┌──────────────────────────────────────────┐  │
 │  │  Ring 2 — Commands & integrations        │  │
 │  │  ADR-044 doctor, ADR-045 setup           │  │

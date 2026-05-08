@@ -75,7 +75,7 @@ commits per ADR-032's lifecycle rules.
 - [ ] C33: ADR-050 Code Quality — golangci-lint pedantic
 - [ ] C34: ADR-051 Testing Strategy
 - [ ] C35: ADR-052 Formal Verification Experimentation
-- [ ] C36: ADR-053 Build & Release — goreleaser + Make
+- [ ] C36: ADR-053 Build & Distribution — goreleaser + Make
 
 ## Stage E — ADR index
 
