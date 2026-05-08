@@ -80,7 +80,12 @@ cmd   = ["git", "diff", "{base}...HEAD"]
 [pr]
 shell         = false             # default: argv-mode
 cmd           = ["gh", "pr", "create", "--base", "{base}", "--head", "{head}"]
-flag_template = { title = ["--title", "{title}"], draft = ["--draft"], web = ["--web"] }
+flag_template = {
+  title = ["--title", "{title}"],
+  draft = ["--draft"],
+  web   = ["--web"],
+  body  = ["--body", "{body}"],   # appended automatically when `af pr --ai` is used (ADR-057)
+}
                                   # tokens: {title}, {body}
 template      = ""                # path to PR template file (default: repo's .github/PULL_REQUEST_TEMPLATE.md)
 ai_model      = ""                # default model override for `af pr --ai`; "" = agent default (ADR-057)

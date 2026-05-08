@@ -40,8 +40,17 @@ When `--ai` is set:
    - Recent ledger events (last 20, ledger.jsonl tail).
 2. af invokes the **primary slot's** agent in non-interactive print mode.
 3. Captures stdout as the PR body.
-4. Substitutes `{body}` in the configured `[pr].cmd` (per ADR-036).
-5. Pipes through the existing `af pr` flow — `gh pr create --body "<body>"`.
+4. Substitutes `{body}` in the configured `[pr].flag_template.body`
+   (default `["--body", "{body}"]`, per ADR-036/048). The substituted
+   argv is **automatically appended** to `[pr].cmd` — the user does
+   not pass `--body`.
+5. Pipes through the existing `af pr` flow — `gh pr create --base ...
+   --head ... --body "<body>"`.
+
+If `--web` is set together with `--ai`, body delivery is skipped (the
+browser will prompt for the body) and a `slog.Info` records that the
+generated body was not used. If `[pr].flag_template.body` is missing
+from config, `af pr --ai` errors out before invoking the agent.
 
 ### Agent interface extension
 

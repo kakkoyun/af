@@ -99,13 +99,27 @@ match `gh pr create`:
 ```toml
 [pr]
 cmd = ["gh", "pr", "create", "--base", "{base}", "--head", "{head}"]
-flag_template = { title = ["--title", "{title}"], draft = ["--draft"], web = ["--web"] }
+flag_template = {
+  title = ["--title", "{title}"],
+  draft = ["--draft"],
+  web   = ["--web"],
+  body  = ["--body", "{body}"],
+}
 ```
 
 When the user passes `--title T`, `af` appends `flag_template.title`
 with `{title}` substituted. When `--draft` is passed, `af` appends
 `flag_template.draft` verbatim. Boolean flags whose template is empty
 or missing are silently ignored.
+
+**`af pr --ai` body delivery.** When `--ai` is passed (per ADR-057),
+`af` captures the agent's stdout into `{body}` and **automatically
+appends `flag_template.body`** to the resulting argv. The user does
+not pass `--body` separately. If `--web` is also set, body delivery
+is skipped (the user fills the body in the browser instead) and a
+`slog.Info` notes that the AI-authored body was not used. If
+`flag_template.body` is unset, `af pr --ai` errors out before the
+agent runs, with a hint to add it to `[pr].flag_template`.
 
 For configurations that don't use `gh` (e.g. `glab` for GitLab), the
 user overrides `flag_template` in their config; v1 ships only the `gh`
