@@ -4,7 +4,7 @@ title: "v1: Migration to Go + Scope Reduction"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
 related: ["032", "033", "034", "043", "049", "053"]
@@ -55,7 +55,7 @@ This is the **master ADR for v1**. It establishes:
 4. **Approved runtime dependency set.** Two tiers, both append-only.
 
    **Tier 1 — Third-party runtime deps** (5 packages, each requiring an ADR):
-   - `github.com/spf13/cobra` (+ transitive `pflag`) — CLI framework + completion generator (ADR-035).
+   - `github.com/spf13/cobra` (+ transitive `github.com/spf13/pflag` and `github.com/spf13/cast`) — CLI framework + completion generator (ADR-035).
    - `github.com/BurntSushi/toml` — config + state-file serialization (ADR-036, ADR-037).
    - `github.com/google/uuid` — UUID v5 derivation (ADR-037, ADR-038).
    - `gopkg.in/yaml.v3` — Obsidian frontmatter (ADR-047).
@@ -99,7 +99,7 @@ This is the **master ADR for v1**. It establishes:
 | Provisioning pipeline (SSH bootstrap, dotfiles install)     | **Dropped**; `af doctor` prints install hints (ADR-042, ADR-044) | Provisioning belongs in dotfiles, not `af`                  |
 | Skill bundle installer (v0 ADR-030)                         | **Dropped**                                                      | Claude Code skill ecosystem unproven; revisit later         |
 | `af migrate` (cf-sessions import)                           | **Dropped**                                                      | v0 was never released                                       |
-| Multi-tier auth + keyring/secrecy/zeroize                   | **Reduced to keyring + tmpfs envelope** (ADR-049)                | Lower complexity; same security posture                     |
+| Multi-tier auth + keyring/secrecy/zeroize                   | **Reduced to keyring + ephemeral envelope** (ADR-049)            | Lower complexity; same security posture                     |
 | `af diff` / `af pr` / `af stats` / `af export` (rich impls) | **Reduced to thin proxies** (ADR-048)                            | Funnel to underlying tool from config                       |
 | Superterm notification integration                          | **Dropped**                                                      | Not used by the owner currently                             |
 | `af export`, `af stats`                                     | **Dropped**                                                      | Niche; `jq` over `ledger.jsonl` is enough                   |

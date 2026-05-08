@@ -4,7 +4,7 @@ title: "Secret Management (keyring + ephemeral envelope)"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
 related: ["031", "036", "041", "042", "045"]
@@ -65,10 +65,10 @@ af auth list                 # lists all af-stored keys (names only, no values)
 
 The envelope path is selected at runtime:
 
-| Platform | Path | Filesystem |
-|---|---|---|
-| Linux with `/run/user/$UID/` writable | `/run/user/$UID/af-<session>/.env` | tmpfs (RAM-backed) |
-| macOS, or Linux without `/run/user/$UID/` | `~/.local/share/af/v1/secrets/af-<session>/.env` | persistent disk |
+| Platform                                  | Path                                             | Filesystem         |
+| ----------------------------------------- | ------------------------------------------------ | ------------------ |
+| Linux with `/run/user/$UID/` writable     | `/run/user/$UID/af-<session>/.env`               | tmpfs (RAM-backed) |
+| macOS, or Linux without `/run/user/$UID/` | `~/.local/share/af/v1/secrets/af-<session>/.env` | persistent disk    |
 
 On the persistent-disk fallback, the directory tree is created by `af
 setup` with mode `0700`. The envelope file itself is `0600`.
@@ -90,13 +90,20 @@ agent via the envelope:
 
 - Step 4 is **not optional**. The launch wrapper is structured as a
   single shell snippet (`. /path/to/.env && rm -f /path/to/.env && exec
-  <agent-cmd>`) so the delete cannot be skipped without also failing
+<agent-cmd>`) so the delete cannot be skipped without also failing
   the launch.
 - If `af` crashes between step 1 and step 4 — e.g. the user `^C`s
   during `af resume` — a stray envelope can remain on disk. To
-  mitigate this, `af setup` registers a periodic cleanup hook that
-  deletes any `~/.local/share/af/v1/secrets/af-*` older than 60
-  minutes. (On Linux tmpfs the contents disappear on reboot.)
+  mitigate this, **every `af` invocation that touches the secrets
+  directory performs an inline sweep first**: it `glob`s
+  `~/.local/share/af/v1/secrets/af-*`, `stat`s each, and `unlink`s
+  any whose mtime is older than 60 minutes. The sweep is
+  fail-soft (a `slog.Warn` on per-file errors; the original command
+  proceeds). This is _lazy_ by design: af is a CLI, not a daemon, so
+  there's no cron/launchd/systemd-user wiring — cleanup runs the next
+  time a human triggers `af create`/`af resume`/`af agent add`/etc.
+  (On Linux tmpfs the contents also disappear on reboot, which is
+  the strict-mode user's preferred guarantee.)
 - The remote tmpfs path is cleaned up by `af done` and `af suspend`
   via an explicit `ssh <host> rm -rf /run/user/$UID/af-<session>` step.
   Failures are logged but do not block teardown.
@@ -107,9 +114,13 @@ agent via the envelope:
 - `SendEnv` requires the remote's `sshd_config` to allow specific names; a portable secret-injection mechanism shouldn't depend on remote config.
 - Many shell histories capture command lines; passing `--api-key sk-...` arguments leaks via shell history.
 
-The tmpfs envelope is sourced once and the file deleted; the secret
-exists in the agent's process env (where it's needed) but nowhere else
-durable.
+The ephemeral envelope is sourced once and the file deleted; the
+secret exists in the agent's process env (where it's needed) but
+nowhere else durable. On Linux with `/run/user/$UID/` the file lives
+on tmpfs, so even if delete-after-source were skipped the contents
+disappear on reboot; on the persistent-disk fallback the
+source-and-delete invariant plus the lazy 60-minute sweep are the
+guarantee.
 
 ### Redaction in logs
 
@@ -144,7 +155,7 @@ extends it.
   only as secure as the user's login session).
 - **Crash-window envelope leakage**: an envelope can persist on disk
   if `af` is killed (`kill -9` from another process) between the
-  write and source-and-delete. The 60-minute cleanup hook caps the
+  write and source-and-delete. The lazy 60-minute sweep caps the
   exposure window. If this is unacceptable, the user can run
   exclusively on Linux with `/run/user/$UID/` (tmpfs guarantees
   reboot clears state).
@@ -167,7 +178,7 @@ mode `0700`. This serves two purposes:
 
 1. **Fallback envelope location** when `/run/user/$UID/` is unavailable
    (macOS, or Linux without systemd-style user runtime dirs).
-2. **Stale-envelope cleanup target** for the periodic hook described
+2. **Stale-envelope cleanup target** for the lazy sweep described
    under §"Cleanup invariants."
 
 ## Consequences

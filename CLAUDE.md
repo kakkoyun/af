@@ -151,7 +151,7 @@ internal/
 ├── obsidian/           # Notes + Bases (ADR-047)
 ├── remote/             # SSH host model (ADR-041)
 ├── sandbox/            # slicer + sbx (ADR-042)
-├── secret/             # keyring + tmpfs envelope transport (ADR-049)
+├── secret/             # keyring + ephemeral envelope transport (ADR-049)
 ├── session/            # state.toml + ledger.jsonl (ADR-037)
 └── workstream/         # Worktree layout, sub-worktrees (ADR-038)
 

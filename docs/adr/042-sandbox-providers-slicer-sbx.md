@@ -4,7 +4,7 @@ title: "Sandbox Providers (slicer + sbx)"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
 related: ["031", "041", "043", "049"]
@@ -134,10 +134,15 @@ clean up manually.
 
 ### Secrets injection
 
-Per ADR-049: secrets reach the sandbox via a tmpfs envelope file
-`/run/user/$UID/af-<session>/.env` mounted into the VM (or `cp`'d into
-the container's filesystem for sbx). Never via env vars on the
-provider CLI's command line.
+Per ADR-049: secrets reach the sandbox via an **ephemeral envelope**
+file. Path varies by sandbox image:
+
+- Image with tmpfs at `/run/user/$UID/`: `/run/user/$UID/af-<session>/.env` (mounted in for slicer; `docker cp` for sbx).
+- Image without tmpfs: `~/.local/share/af/v1/secrets/af-<session>/.env` on the sandbox's persistent FS (covered by the in-sandbox lazy 60-min sweep when `af` runs there, plus normal sandbox teardown).
+
+The envelope is sourced once and deleted immediately by the launch
+wrapper (per ADR-049 §"Source-and-delete invariant"). Never via env
+vars on the provider CLI's command line.
 
 ## Consequences
 

@@ -63,14 +63,14 @@ persist to its own session log is lost.
 
 ### 3.1 Creation, teardown, listing
 
-| Command                                    | Purpose                                                                                                                                                                 |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `af create [name]`                         | Create a workstream: branch, worktree, tmux session, primary agent (pi by default).                                                                                     |
-| `af done [session]`                        | Tear down a workstream: kill tmux, remove worktree, delete branch (if `--force` or branch is merged), tear down remote/sandbox if applicable, archive state and ledger. |
-| `af list`                                  | List active workstreams grouped by repo. Includes status column (`active`, `suspended`).                                                                                |
-| `af resume [session] [--bare] [--respawn]` | Re-attach to an active workstream, or rehydrate a suspended one. `--bare` skips multiplexer; `--respawn` recreates dead sandbox VMs.                                    |
-| `af suspend [session]`                     | Persist state, tear down tmux + remote/sandbox to free resources. Workstream becomes `suspended`.                                                                       |
-| `af session-branch`                        | Launch the default agent with a session ID derived from the current branch (no worktree). For ad-hoc work in the existing checkout.                                     |
+| Command                                                                                                                                     | Purpose                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `af create [name] [--from BRANCH] [--current] [--from-pr N] [--bare] [--remote HOST] [--sandbox PROVIDER] [--agent NAME] [--yolo] [--auto]` | Create a workstream: branch, worktree, tmux session, primary agent (pi by default). See ADR-035 for full flag semantics; ADR-038 for fork-source flags (`--from`, `--current`, `--from-pr`). |
+| `af done [session] [--force]`                                                                                                               | Tear down a workstream: kill tmux, remove worktree, delete branch (if `--force` or branch is merged), tear down remote/sandbox if applicable, archive state and ledger.                      |
+| `af list`                                                                                                                                   | List active workstreams grouped by repo. Includes status column (`active`, `suspended`).                                                                                                     |
+| `af resume [session] [--bare] [--respawn]`                                                                                                  | Re-attach to an active workstream, or rehydrate a suspended one. `--bare` skips multiplexer; `--respawn` recreates dead sandbox VMs.                                                         |
+| `af suspend [session]`                                                                                                                      | Persist state, tear down tmux + remote/sandbox to free resources. Workstream becomes `suspended`.                                                                                            |
+| `af session-branch`                                                                                                                         | Launch the default agent with a session ID derived from the current branch (no worktree). For ad-hoc work in the existing checkout.                                                          |
 
 ### 3.2 Multi-agent management
 
@@ -106,12 +106,12 @@ All three subcommands accept `--session NAME` to target a workstream other than 
 
 ### 3.6 Environment & utilities
 
-| Command                                   | Purpose                                                                                       |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Command                                                                      | Purpose                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `af setup [--force] [--shell SHELL] [--skip-completions] [--skip-gitignore]` | One-shot user-scope environment setup: gitignore entry, completions, config init, vault hint. `--force` overwrites existing config; `--shell` overrides shell auto-detect; `--skip-*` flags skip individual steps. |
-| `af doctor [--remote <host>] [--verbose]` | Probe required tools; print install commands. **Never** auto-installs.                        |
-| `af config show \| init`                  | Print effective config or write defaults.                                                     |
-| `af completions <shell>`                  | Emit shell completion script (bash, zsh, fish, powershell).                                   |
+| `af doctor [--remote <host>] [--verbose]`                                    | Probe required tools; print install commands. **Never** auto-installs.                                                                                                                                             |
+| `af config show \| init`                                                     | Print effective config or write defaults.                                                                                                                                                                          |
+| `af completions <shell>`                                                     | Emit shell completion script (bash, zsh, fish, powershell).                                                                                                                                                        |
 
 ### 3.7 Notes & retro (ADR-047, ADR-058)
 
@@ -122,11 +122,11 @@ All three subcommands accept `--session NAME` to target a workstream other than 
 
 ### 3.8 Proxy commands (config-driven, thin wrappers)
 
-| Command                                                                 | Default behaviour                                                                                                         | Config knob                            |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `af editor [--terminal\|--visual]`                                      | `$EDITOR` in a tmux split, or `code .` / `zed .` for visual.                                                              | `[editor].terminal`, `[editor].visual` |
-| `af diff [session] [--base <ref>]`                                      | `git diff <base_branch>...HEAD` in the workstream's worktree, paged.                                                      | `[diff].cmd`                           |
-| `af pr [session] [--title <t>] [--draft] [--web] [--ai] [--ai-model M]` | `gh pr create --base <base_branch> --head <branch>`. With `--ai`, the body is authored by the configured agent (ADR-057). | `[pr].cmd`                             |
+| Command                                                                 | Default behaviour                                                                                                                  | Config knob                            |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `af editor [--terminal\|-t\|--visual\|-v] [session]`                    | `$EDITOR` in a tmux split, or `code .` / `zed .` for visual. Optional `[session]` targets a workstream other than the current one. | `[editor].terminal`, `[editor].visual` |
+| `af diff [session] [--base <ref>]`                                      | `git diff <base_branch>...HEAD` in the workstream's worktree, paged.                                                               | `[diff].cmd`                           |
+| `af pr [session] [--title <t>] [--draft] [--web] [--ai] [--ai-model M]` | `gh pr create --base <base_branch> --head <branch>`. With `--ai`, the body is authored by the configured agent (ADR-057).          | `[pr].cmd`                             |
 
 ### 3.9 Secrets (ADR-049)
 
@@ -181,8 +181,8 @@ ADR-035 is the **authoritative CLI contract**; this section is kept consistent w
 │       ├── state.toml           # Live workstream state
 │       └── ledger.jsonl         # Append-only event log
 ├── archive/
-│   └── <session>/               # Moved here by `af done`; retained per [lifecycle].retention_days
-└── secrets/                     # Optional tmpfs envelope staging (see ADR-049)
+│   └── <session>/               # Moved here by `af done` when [lifecycle].auto_archive=true (ADR-046). Retention is reserved (not enforced in v1).
+└── secrets/                     # Persistent-disk fallback for the ephemeral envelope (only used when /run/user/$UID/ is unavailable; see ADR-049)
 
 <repo>/.af/
 └── state.toml -> symlink to ~/.local/share/af/v1/sessions/<session>/state.toml
@@ -199,19 +199,18 @@ Full schema is defined in ADR-037. Top-level shape:
 schema_version = 1
 
 [session]
-name            = "kakkoyun--issue-42"
-id              = "<uuid v5>"
-repo_slug       = "kakkoyun/af"   # owner/name parsed from upstream/origin remote; "" for non-GitHub
-created_at      = 2026-05-06T12:00:00Z
-last_touched_at = 2026-05-06T12:00:00Z   # bumped by mutating commands; ADR-054 sorts on this
-status          = "active"       # active | suspended | completed | abandoned
-suspended_at    = null           # set when status = "suspended"
+name         = "kakkoyun--issue-42"
+id           = "<uuid v5>"
+created_at   = 2026-05-06T12:00:00Z
+status       = "active"          # active | suspended | completed | abandoned
+suspended_at = null              # set when status = "suspended"
 
 [worktree]
 path        = "/Users/kemal/Workspace/.worktrees/af/kakkoyun--issue-42"
 branch      = "kakkoyun/issue-42"
 base_branch = "upstream/main"
 git_root    = "/Users/kemal/Workspace/Projects/Personal/af"
+repo_slug   = "kakkoyun/af"      # owner/name parsed from upstream/origin remote at create time; "" for non-GitHub (then `af status` renders CI: n/a)
 
 [execution]
 mode             = "local"    # local | bare | remote | sandbox
@@ -247,6 +246,12 @@ linked_at      = null         # timestamp the parent was set
 af             = "1.0.0"
 agent_versions = { pi = "...", claude = "..." }
 ```
+
+**Derived values** (not stored in `state.toml`):
+
+- `last_touched_at` — latest `ts` in `ledger.jsonl`. O(1) via tailing the
+  last line. Used by `af status` (sort key) and `af clean --max-age`.
+  Defined in ADR-037 §"Derived values".
 
 ### 5.3 `ledger.jsonl` events
 
@@ -289,7 +294,7 @@ Full schema in ADR-036. Sections:
 - `[obsidian.vaults]` — **global only**; map of vault-name → absolute path on this machine.
 - `[doctor]` — `extra_tools`.
 - `[secret]` — `keyring_service`, `redact_keys` (extra slog attribute keys to redact on top of the built-in list per ADR-049).
-- `[lifecycle]` — `retention_days`, `auto_archive`.
+- `[lifecycle]` — `auto_archive` (consumed by `af done`, ADR-046); `retention_days` (reserved for a future archive sweeper, not enforced in v1).
 
 `[obsidian.vaults]` lives **only** in the user-level config because
 vault paths are a per-machine concern unrelated to any project.
@@ -371,9 +376,9 @@ Defined in ADR-049.
   1. `af` writes the envelope at the path above with `chmod 600`.
   2. Mount/copy/`scp` into the sandbox or remote as required.
   3. The launch wrapper runs `. <path>/.env && rm -f <path>/.env && exec <agent-cmd>`. The delete is non-optional — the wrapper will not exec the agent without first removing the envelope.
-  4. Stray envelopes from crashes are reaped by `af setup`'s periodic cleanup hook (60-min stale-file sweep).
+  4. Stray envelopes from crashes are reaped by an inline sweep run by every `af` invocation that touches the secrets directory (60-min stale-file deletion; lazy, no daemon).
 - **Redaction**: `slog` handlers redact known secret-bearing keys plus any user-listed `[secret].redact_keys`.
-- **Threat model boundary**: see ADR-049 §"Threat model". Crash-window leakage on persistent-disk fallback is acknowledged and capped by the 60-minute sweep; users who need a hard guarantee run exclusively on Linux tmpfs.
+- **Threat model boundary**: see ADR-049 §"Threat model". Crash-window leakage on persistent-disk fallback is acknowledged and capped by the inline 60-minute sweep that runs at the head of every secrets-touching `af` invocation; users who need a hard guarantee run exclusively on Linux tmpfs (where envelope contents also disappear on reboot).
 
 ---
 

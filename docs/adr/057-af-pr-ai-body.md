@@ -7,7 +7,7 @@ date: 2026-05-08
 last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "037", "043", "047", "048", "058"]
+related: ["031", "035", "037", "043", "047", "048", "058"]
 tags: ["go", "command", "agent", "pr", "ai"]
 ---
 
@@ -44,13 +44,14 @@ When `--ai` is set:
    (default `["--body", "{body}"]`, per ADR-036/048). The substituted
    argv is **automatically appended** to `[pr].cmd` — the user does
    not pass `--body`.
-5. Pipes through the existing `af pr` flow — `gh pr create --base ...
-   --head ... --body "<body>"`.
+5. Pipes through the existing `af pr` flow — `gh pr create --base ... --head ... --body "<body>"`.
 
-If `--web` is set together with `--ai`, body delivery is skipped (the
-browser will prompt for the body) and a `slog.Info` records that the
-generated body was not used. If `[pr].flag_template.body` is missing
-from config, `af pr --ai` errors out before invoking the agent.
+If `--web` is set together with `--ai`, the combination is **rejected
+at flag-validation time** (before any agent runs) with the message in
+the failure table below — the web flow defers body authoring to `gh`'s
+browser dialog, so an agent invocation would always be wasted. If
+`[pr].flag_template.body` is missing from config, `af pr --ai` errors
+out before invoking the agent.
 
 ### Agent interface extension
 
@@ -70,11 +71,11 @@ type BodyOpts struct {
 
 Per-agent argv (subject to verification at impl time):
 
-| Agent  | argv pattern                                                  |
-| ------ | ------------------------------------------------------------- |
-| pi     | `pi --print` (TBD — verify with `pi --help`)                  |
-| claude | `claude -p` with `--model {Model}` if non-empty               |
-| codex  | `codex exec` (TBD — verify with `codex --help`)               |
+| Agent  | argv pattern                                    |
+| ------ | ----------------------------------------------- |
+| pi     | `pi --print` (TBD — verify with `pi --help`)    |
+| claude | `claude -p` with `--model {Model}` if non-empty |
+| codex  | `codex exec` (TBD — verify with `codex --help`) |
 
 All providers must tolerate `BodyOpts.Cwd == ""` and fall back to
 `os.TempDir()` for the working directory. Callers that have no worktree
@@ -108,13 +109,13 @@ Future ADRs may externalize this template if the owner finds it limiting.
 
 ### Failure modes
 
-| Failure                                  | Behaviour                                                                           |
-| ---------------------------------------- | ----------------------------------------------------------------------------------- |
-| Agent binary not on PATH                 | Error with `af doctor` hint                                                          |
-| Agent prints empty body                  | Error: `agent returned empty body — re-run with 'af pr' (no --ai) and write manually` |
-| Agent exits non-zero                     | Print agent stderr, error                                                           |
-| Diff is empty (no commits to base)       | Error before invoking agent: `no commits to draft from`                             |
-| `--ai` and `--web` together              | Reject: `--web defers body to gh's web flow; --ai is incompatible`                  |
+| Failure                            | Behaviour                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------- |
+| Agent binary not on PATH           | Error with `af doctor` hint                                                           |
+| Agent prints empty body            | Error: `agent returned empty body — re-run with 'af pr' (no --ai) and write manually` |
+| Agent exits non-zero               | Print agent stderr, error                                                             |
+| Diff is empty (no commits to base) | Error before invoking agent: `no commits to draft from`                               |
+| `--ai` and `--web` together        | Reject: `--web defers body to gh's web flow; --ai is incompatible`                    |
 
 ### `[pr]` config addition
 

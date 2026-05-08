@@ -129,7 +129,11 @@ redact_keys     = []               # extra slog attribute keys to redact, on top
 max_parallel = 8                  # cap on concurrent gh pr view fetches (ADR-054)
 
 [lifecycle]
-retention_days = 90               # archive expiry
+# auto_archive is consumed by `af done` (ADR-046 §teardown): when true,
+# completed sessions are moved to ~/.local/share/af/v1/archive/<name>/.
+# retention_days is RESERVED for v1 — currently no command sweeps the
+# archive. A future ADR will wire it (likely as `af clean --gc-archive`).
+retention_days = 90               # archive expiry (reserved; not enforced in v1)
 auto_archive   = true             # move completed sessions to archive/ on `af done`
 ```
 
@@ -233,7 +237,7 @@ schema than the binary supports is an error.
 - v0 ADR-003 (Layered Configuration System) — superseded by this ADR for v1.
 - ADR-031 — v1 master, dep set.
 - ADR-044 — `af doctor` reads `[doctor].extra_tools`.
-- ADR-047 — Obsidian writer reads `[obsidian.vaults]` + `[obsidian.notes]`.
+- ADR-047 — Obsidian writer reads `[obsidian]` (`notes_vault`, `notes_folder`, `notes_template`) and `[obsidian.vaults]`.
 - ADR-048 — proxy commands read `[editor]` `[diff]` `[pr]`.
 - ADR-049 — secrets read `[secret]`.
 - ADR-054 — `af status` reads `[status].max_parallel`.

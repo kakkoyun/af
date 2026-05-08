@@ -49,7 +49,7 @@
 - Goroutines must have a clear lifetime. Use `errgroup.Group` (stdlib `golang.org/x/sync/errgroup` allowed as the one exception to no-third-party-logger if needed) or hand-rolled `sync.WaitGroup`.
 - Channels are owned by their sender; the sender closes.
 - Mutex use is documented (`// safeMap protects entries against ...`).
-- `go vet -race` runs in every CI build.
+- `go test -race -count=1` runs in every CI build (race detector + at least one fresh run, no test cache hits).
 
 ### Tests
 

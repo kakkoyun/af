@@ -31,16 +31,16 @@ up later as if nothing happened.
 
 ## v1 scope (planned)
 
-| Capability      | Detail                                                                                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Multiplexer     | tmux only                                                                                                                                        |
-| Agents          | pi (default), claude, codex                                                                                                                      |
-| Remote          | SSH host (alias from `~/.ssh/config`, `user@host`, or IP); no provider plugin layer                                                              |
-| Sandbox         | slicer (Firecracker) and sbx (Docker AI Sandboxes)                                                                                               |
-| Worktree layout | Stable `~/Workspace/.worktrees/<repo>/<branch>/`; sibling sub-worktrees for subagents                                                            |
-| State           | TOML state file + JSONL ledger per workstream, global at `~/.local/share/af/v1/sessions/`; per-repo discovery symlink at `<repo>/.af/state.toml` |
-| Obsidian        | One markdown note per workstream, versioned frontmatter, optional Obsidian Bases aggregator                                                      |
-| Secrets         | macOS Keychain / Linux Secret Service via `zalando/go-keyring`; tmpfs envelope file for transport (never SSH `SetEnv`)                           |
+| Capability      | Detail                                                                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Multiplexer     | tmux only                                                                                                                                                                                               |
+| Agents          | pi (default), claude, codex                                                                                                                                                                             |
+| Remote          | SSH host (alias from `~/.ssh/config`, `user@host`, or IP); no provider plugin layer                                                                                                                     |
+| Sandbox         | slicer (Firecracker) and sbx (Docker AI Sandboxes)                                                                                                                                                      |
+| Worktree layout | Stable `~/Workspace/.worktrees/<repo>/<branch>/`; sibling sub-worktrees for subagents                                                                                                                   |
+| State           | TOML state file + JSONL ledger per workstream, global at `~/.local/share/af/v1/sessions/`; per-repo discovery symlink at `<repo>/.af/state.toml`                                                        |
+| Obsidian        | One markdown note per workstream, versioned frontmatter, optional Obsidian Bases aggregator                                                                                                             |
+| Secrets         | macOS Keychain / Linux Secret Service via `zalando/go-keyring`; **ephemeral envelope** file for transport (tmpfs when `/run/user/$UID` exists, persistent-disk fallback otherwise — never SSH `SetEnv`) |
 
 ## Planned commands
 

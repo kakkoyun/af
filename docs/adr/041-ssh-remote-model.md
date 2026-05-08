@@ -4,7 +4,7 @@ title: "SSH Remote Model (no provider plugins)"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
 related: ["031", "037", "042", "044", "049"]
@@ -54,15 +54,10 @@ When `af create --remote <host>` runs:
    remote via a probe (`ssh <host> 'which tmux pi'`). If any are
    missing, fail with a doctor-style hint (ADR-044).
 2. SSH in and **`git clone`** the repo into
-   `~/af-clones/<repo>/<branch>/` on the remote. If a directory at
-   that path already exists from a previous workstream of the same
-   name, `af` errors with a hint to run `af done <name>` (or `af
-   resume <name>` if the user expected this to be a resume). The
-   remote path is recorded in `state.toml` `[execution].remote_path`.
+   `~/af-clones/<repo>/<branch>/` on the remote. If a directory at that path already exists from a previous workstream of the same name, `af` errors with a hint to run `af done <name>` (or `af resume <name>` if the user expected this to be a resume). The remote path is recorded in `state.toml` `[execution].remote_path`.
 3. Create a tmux session **on the remote** named identically to the
    local workstream name. Launch the agent in the primary pane.
-4. The local `af` process exits. The user `ssh <host>` + `tmux a -t
-   <name>` to attach, or `af resume <name>` runs that for them.
+4. The local `af` process exits. The user `ssh <host>` + `tmux a -t <name>` to attach, or `af resume <name>` runs that for them.
 
 **Plain clone, not linked worktree.** Local workstreams use git
 worktrees from a single repo (per ADR-038). Remote workstreams use
@@ -154,10 +149,17 @@ specifies.
 
 ### Secrets on remote
 
-Per ADR-049, secrets are transported via a tmpfs envelope file `scp`'d
-to `/run/user/$UID/af-<session>/.env`. **Never** via `SSH SetEnv` or
-`SendEnv` — those leak through the env to every command run on the
-remote.
+Per ADR-049, secrets are transported via an **ephemeral envelope**
+file `scp`'d to the remote. The destination depends on what the
+remote offers:
+
+- Linux remote with `/run/user/$UID/` writable: `/run/user/$UID/af-<session>/.env` (tmpfs).
+- Otherwise (e.g. macOS remote, or a stripped Linux without `XDG_RUNTIME_DIR`): `~/.local/share/af/v1/secrets/af-<session>/.env` (persistent disk; covered by the lazy 60-min sweep on the remote).
+
+The envelope is sourced once and deleted immediately by the launch
+wrapper (per ADR-049 §"Source-and-delete invariant"). **Never** via
+`SSH SetEnv` or `SendEnv` — those leak through the env to every
+command run on the remote.
 
 ## Consequences
 

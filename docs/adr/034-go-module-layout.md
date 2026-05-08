@@ -4,7 +4,7 @@ title: "Go Module Layout & Idiom"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
 related: ["031", "035", "050", "051"]
@@ -47,7 +47,7 @@ af/
 │   ├── obsidian/                # notes + Bases (ADR-047)
 │   ├── remote/                  # SSH host model (ADR-041)
 │   ├── sandbox/                 # slicer + sbx (ADR-042)
-│   ├── secret/                  # keyring + tmpfs envelope (ADR-049)
+│   ├── secret/                  # keyring + ephemeral envelope (ADR-049)
 │   ├── session/                 # state.toml + ledger.jsonl (ADR-037)
 │   └── workstream/              # worktree layout, sub-worktrees (ADR-038)
 ├── examples/

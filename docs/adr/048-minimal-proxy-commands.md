@@ -118,11 +118,14 @@ or missing are silently ignored.
 **`af pr --ai` body delivery.** When `--ai` is passed (per ADR-057),
 `af` captures the agent's stdout into `{body}` and **automatically
 appends `flag_template.body`** to the resulting argv. The user does
-not pass `--body` separately. If `--web` is also set, body delivery
-is skipped (the user fills the body in the browser instead) and a
-`slog.Info` notes that the AI-authored body was not used. If
-`flag_template.body` is unset, `af pr --ai` errors out before the
-agent runs, with a hint to add it to `[pr].flag_template`.
+not pass `--body` separately. If `flag_template.body` is unset,
+`af pr --ai` errors out before the agent runs, with a hint to add
+it to `[pr].flag_template`.
+
+`--ai` is **incompatible** with `--web`: the web flow defers body
+authoring to `gh`'s browser dialog, so invoking an agent first would
+waste an API call. `af pr --ai --web` is rejected at flag-validation
+time before the agent runs (see ADR-057's failure table).
 
 For configurations that don't use `gh` (e.g. `glab` for GitLab), the
 user overrides `flag_template` in their config; v1 ships only the `gh`

@@ -7,7 +7,7 @@ date: 2026-05-08
 last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "037", "038", "046", "047", "048"]
+related: ["031", "035", "037", "038", "046", "047", "048"]
 tags: ["go", "command", "status", "dashboard"]
 ---
 
@@ -32,12 +32,12 @@ in `state.toml` (per ADR-037) plus a single concurrent `gh pr view` rollup.
 af status [--json] [--all] [--filter STATE]
 ```
 
-| Flag              | Behaviour                                                                              |
-| ----------------- | -------------------------------------------------------------------------------------- |
-| (default)         | Tabular output, columns below, sorted by `last_touched_at` descending                 |
-| `--json`          | Emit JSON array; one object per workstream, schema documented below                   |
-| `--all`           | Include `completed` and `abandoned` workstreams from `archive/`                        |
-| `--filter STATE`  | Filter by lifecycle state: `active`, `suspended`, `completed`, `abandoned`             |
+| Flag             | Behaviour                                                                  |
+| ---------------- | -------------------------------------------------------------------------- |
+| (default)        | Tabular output, columns below, sorted by `last_touched_at` descending      |
+| `--json`         | Emit JSON array; one object per workstream, schema documented below        |
+| `--all`          | Include `completed` and `abandoned` workstreams from `archive/`            |
+| `--filter STATE` | Filter by lifecycle state: `active`, `suspended`, `completed`, `abandoned` |
 
 ### Default columns
 
@@ -54,16 +54,19 @@ kakkoyun--refactor-config     kakkoyun/refactor-config    suspended  pi        #
   link visible at a glance without widening the table.
 - `AGENTS` is `+`-joined slot providers from `state.toml.[[agents]]`.
 - `PR` from `state.toml.[pr].number`; resolved live via `gh pr view --json state,statusCheckRollup`.
-- `CI` from `gh` JSON `statusCheckRollup`; one of `passing | failing | pending | none`.
+- `CI` from `gh` JSON `statusCheckRollup`; one of `passing | failing | pending | none | n/a`. The literal `n/a` is rendered when `state.toml.[worktree].repo_slug == ""` (non-GitHub remote, per ADR-037 §"`repo_slug` population rule") — `gh` is not invoked at all for that workstream.
 - `LAST` from `last_touched_at` (latest `ts` in `ledger.jsonl`).
 
 ### Concurrent `gh` fetch
 
-For each workstream with a non-zero PR number, spawn a goroutine that runs
-`gh pr view <num> --json state,statusCheckRollup --repo <repo>`. Use `sync.WaitGroup`
-plus a buffered channel; cap parallelism at 8 (configurable via `[status].max_parallel`,
-default 8). Each fetch carries a 5-second `context.WithTimeout`. On timeout or non-zero
-exit, emit `state="?"`, `ci="?"` rather than failing the whole render.
+For each workstream with a non-zero PR number **and** non-empty `repo_slug`,
+spawn a goroutine that runs `gh pr view <num> --json state,statusCheckRollup
+--repo <repo_slug>`. Workstreams with `repo_slug == ""` are skipped (no fetch);
+their `PR` and `CI` columns render as `-` and `n/a` respectively. Use
+`sync.WaitGroup` plus a buffered channel; cap parallelism at 8 (configurable
+via `[status].max_parallel`, default 8). Each fetch carries a 5-second
+`context.WithTimeout`. On timeout or non-zero exit, emit `state="?"`,
+`ci="?"` rather than failing the whole render.
 
 ### Output stability
 

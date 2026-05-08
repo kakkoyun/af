@@ -4,11 +4,11 @@ title: "Build & Distribution — goreleaser + Make"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
 related: ["031", "034", "050", "051"]
-tags: ["go", "build", "release", "goreleaser"]
+tags: ["go", "build", "distribution", "goreleaser"]
 ---
 
 # ADR-053: Build & Distribution — goreleaser + Make
@@ -213,7 +213,7 @@ download`. There are no signed checksums.
   owner considers v1 feature-complete, the workflow is: pull main,
   `make install`, smoke-test, use the binary. No tag, no changelog
   version-link update, no announcement, no GitHub Release. If `go
-  install github.com/kakkoyun/af@latest` ever becomes the path other
+install github.com/kakkoyun/af@latest` ever becomes the path other
   users take, that's a future ADR — ADR-031 still says no release
   for v1.
 
