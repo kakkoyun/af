@@ -52,19 +52,33 @@ This is the **master ADR for v1**. It establishes:
 
 3. **Scope cut** (full table below).
 
-4. **Approved runtime dependency set** (5 packages):
+4. **Approved runtime dependency set.** Two tiers, both append-only.
+
+   **Tier 1 — Third-party runtime deps** (5 packages, each requiring an ADR):
    - `github.com/spf13/cobra` (+ transitive `pflag`) — CLI framework + completion generator (ADR-035).
    - `github.com/BurntSushi/toml` — config + state-file serialization (ADR-036, ADR-037).
    - `github.com/google/uuid` — UUID v5 derivation (ADR-037, ADR-038).
    - `gopkg.in/yaml.v3` — Obsidian frontmatter (ADR-047).
    - `github.com/zalando/go-keyring` — secret storage (ADR-049).
 
-   Plus one dev dep: `github.com/rogpeppe/go-internal/testscript` (ADR-051).
+   **Tier 2 — `golang.org/x/*` quasi-stdlib packages** (maintained by
+   the Go team, exempt from new-ADR requirement; add by editing this
+   list and bumping CHANGELOG):
+   - `golang.org/x/sync/errgroup` — goroutine lifetime management (ADR-034).
+   - `golang.org/x/sys/unix` — `flock(2)` for state-file concurrency (ADR-037).
 
-   Plus dev tools that are not vendored: `golangci-lint`, `goreleaser`,
-   `gofumpt`, `goimports`.
+   **Dev-only**:
+   - `github.com/rogpeppe/go-internal/testscript` — CLI golden tests (ADR-051).
 
-   **Adding any further runtime dep requires a new ADR.**
+   **Build / lint tools** (not vendored, invoked via `go run` from
+   pinned versions in `Makefile`):
+   - `golangci-lint`, `goreleaser`, `gofumpt`, `goimports`.
+
+   **Adding any further Tier-1 runtime dep requires a new ADR.**
+   Adding a Tier-2 quasi-stdlib package requires only an amendment
+   to this list and a CHANGELOG note. Promotion of a package from
+   Tier-2 to Tier-1 (e.g. if `x/sync` ever leaves the `golang.org/x`
+   namespace) is also an amendment, not a new ADR.
 
 5. **Pedantic quality bar.** All `golangci-lint` linters on (ADR-050);
    TDD with `go test -race -count=1` (ADR-051); atomic commits per
