@@ -149,7 +149,7 @@ A single workstream has one writer at a time (the `af` invocation
 operating on it). Cross-process locks via `flock(2)` on
 `<session>/state.toml.lock`. Acquired on entry to mutating operations
 (`af create`, `af agent add`, `af agent stop`, `af suspend`, `af done`,
-`af gc`, `af resume` on cold rehydrate); read-only operations
+`af clean`, `af resume` on cold rehydrate); read-only operations
 (`af list`, `af note`, `af note --append` against a single workstream)
 take a shared lock.
 
@@ -157,9 +157,11 @@ take a shared lock.
 `state.toml` for each workstream. Drift between `state.toml` and the
 actual tmux/sandbox state (e.g. a slot whose pane has been killed
 out-of-band) is reconciled lazily by the next mutating command that
-touches the affected slot — see ADR-039 §"Crash detection (lazy)". A
-user who wants explicit reconciliation without side-effecting any
-workstream runs `af gc`.
+touches the affected slot — see ADR-039 §"Crash detection (lazy)".
+There is no dedicated reconciliation command in v1; lazy detection by
+the next mutating command is the only model. (`af clean` per ADR-056
+reaps **merged workstreams** and does not touch slot panes; it is not
+a slot-reconciliation tool.)
 
 `flock` is stdlib via `golang.org/x/sys/unix` (a quasi-stdlib package).
 Approved as a transitive-of-stdlib dep, no separate ADR.

@@ -115,17 +115,39 @@ modifies them).
 | `af agent stop <slot> [--remove-worktree]` | Kill pane, mark slot status `stopped`. Append `agent_stopped` ledger event. With `--remove-worktree`, also `git worktree remove` the sub-worktree. |
 | `af agent list [--session NAME]` | Tabular: slot, agent, status, pane, session_ids count, last session timestamp. |
 
-### Crash detection
+### Crash detection (lazy)
 
-When `af list` runs, it checks each slot's pane for liveness:
+`af list` is **purely read-only** (per ADR-037 §"Concurrency"): it
+displays whatever is in `state.toml` and never mutates the file or the
+ledger. State.toml may therefore be stale for slots whose pane has
+vanished since the last mutating command.
 
-- If `tmux list-panes` doesn't show the pane, mark the slot `crashed`
-  and append `agent_crashed` to the ledger.
+Crashed slots are reconciled **lazily**, by the first mutating command
+that touches the slot:
+
+- `af resume <session>`: if the pane is gone before relaunch, mark the
+  slot `crashed`, append `agent_crashed`, then proceed with relaunch
+  per ADR-046.
+- `af agent stop <slot>`: if the pane is already gone, transition the
+  slot to `stopped` with ledger reason `already_dead`.
+- `af agent add` to a slot whose prior incarnation crashed: the new
+  launch overwrites the slot's `status` to `running`; the prior crash
+  is recorded by the launch's ledger event.
+- `af suspend`, `af done`: tear down whatever is alive; record what
+  was already gone.
 
 Pane-process exit code is not reliably available via tmux without a
 hook; v1 doesn't try. Slots that exited cleanly via `af agent stop`
 are `stopped`; slots whose pane vanished without `af agent stop` are
-`crashed`.
+`crashed` once any mutating command reconciles them.
+
+There is **no explicit slot-reconciliation command** in v1. Lazy
+detection by the next mutating command is the only model. (`af clean`
+per ADR-056 reaps merged-PR workstreams as a batch and is unrelated
+to slot-pane reconciliation.) If a workstream sits with a crashed
+slot indefinitely and the user wants the ledger to reflect it without
+touching the workstream, the simplest path is `af agent stop <slot>`,
+which records `already_dead` and transitions the slot to `stopped`.
 
 ## Consequences
 
