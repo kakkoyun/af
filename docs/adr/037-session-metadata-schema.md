@@ -7,7 +7,7 @@ date: 2026-05-06
 last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "036", "038", "039", "046", "059"]
+related: ["031", "036", "038", "039", "046", "054", "056", "059"]
 tags: ["go", "session", "state", "ledger"]
 ---
 
@@ -66,6 +66,7 @@ path        = "/Users/kemal/Workspace/.worktrees/af/kakkoyun--issue-42"
 branch      = "kakkoyun/issue-42"
 base_branch = "upstream/main"
 git_root    = "/Users/kemal/Workspace/Projects/Personal/af"
+repo_slug   = "kakkoyun/af"     # owner/name parsed from upstream/origin remote at create time; "" for non-GitHub
 
 [execution]
 mode             = "local"          # local | bare | remote | sandbox
@@ -102,6 +103,24 @@ af = "1.0.0"
 agent_versions = { pi = "...", claude = "..." }
 ```
 
+### Derived values
+
+Some downstream commands reference workstream-level values that are not stored
+on `state.toml` but are computed at read time:
+
+- `last_touched_at` — the latest `ts` in `ledger.jsonl`. O(1) via reading the
+  last line of the ledger (newline-terminated JSONL guarantees the last record
+  is intact even on partial-write recovery). Used by `af status` (column
+  `LAST`, ADR-054) and `af clean --max-age` (ADR-056).
+
+`repo_slug` population rule: at `af create` time, parse
+`git remote get-url upstream` (falling back to `origin`). Strip `.git`, parse
+the path component.
+
+- `git@github.com:kakkoyun/af.git` → `kakkoyun/af`
+- `https://github.com/kakkoyun/af` → `kakkoyun/af`
+- non-GitHub remote → `""` (empty; `af status` then renders `CI: n/a`)
+
 ### `ledger.jsonl` event schema
 
 One JSON object per line, sorted by timestamp ascending. Never edited,
@@ -120,7 +139,7 @@ Event types:
 | `session_created` | `mode`, `branch`, `base_branch`, `agents` (initial slot list), `af_version` | `af create` |
 | `session_suspended` | `active_slots` | `af suspend` |
 | `session_resumed` | `recovery` (`"warm"` if tmux still alive, `"cold"` if rehydrating from disk) | `af resume` |
-| `session_completed` | `duration_seconds` | `af done` clean |
+| `session_completed` | `duration_seconds` | `af done` clean; when triggered by `af clean`, also carries `reaped_by: "af clean"` and `merge_detection: <strategy>` |
 | `session_abandoned` | `reason`, `duration_seconds` | `af done --force` on unmerged |
 | `agent_launched` | `slot`, `agent`, `session_id`, `pane`, `cmd` | New agent process started |
 | `agent_added` | `slot`, `agent`, `pane`, `cmd` | `af agent add` |
@@ -131,6 +150,10 @@ Event types:
 | `pr_merged` | `number` | Detection on `af done` |
 | `pr_closed` | `number` | Detection on `af done` |
 | `error` | `op`, `message` | Recoverable error logged for diagnostics |
+| `stack_linked` | `parent_session`, `parent_branch` | `af stack --parent` |
+| `stack_unlinked` | (none) | `af unstack` |
+| `stack_reparented` | `old_parent`, `new_parent`, `via` (`pr-state` \| `ancestry` \| `squash-fingerprint`) | Auto-reparent on parent merge during `af sync` |
+| `synced` | `target` (parent or trunk branch) | `af sync` succeeded |
 
 Slot-scoped events always carry `slot` and `agent` to disambiguate
 multi-agent workstreams.
@@ -218,3 +241,6 @@ ADR-038 specifies the symlink mechanics.
 - ADR-038 — workstream + worktree layout (per-repo symlink).
 - ADR-039 — multi-agent multi-session model (slot semantics).
 - ADR-046 — suspend/resume lifecycle (uses `session_suspended` event).
+- ADR-054 — `af status` derives `last_touched_at` from ledger tail; reads `repo_slug` for CI column.
+- ADR-056 — `af clean --max-age` derives `last_touched_at` from ledger tail.
+- ADR-059 — stack commands write `stack_linked`, `stack_unlinked`, `stack_reparented`, `synced` events.
