@@ -50,10 +50,38 @@ errors out if the host is unreachable.
 
 When `af create --remote <host>` runs:
 
-1. Validate `tmux` and the chosen agent binary are available on the remote via a probe (`ssh <host> 'which tmux pi'`). If any are missing, fail with a doctor-style hint (ADR-044).
-2. SSH in and `git clone` the repo (or fast-forward an existing clone) at a path under `~/af-worktrees/<repo>/<branch>/` on the remote. The remote path is recorded in `state.toml` `[execution].remote_path`.
-3. Create a tmux session **on the remote** named identically to the local workstream name. Launch the agent in the primary pane.
-4. The local `af` process exits. The user `ssh <host>`s and `tmux a -t <name>` to attach. (Or `af resume <name>` runs that for them.)
+1. Validate `tmux` and the chosen agent binary are available on the
+   remote via a probe (`ssh <host> 'which tmux pi'`). If any are
+   missing, fail with a doctor-style hint (ADR-044).
+2. SSH in and **`git clone`** the repo into
+   `~/af-clones/<repo>/<branch>/` on the remote. If a directory at
+   that path already exists from a previous workstream of the same
+   name, `af` errors with a hint to run `af done <name>` (or `af
+   resume <name>` if the user expected this to be a resume). The
+   remote path is recorded in `state.toml` `[execution].remote_path`.
+3. Create a tmux session **on the remote** named identically to the
+   local workstream name. Launch the agent in the primary pane.
+4. The local `af` process exits. The user `ssh <host>` + `tmux a -t
+   <name>` to attach, or `af resume <name>` runs that for them.
+
+**Plain clone, not linked worktree.** Local workstreams use git
+worktrees from a single repo (per ADR-038). Remote workstreams use
+**plain clones** — one full clone per workstream at
+`~/af-clones/<repo>/<branch>/`. Reasons:
+
+- The remote may host workstreams from machines that don't share a
+  `git worktree` parent. A plain clone is self-contained.
+- Sandbox providers (slicer/sbx) mount the workstream's directory;
+  mounting a worktree linked to a bare repo elsewhere on the host
+  adds a layer of fragility (the bare repo must also be mounted, or
+  the worktree resolves git operations through unmounted paths).
+- Storage overhead is acceptable for the workstream counts the owner
+  expects (single-digit concurrent remote workstreams).
+
+The `~/af-worktrees/...` path used for **local** workstreams is
+intentionally distinct from `~/af-clones/...` used for remote, to
+make the two models obviously different on disk and to keep `af
+clean` reasoning simple (no recursive worktree-from-worktree state).
 
 ### Why local-tmux + ssh-attach instead of running tmux locally over SSH
 
@@ -76,11 +104,12 @@ drop.
 
 ### Path mapping
 
-Remote path: `~/af-worktrees/<repo>/<branch>/`. Local workstream
-state still tracks the **local** worktree path (which is empty for
+Remote path: `~/af-clones/<repo>/<branch>/`. Local workstream state
+still tracks the **local** worktree path (which is empty for
 remote-only workstreams) and the **remote** path explicitly in
-`state.toml`. `af note` and the Obsidian integration don't care about
-the remote path; the markdown note lives in the local vault.
+`state.toml.[execution].remote_path`. `af note` and the Obsidian
+integration don't care about the remote path; the markdown note
+lives in the local vault.
 
 ### Composition with `--sandbox`
 
@@ -94,12 +123,23 @@ choosing among providers.
 
 ### Teardown
 
-`af done` on a remote workstream:
+`af done` on a remote workstream (workstream is a plain clone, not a
+linked worktree):
 
 1. SSHes in.
 2. Kills the remote tmux session.
-3. `git worktree remove --force` the remote worktree.
-4. Optionally deletes the branch if merged or `--force`.
+3. **Safety-checks the clone before deletion**:
+   - `git -C <remote_path> status --porcelain` must be empty (no
+     uncommitted changes), unless `--force`.
+   - `git -C <remote_path> log --branches --not --remotes` must be
+     empty (no unpushed commits), unless `--force` or the branch is
+     known-merged via the same three-strategy check ADR-056 uses.
+4. Removes the clone directory: `rm -rf ~/af-clones/<repo>/<branch>/`.
+   (No `git worktree remove` — the clone is not a worktree.)
+5. Optionally deletes the branch on `origin` if merged or `--force`.
+
+If the parent directory `~/af-clones/<repo>/` is empty after step 4,
+`af` removes it too.
 
 The **remote machine itself** is not torn down. The user provisioned
 it externally; `af` doesn't unprovision. That keeps `af`'s scope
