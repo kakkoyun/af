@@ -7,7 +7,7 @@ date: 2026-05-08
 last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "037", "043", "047", "048"]
+related: ["031", "037", "043", "047", "048", "058"]
 tags: ["go", "command", "agent", "pr", "ai"]
 ---
 
@@ -54,7 +54,7 @@ ADR-043's `Agent` interface gains one method:
 BodyCmd(opts BodyOpts) ([]string, bool)
 
 type BodyOpts struct {
-    Cwd   string // worktree path
+    Cwd   string // worktree path; empty string = caller has no worktree context (callee picks os.TempDir())
     Model string // optional model override; "" = agent default
 }
 ```
@@ -66,6 +66,11 @@ Per-agent argv (subject to verification at impl time):
 | pi     | `pi --print` (TBD — verify with `pi --help`)                  |
 | claude | `claude -p` with `--model {Model}` if non-empty               |
 | codex  | `codex exec` (TBD — verify with `codex --help`)               |
+
+All providers must tolerate `BodyOpts.Cwd == ""` and fall back to
+`os.TempDir()` for the working directory. Callers that have no worktree
+context (e.g. `af retro --ai` operating on archived workstreams per
+ADR-058) rely on this contract.
 
 If `BodyCmd` returns `false`, `af pr --ai` errors with: `agent <name> does not support
 non-interactive body generation; use 'af pr' without --ai or attach a different agent`.

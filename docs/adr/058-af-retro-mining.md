@@ -92,6 +92,12 @@ When `--ai` is set, after the filtered list is built, af:
 If `BodyCmd` returns `false` for the configured agent, `af retro --ai` errors with the
 same hint as `af pr --ai`.
 
+The agent is invoked with `BodyOpts.Cwd = ""` because retro operates over
+archived workstreams whose worktrees have been removed by `af done`/`af clean`.
+Per ADR-057's contract, providers use `os.TempDir()` as the working directory
+when `Cwd` is empty. This is safe for non-interactive print mode — the agent
+reads stdin and writes stdout; no repo operations occur.
+
 ### `--json` (omitted from v1)
 
 Deferred. The default human output composes well with `grep`/`fzf`; the `state.toml`
@@ -121,4 +127,4 @@ data is already accessible via `af info --json`.
 - ADR-031 — v1 master.
 - ADR-037 — archive layout.
 - ADR-047 — note body template, frontmatter schema.
-- ADR-057 — `BodyCmd` mechanism reused by `--ai`.
+- ADR-057 — `BodyCmd` mechanism reused by `--ai`; `BodyOpts.Cwd = ""` contract used here.
