@@ -4,10 +4,10 @@ title: "Configuration — TOML, layered, with global Obsidian vault paths"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "034", "044", "045", "047", "049"]
+related: ["031", "034", "044", "045", "047", "049", "054", "057"]
 tags: ["go", "config", "toml"]
 ---
 
@@ -71,6 +71,7 @@ cmd      = "git diff {base}...HEAD"
 cmd      = "gh pr create --base {base} --head {head}"
                                   # tokens: {base}, {head}, {title}, {body}
 template = ""                     # path to PR template file (default: repo's .github/PULL_REQUEST_TEMPLATE.md)
+ai_model = ""                     # default model override for `af pr --ai`; "" = agent default (ADR-057)
 
 [remote]
 default_host = ""                 # empty = remote requires explicit --remote arg
@@ -103,6 +104,9 @@ extra_tools = []
 
 [secret]
 keyring_service = "af"            # service name passed to zalando/go-keyring (ADR-049)
+
+[status]
+max_parallel = 8                  # cap on concurrent gh pr view fetches (ADR-054)
 
 [lifecycle]
 retention_days = 90               # archive expiry
@@ -198,3 +202,5 @@ schema than the binary supports is an error.
 - ADR-047 — Obsidian writer reads `[obsidian.vaults]` + `[obsidian.notes]`.
 - ADR-048 — proxy commands read `[editor]` `[diff]` `[pr]`.
 - ADR-049 — secrets read `[secret]`.
+- ADR-054 — `af status` reads `[status].max_parallel`.
+- ADR-057 — `af pr --ai` reads `[pr].ai_model`.
