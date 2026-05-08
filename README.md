@@ -31,16 +31,16 @@ up later as if nothing happened.
 
 ## v1 scope (planned)
 
-| Capability | Detail |
-|---|---|
-| Multiplexer | tmux only |
-| Agents | pi (default), claude, codex |
-| Remote | SSH host (alias from `~/.ssh/config`, `user@host`, or IP); no provider plugin layer |
-| Sandbox | slicer (Firecracker) and sbx (Docker AI Sandboxes) |
-| Worktree layout | Stable `~/Workspace/.worktrees/<repo>/<branch>/`; sibling sub-worktrees for subagents |
-| State | TOML state file + JSONL ledger per workstream, global at `~/.local/share/af/v1/sessions/`; per-repo discovery symlink at `<repo>/.af/state.toml` |
-| Obsidian | One markdown note per workstream, versioned frontmatter, optional Obsidian Bases aggregator |
-| Secrets | macOS Keychain / Linux Secret Service via `zalando/go-keyring`; tmpfs envelope file for transport (never SSH `SetEnv`) |
+| Capability      | Detail                                                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Multiplexer     | tmux only                                                                                                                                        |
+| Agents          | pi (default), claude, codex                                                                                                                      |
+| Remote          | SSH host (alias from `~/.ssh/config`, `user@host`, or IP); no provider plugin layer                                                              |
+| Sandbox         | slicer (Firecracker) and sbx (Docker AI Sandboxes)                                                                                               |
+| Worktree layout | Stable `~/Workspace/.worktrees/<repo>/<branch>/`; sibling sub-worktrees for subagents                                                            |
+| State           | TOML state file + JSONL ledger per workstream, global at `~/.local/share/af/v1/sessions/`; per-repo discovery symlink at `<repo>/.af/state.toml` |
+| Obsidian        | One markdown note per workstream, versioned frontmatter, optional Obsidian Bases aggregator                                                      |
+| Secrets         | macOS Keychain / Linux Secret Service via `zalando/go-keyring`; tmpfs envelope file for transport (never SSH `SetEnv`)                           |
 
 ## Planned commands
 
@@ -76,18 +76,18 @@ af version                  # print version
 
 ## Documentation
 
-| Resource | Description |
-|---|---|
-| [`CHANGELOG.md`](CHANGELOG.md) | Keep-a-Changelog format; `[Unreleased]` for v1 |
-| [`PROGRESS.md`](PROGRESS.md) | Narrative log per work session |
-| [`TODO.md`](TODO.md) | Doc-pass and post-doc-pass checklist |
-| [`docs/SPEC.md`](docs/SPEC.md) | v1 specification *(written in stage C of the doc pass)* |
-| [`docs/PLAN.md`](docs/PLAN.md) | Lightweight pointer to ADR groupings *(stage C)* |
-| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Go style, commit format, file ownership *(stage C)* |
-| [`docs/adr/`](docs/adr/) | v1 ADRs 031–053 *(stage D, append-only)* |
-| [`docs/v0/`](docs/v0/) | Frozen v0 (Rust era) archive |
-| [`AGENTS.md`](AGENTS.md) | Working agreement for AI agents touching this repo |
-| [`CLAUDE.md`](CLAUDE.md) | Project constitution (rules that survive context compaction) |
+| Resource                                     | Description                                                  |
+| -------------------------------------------- | ------------------------------------------------------------ |
+| [`CHANGELOG.md`](CHANGELOG.md)               | Keep-a-Changelog format; `[Unreleased]` for v1               |
+| [`PROGRESS.md`](PROGRESS.md)                 | Narrative log per work session                               |
+| [`TODO.md`](TODO.md)                         | Doc-pass and post-doc-pass checklist                         |
+| [`docs/SPEC.md`](docs/SPEC.md)               | v1 specification _(written in stage C of the doc pass)_      |
+| [`docs/PLAN.md`](docs/PLAN.md)               | Lightweight pointer to ADR groupings _(stage C)_             |
+| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Go style, commit format, file ownership _(stage C)_          |
+| [`docs/adr/`](docs/adr/)                     | v1 ADRs 031–053 _(stage D, append-only)_                     |
+| [`docs/v0/`](docs/v0/)                       | Frozen v0 (Rust era) archive                                 |
+| [`AGENTS.md`](AGENTS.md)                     | Working agreement for AI agents touching this repo           |
+| [`CLAUDE.md`](CLAUDE.md)                     | Project constitution (rules that survive context compaction) |
 
 ## Installation (planned)
 

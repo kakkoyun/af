@@ -108,19 +108,19 @@ be empty.
 
 ## Documentation Hierarchy
 
-| File                  | Purpose                                          | Mutability                  |
-| --------------------- | ------------------------------------------------ | --------------------------- |
-| `CLAUDE.md`           | Constitution — rules, context, build commands    | Update when process changes |
-| `AGENTS.md`           | Working agreement — TDD, quality, subagent rules | Update when process changes |
-| `README.md`           | User-facing contract — must match reality        | Update with every feature   |
-| `CHANGELOG.md`        | Release notes — Keep a Changelog format          | Update with every feature   |
-| `PROGRESS.md`         | Narrative log per session                        | Append after each session   |
-| `TODO.md`             | Task list per stage + backlog                    | Check off / add as needed   |
+| File                  | Purpose                                          | Mutability                                           |
+| --------------------- | ------------------------------------------------ | ---------------------------------------------------- |
+| `CLAUDE.md`           | Constitution — rules, context, build commands    | Update when process changes                          |
+| `AGENTS.md`           | Working agreement — TDD, quality, subagent rules | Update when process changes                          |
+| `README.md`           | User-facing contract — must match reality        | Update with every feature                            |
+| `CHANGELOG.md`        | Release notes — Keep a Changelog format          | Update with every feature                            |
+| `PROGRESS.md`         | Narrative log per session                        | Append after each session                            |
+| `TODO.md`             | Task list per stage + backlog                    | Check off / add as needed                            |
 | `docs/SPEC.md`        | v1 specification                                 | Editable during planning; **IMMUTABLE** after freeze |
 | `docs/PLAN.md`        | v1 plan (lightweight; references ADRs)           | Editable during planning; **IMMUTABLE** after freeze |
-| `docs/CONVENTIONS.md` | Go conventions, file ownership                   | Append, never overwrite     |
-| `docs/adr/`           | v1 ADRs 031–053 (append-only)                    | New ADRs only               |
-| `docs/v0/`            | Frozen Rust-era archive                          | **READ-ONLY**               |
+| `docs/CONVENTIONS.md` | Go conventions, file ownership                   | Append, never overwrite                              |
+| `docs/adr/`           | v1 ADRs 031–053 (append-only)                    | New ADRs only                                        |
+| `docs/v0/`            | Frozen Rust-era archive                          | **READ-ONLY**                                        |
 
 ## Build & Test (target state, once Go scaffold lands)
 

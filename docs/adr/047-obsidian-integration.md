@@ -53,17 +53,17 @@ af_session: kakkoyun--issue-42
 af_repo: af
 af_branch: kakkoyun/issue-42
 af_base_branch: upstream/main
-af_status: active            # active | suspended | completed | abandoned
-af_agents:                   # array, one entry per slot
+af_status: active # active | suspended | completed | abandoned
+af_agents: # array, one entry per slot
   - slot: primary
     provider: pi
   - slot: review
     provider: claude
 af_started_at: 2026-05-06T12:00:00Z
 af_completed_at: null
-af_pr_number: 0              # 0 = no PR
+af_pr_number: 0 # 0 = no PR
 af_pr_url: ""
-af_tags:                     # user-editable
+af_tags: # user-editable
   - workstream
 ---
 ```
@@ -79,18 +79,22 @@ Initial body created by `af create`:
 # kakkoyun--issue-42
 
 ## Goal
-*(describe what this workstream is for)*
+
+_(describe what this workstream is for)_
 
 ## Context
-*(starting point, base branch, related links)*
+
+_(starting point, base branch, related links)_
 
 ## Log
-*(agent runs append here; user adds notes)*
+
+_(agent runs append here; user adds notes)_
 
 - [pi] launched at 2026-05-06 12:00:00 UTC
 
 ## Outcome
-*(filled in by `af done`)*
+
+_(filled in by `af done`)_
 ```
 
 Configurable via `[obsidian].notes_template` — a path to a markdown
@@ -99,15 +103,15 @@ the same frontmatter prepended).
 
 ### Lifecycle hooks
 
-| Trigger | Frontmatter change | Body change |
-|---|---|---|
-| `af create` | Write full frontmatter | Write template body |
-| `af agent add` | Append to `af_agents` | Append `- [provider] launched at <ts>` to `## Log` |
-| `af agent stop` | Update `af_agents[slot].status` (added) | Append `- [provider] stopped at <ts>` to `## Log` |
-| `af suspend` | `af_status: suspended` | Append `- session suspended at <ts>` to `## Log` |
-| `af resume` | `af_status: active` | Append `- session resumed at <ts>` to `## Log` |
-| `af done` | `af_status: completed` (or `abandoned`); `af_completed_at: <ts>` | Append `- session ended at <ts>` to `## Log` |
-| `af pr` | `af_pr_number`, `af_pr_url`, `af_pr_state` | Append `- PR opened: <url>` to `## Log` |
+| Trigger         | Frontmatter change                                               | Body change                                        |
+| --------------- | ---------------------------------------------------------------- | -------------------------------------------------- |
+| `af create`     | Write full frontmatter                                           | Write template body                                |
+| `af agent add`  | Append to `af_agents`                                            | Append `- [provider] launched at <ts>` to `## Log` |
+| `af agent stop` | Update `af_agents[slot].status` (added)                          | Append `- [provider] stopped at <ts>` to `## Log`  |
+| `af suspend`    | `af_status: suspended`                                           | Append `- session suspended at <ts>` to `## Log`   |
+| `af resume`     | `af_status: active`                                              | Append `- session resumed at <ts>` to `## Log`     |
+| `af done`       | `af_status: completed` (or `abandoned`); `af_completed_at: <ts>` | Append `- session ended at <ts>` to `## Log`       |
+| `af pr`         | `af_pr_number`, `af_pr_url`, `af_pr_state`                       | Append `- PR opened: <url>` to `## Log`            |
 
 All updates are best-effort: if the vault is unreachable (e.g. on a
 remote machine without filesystem access to the local vault), the
@@ -147,10 +151,10 @@ filters:
   and:
     - taggedWith: af
     - or:
-      - field: af_status
-        equals: active
-      - field: af_status
-        equals: suspended
+        - field: af_status
+          equals: active
+        - field: af_status
+          equals: suspended
 views:
   - type: table
     name: "Active workstreams"

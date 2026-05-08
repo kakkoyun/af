@@ -34,18 +34,18 @@ owner**, so there is no compatibility burden on v1.
 
 ## What's archived here
 
-| Path | Contents |
-|---|---|
-| `PROGRESS.md` | Eleven-session narrative log (2026-03-26 → 2026-04-28) |
-| `TODO.md` | Final v0 task checklist (pattern-hardening sprint complete; some Phase 3/4 items deferred to "0.2.0") |
-| `CHANGELOG.md` | Keep-a-Changelog format; "0.1.0 - Unreleased" with a Deferred-to-0.2.0 section that v1 supersedes |
-| `SPEC.md` | Full specification reverse-engineered from the original Bash `cf`. Immutable. |
-| `PLAN.md` | Phased delivery plan for the Rust rewrite. Immutable. |
-| `CONVENTIONS.md` | File-ownership manifest and subagent dispatch protocol. Updated through Phase II.5. |
-| `adr/` | 30 ADRs (001–030, with 026 retired). v0 is **append-only and frozen** as of v1 cutover. |
+| Path                          | Contents                                                                                                          |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `PROGRESS.md`                 | Eleven-session narrative log (2026-03-26 → 2026-04-28)                                                            |
+| `TODO.md`                     | Final v0 task checklist (pattern-hardening sprint complete; some Phase 3/4 items deferred to "0.2.0")             |
+| `CHANGELOG.md`                | Keep-a-Changelog format; "0.1.0 - Unreleased" with a Deferred-to-0.2.0 section that v1 supersedes                 |
+| `SPEC.md`                     | Full specification reverse-engineered from the original Bash `cf`. Immutable.                                     |
+| `PLAN.md`                     | Phased delivery plan for the Rust rewrite. Immutable.                                                             |
+| `CONVENTIONS.md`              | File-ownership manifest and subagent dispatch protocol. Updated through Phase II.5.                               |
+| `adr/`                        | 30 ADRs (001–030, with 026 retired). v0 is **append-only and frozen** as of v1 cutover.                           |
 | `reference/external-tools.md` | Verified CLI surface for `slicer`, `sbx`, `workspaces`, `ssh`, `gh`. Useful reference for v1 sandbox/remote work. |
-| `planning/HANDOFF.md` | Final handoff state at end of Session 11. |
-| `book/` | mdBook user-guide scaffold (never deployed). |
+| `planning/HANDOFF.md`         | Final handoff state at end of Session 11.                                                                         |
+| `book/`                       | mdBook user-guide scaffold (never deployed).                                                                      |
 
 ---
 

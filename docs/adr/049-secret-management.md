@@ -31,10 +31,10 @@ transport, no SSH `SetEnv`/`SendEnv`**.
 
 Single runtime dep. Wraps the OS keyring:
 
-| Platform | Backend |
-|---|---|
-| macOS | Keychain |
-| Linux | Secret Service via dbus (libsecret-compatible) |
+| Platform | Backend                                        |
+| -------- | ---------------------------------------------- |
+| macOS    | Keychain                                       |
+| Linux    | Secret Service via dbus (libsecret-compatible) |
 
 Service name: `af` (configurable via `[secret].keyring_service` —
 defaults to `"af"`, no `af/` prefix on accounts per the simplification
@@ -134,7 +134,7 @@ same `0600` cleanup discipline.
 - **Store secrets in TOML config.** Rejected; config files end up in dotfiles repos accidentally.
 - **`99designs/keyring`.** Equivalent functionality, larger dep tree, more backends than we need; rejected for being over-spec.
 - **Roll our own AES-encrypted file at `~/.local/share/af/v1/secrets/keyring.bin`.** Rejected; OS keyring is the right primitive.
-- **No secret management at all; require user to source `.env` manually.** Rejected; that's what the owner wants `af` to do *for* them.
+- **No secret management at all; require user to source `.env` manually.** Rejected; that's what the owner wants `af` to do _for_ them.
 
 ## References
 

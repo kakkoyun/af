@@ -75,34 +75,34 @@ This is the **master ADR for v1**. It establishes:
 
 ### Scope cut table
 
-| v0 component | v1 disposition | Reason |
-|---|---|---|
-| 6 agent providers (claude, pi, codex, gemini, amp, copilot) | **Reduced to 3**: pi (default), claude, codex (ADR-043) | Only three the owner uses |
-| 2 multiplexers (tmux, cmux) + zellij/ghostty stubs | **tmux only** (ADR-040) | One multiplexer is enough |
-| 2 remote providers (exedev, workspaces) + plugin layer | **Generic SSH host** (ADR-041) | User configures `~/.ssh/config` externally; no plugin layer |
-| 2 sandbox providers (slicer, sbx) | **Kept** (ADR-042) | Both are still used |
-| Three-layer composition (`agent × remote × sandbox`) | **Replaced by explicit `--remote` + `--sandbox` flags** | The runtime model adds complexity without clarity |
-| Provisioning pipeline (SSH bootstrap, dotfiles install) | **Dropped**; `af doctor` prints install hints (ADR-042, ADR-044) | Provisioning belongs in dotfiles, not `af` |
-| Skill bundle installer (v0 ADR-030) | **Dropped** | Claude Code skill ecosystem unproven; revisit later |
-| `af migrate` (cf-sessions import) | **Dropped** | v0 was never released |
-| Multi-tier auth + keyring/secrecy/zeroize | **Reduced to keyring + tmpfs envelope** (ADR-049) | Lower complexity; same security posture |
-| `af diff` / `af pr` / `af stats` / `af export` (rich impls) | **Reduced to thin proxies** (ADR-048) | Funnel to underlying tool from config |
-| Superterm notification integration | **Dropped** | Not used by the owner currently |
-| `af export`, `af stats` | **Dropped** | Niche; `jq` over `ledger.jsonl` is enough |
-| mdBook user guide | **Dropped** | Single-user; no audience |
-| Rust toolchain (`Cargo.toml` etc.) | **Removed after parity** | Replaced by `go.mod`, `Makefile` |
-| `justfile` | **Replaced by `Makefile`** (ADR-053) | Standard Go convention |
+| v0 component                                                | v1 disposition                                                   | Reason                                                      |
+| ----------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------- |
+| 6 agent providers (claude, pi, codex, gemini, amp, copilot) | **Reduced to 3**: pi (default), claude, codex (ADR-043)          | Only three the owner uses                                   |
+| 2 multiplexers (tmux, cmux) + zellij/ghostty stubs          | **tmux only** (ADR-040)                                          | One multiplexer is enough                                   |
+| 2 remote providers (exedev, workspaces) + plugin layer      | **Generic SSH host** (ADR-041)                                   | User configures `~/.ssh/config` externally; no plugin layer |
+| 2 sandbox providers (slicer, sbx)                           | **Kept** (ADR-042)                                               | Both are still used                                         |
+| Three-layer composition (`agent × remote × sandbox`)        | **Replaced by explicit `--remote` + `--sandbox` flags**          | The runtime model adds complexity without clarity           |
+| Provisioning pipeline (SSH bootstrap, dotfiles install)     | **Dropped**; `af doctor` prints install hints (ADR-042, ADR-044) | Provisioning belongs in dotfiles, not `af`                  |
+| Skill bundle installer (v0 ADR-030)                         | **Dropped**                                                      | Claude Code skill ecosystem unproven; revisit later         |
+| `af migrate` (cf-sessions import)                           | **Dropped**                                                      | v0 was never released                                       |
+| Multi-tier auth + keyring/secrecy/zeroize                   | **Reduced to keyring + tmpfs envelope** (ADR-049)                | Lower complexity; same security posture                     |
+| `af diff` / `af pr` / `af stats` / `af export` (rich impls) | **Reduced to thin proxies** (ADR-048)                            | Funnel to underlying tool from config                       |
+| Superterm notification integration                          | **Dropped**                                                      | Not used by the owner currently                             |
+| `af export`, `af stats`                                     | **Dropped**                                                      | Niche; `jq` over `ledger.jsonl` is enough                   |
+| mdBook user guide                                           | **Dropped**                                                      | Single-user; no audience                                    |
+| Rust toolchain (`Cargo.toml` etc.)                          | **Removed after parity**                                         | Replaced by `go.mod`, `Makefile`                            |
+| `justfile`                                                  | **Replaced by `Makefile`** (ADR-053)                             | Standard Go convention                                      |
 
 ### New components in v1
 
-| Component | ADR |
-|---|---|
+| Component                                                    | ADR     |
+| ------------------------------------------------------------ | ------- |
 | `af setup` — user-scope environment companion to `af doctor` | ADR-045 |
-| `af suspend` — pair to `af resume`, tears down resources | ADR-046 |
-| Sub-worktrees per subagent on sibling branches | ADR-038 |
-| Per-repo `.af/state.toml` discovery symlink | ADR-038 |
-| Obsidian Bases aggregator (example `.base` file) | ADR-047 |
-| Versioned Obsidian frontmatter (`af_schema: 1`) | ADR-047 |
+| `af suspend` — pair to `af resume`, tears down resources     | ADR-046 |
+| Sub-worktrees per subagent on sibling branches               | ADR-038 |
+| Per-repo `.af/state.toml` discovery symlink                  | ADR-038 |
+| Obsidian Bases aggregator (example `.base` file)             | ADR-047 |
+| Versioned Obsidian frontmatter (`af_schema: 1`)              | ADR-047 |
 
 ### Cutover
 

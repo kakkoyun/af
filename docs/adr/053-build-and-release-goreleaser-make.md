@@ -187,11 +187,11 @@ adds a `brews:` block to `.goreleaser.yml`.
 
 ### Distribution paths
 
-| Path | What |
-|---|---|
-| `go install github.com/kakkoyun/af@latest` | Most users. Uses the latest commit on `main`; no release tag needed. |
-| `make install` | Local clone. Build from current source; `bin/af` ends up in `$GOBIN`. |
-| `make release-snapshot` | Local cross-compile; no install. |
+| Path                                       | What                                                                  |
+| ------------------------------------------ | --------------------------------------------------------------------- |
+| `go install github.com/kakkoyun/af@latest` | Most users. Uses the latest commit on `main`; no release tag needed.  |
+| `make install`                             | Local clone. Build from current source; `bin/af` ends up in `$GOBIN`. |
+| `make release-snapshot`                    | Local cross-compile; no install.                                      |
 
 There is no GitHub Release path in v1. There is no `gh release
 download`. There are no signed checksums.

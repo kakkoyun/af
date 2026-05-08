@@ -40,12 +40,12 @@ machine state belongs to dotfiles or to manual setup.
 af setup [--force] [--shell SHELL] [--skip-completions] [--skip-gitignore]
 ```
 
-| Flag | Behaviour |
-|---|---|
-| `--force` | Overwrite existing `~/.config/af/config.toml`. By default, existing config is preserved. |
-| `--shell` | Override shell detection (one of `bash`, `zsh`, `fish`, `powershell`). |
-| `--skip-completions` | Don't install shell completions. |
-| `--skip-gitignore` | Don't modify `~/.config/git/ignore`. |
+| Flag                 | Behaviour                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `--force`            | Overwrite existing `~/.config/af/config.toml`. By default, existing config is preserved. |
+| `--shell`            | Override shell detection (one of `bash`, `zsh`, `fish`, `powershell`).                   |
+| `--skip-completions` | Don't install shell completions.                                                         |
+| `--skip-gitignore`   | Don't modify `~/.config/git/ignore`.                                                     |
 
 ### Steps (idempotent)
 
@@ -72,17 +72,18 @@ af setup [--force] [--shell SHELL] [--skip-completions] [--skip-gitignore]
    - Generate via `cobra` (ADR-035): `af completions <shell>`.
    - Write to the shell's user-scope location:
 
-   | Shell | Path |
-   |---|---|
-   | bash | `~/.local/share/bash-completion/completions/af` |
-   | zsh | `~/.config/zsh/completions/_af` (and prompt user to add `fpath` entry if missing) |
-   | fish | `~/.config/fish/completions/af.fish` |
-   | powershell | `$PROFILE` directory; print install snippet |
+   | Shell      | Path                                                                              |
+   | ---------- | --------------------------------------------------------------------------------- |
+   | bash       | `~/.local/share/bash-completion/completions/af`                                   |
+   | zsh        | `~/.config/zsh/completions/_af` (and prompt user to add `fpath` entry if missing) |
+   | fish       | `~/.config/fish/completions/af.fish`                                              |
+   | powershell | `$PROFILE` directory; print install snippet                                       |
 
    Idempotent: overwriting is fine, file content is regenerated each
    run.
 
 6. **Print Obsidian vault hint** if `[obsidian.vaults]` is empty:
+
    ```
    Tip: configure your Obsidian vault paths in ~/.config/af/config.toml
         under [obsidian.vaults] to enable `af note` and the workstream

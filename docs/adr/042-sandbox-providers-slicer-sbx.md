@@ -55,10 +55,10 @@ type Sandbox interface {
 
 ### Implementations
 
-| Provider | Binary | Backend | Local | Remote |
-|---|---|---|---|---|
-| `internal/sandbox/slicer.go` | `slicer` | Firecracker microVM | ✅ | ✅ |
-| `internal/sandbox/sbx.go` | `sbx` | Docker AI Sandboxes | ✅ | ✅ |
+| Provider                     | Binary   | Backend             | Local | Remote |
+| ---------------------------- | -------- | ------------------- | ----- | ------ |
+| `internal/sandbox/slicer.go` | `slicer` | Firecracker microVM | ✅    | ✅     |
+| `internal/sandbox/sbx.go`    | `sbx`    | Docker AI Sandboxes | ✅    | ✅     |
 
 Both shell out to their CLI via `exec.CommandContext`.
 

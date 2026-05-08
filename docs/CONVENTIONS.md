@@ -116,18 +116,18 @@ are spawned. Every file in the repo has exactly one **primary owner**.
 
 ### Top-level
 
-| Path                                                               | Primary owner                                     |
-| ------------------------------------------------------------------ | ------------------------------------------------- |
-| `README.md`                                                        | Lead (any agent updating after a feature change). |
-| `CHANGELOG.md`                                                     | Lead (every feature commit appends here).         |
-| `PROGRESS.md`                                                      | Lead (one append per session).                    |
-| `TODO.md`                                                          | Lead. Subagents do not edit.                      |
-| `CLAUDE.md`, `AGENTS.md`, `docs/CONVENTIONS.md`                    | Lead only.                                        |
+| Path                                                               | Primary owner                                                                                                              |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `README.md`                                                        | Lead (any agent updating after a feature change).                                                                          |
+| `CHANGELOG.md`                                                     | Lead (every feature commit appends here).                                                                                  |
+| `PROGRESS.md`                                                      | Lead (one append per session).                                                                                             |
+| `TODO.md`                                                          | Lead. Subagents do not edit.                                                                                               |
+| `CLAUDE.md`, `AGENTS.md`, `docs/CONVENTIONS.md`                    | Lead only.                                                                                                                 |
 | `docs/SPEC.md`, `docs/PLAN.md`                                     | Editable during planning to stay consistent with ADRs; **immutable after freeze**. No owner post-freeze; new ADR required. |
-| `docs/adr/NNN-*.md`                                                | The author of that ADR. Reviewed by the owner.    |
-| `docs/v0/**`                                                       | **Frozen.** No owner.                             |
-| `Makefile`, `.golangci.yml`, `.goreleaser.yml`, `go.mod`, `go.sum` | Lead only.                                        |
-| `cmd/af/main.go`                                                   | Lead only.                                        |
+| `docs/adr/NNN-*.md`                                                | The author of that ADR. Reviewed by the owner.                                                                             |
+| `docs/v0/**`                                                       | **Frozen.** No owner.                                                                                                      |
+| `Makefile`, `.golangci.yml`, `.goreleaser.yml`, `go.mod`, `go.sum` | Lead only.                                                                                                                 |
+| `cmd/af/main.go`                                                   | Lead only.                                                                                                                 |
 
 ### Per-package
 

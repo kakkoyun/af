@@ -49,15 +49,15 @@ af create   ──► active   ──► af suspend  ──► suspended  ──
 
 Tears down resource consumers, preserves identity:
 
-| Step | Action |
-|---|---|
-| 1 | Write `agent_stopped` ledger event for each running slot. Mark slots `suspended` in `state.toml`. |
-| 2 | Write `session_suspended` ledger event with `active_slots` snapshot. |
-| 3 | Set `state.toml` `[session].status = "suspended"`, `suspended_at = <now>`. |
-| 4 | If sandbox: `Sandbox.Teardown(handle)` (slicer VM deleted, sbx container deleted). State.toml records the **provider** but not a stale handle. |
-| 5 | If remote: SSH in, `tmux kill-session -t <name>` on the remote. (The remote machine itself stays up — `af` doesn't manage remote-machine lifecycle, per ADR-041.) |
-| 6 | Local tmux: `tmux kill-session -t <name>`. |
-| 7 | Print: `Workstream <name> suspended. Resume with: af resume <name>` |
+| Step | Action                                                                                                                                                            |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Write `agent_stopped` ledger event for each running slot. Mark slots `suspended` in `state.toml`.                                                                 |
+| 2    | Write `session_suspended` ledger event with `active_slots` snapshot.                                                                                              |
+| 3    | Set `state.toml` `[session].status = "suspended"`, `suspended_at = <now>`.                                                                                        |
+| 4    | If sandbox: `Sandbox.Teardown(handle)` (slicer VM deleted, sbx container deleted). State.toml records the **provider** but not a stale handle.                    |
+| 5    | If remote: SSH in, `tmux kill-session -t <name>` on the remote. (The remote machine itself stays up — `af` doesn't manage remote-machine lifecycle, per ADR-041.) |
+| 6    | Local tmux: `tmux kill-session -t <name>`.                                                                                                                        |
+| 7    | Print: `Workstream <name> suspended. Resume with: af resume <name>`                                                                                               |
 
 **What's preserved**: `state.toml`, `ledger.jsonl`, the worktree
 filesystem, all sub-worktrees, the branch, the agent's own session log
@@ -106,10 +106,10 @@ Recreate everything from `state.toml`:
 
 #### Resume options
 
-| Flag | Behaviour |
-|---|---|
-| `--bare` | Skip multiplexer; run the primary agent directly in the current shell. Useful for SSH sessions on a constrained remote. |
-| `--respawn` | If a sandbox VM is dead per `Sandbox.IsHealthy`, recreate it. Without `--respawn`, an unhealthy sandbox is an error. |
+| Flag        | Behaviour                                                                                                               |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `--bare`    | Skip multiplexer; run the primary agent directly in the current shell. Useful for SSH sessions on a constrained remote. |
+| `--respawn` | If a sandbox VM is dead per `Sandbox.IsHealthy`, recreate it. Without `--respawn`, an unhealthy sandbox is an error.    |
 
 ### Resumption guarantees
 
@@ -121,12 +121,12 @@ brings back. `af` does not touch agent log files (ADR-043).
 
 ### Edge cases
 
-| Case | Behaviour |
-|---|---|
-| `af suspend` on a workstream with crashed slots | Crashed slots are left as `crashed`; `af resume` will not auto-relaunch them. The user does `af agent add --slot <name> --agent <provider>` to spin a new one. |
-| `af resume` when a slot's worktree was deleted manually | Error with hint: `worktree at <path> missing; recreate with 'git worktree add' or run 'af done --force'`. |
-| `af resume --respawn` when sandbox provider is missing | Error with `af doctor` hint. |
-| Concurrent `af resume <same>` from two shells | `flock` (per ADR-037) makes one wait. The second runs against the now-active state and warm-attaches. |
+| Case                                                    | Behaviour                                                                                                                                                      |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `af suspend` on a workstream with crashed slots         | Crashed slots are left as `crashed`; `af resume` will not auto-relaunch them. The user does `af agent add --slot <name> --agent <provider>` to spin a new one. |
+| `af resume` when a slot's worktree was deleted manually | Error with hint: `worktree at <path> missing; recreate with 'git worktree add' or run 'af done --force'`.                                                      |
+| `af resume --respawn` when sandbox provider is missing  | Error with `af doctor` hint.                                                                                                                                   |
+| Concurrent `af resume <same>` from two shells           | `flock` (per ADR-037) makes one wait. The second runs against the now-active state and warm-attaches.                                                          |
 
 ### Concurrency with `af list`
 

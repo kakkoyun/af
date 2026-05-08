@@ -124,13 +124,13 @@ sections from any repo-config layer with a `slog.Warn`.
 
 `[diff].cmd` and `[pr].cmd` accept these tokens, replaced at exec time:
 
-| Token | Value |
-|---|---|
-| `{base}` | base branch (e.g. `upstream/main`) |
-| `{head}` | workstream branch |
-| `{worktree}` | absolute worktree path |
-| `{title}` | PR title (if provided via `--title`) |
-| `{body}` | PR body |
+| Token        | Value                                |
+| ------------ | ------------------------------------ |
+| `{base}`     | base branch (e.g. `upstream/main`)   |
+| `{head}`     | workstream branch                    |
+| `{worktree}` | absolute worktree path               |
+| `{title}`    | PR title (if provided via `--title`) |
+| `{body}`     | PR body                              |
 
 Tokens are simple `strings.ReplaceAll`; no shell expansion. The command
 is then split via `shlex` (or hand-rolled equivalent — TBD per ADR-048

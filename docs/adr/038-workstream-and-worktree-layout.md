@@ -57,11 +57,11 @@ called.
 
 Three layouts considered:
 
-| Layout | Path | Branch | Pro | Con |
-|---|---|---|---|---|
-| **A — sibling worktree, sibling branch** *(chosen)* | `~/W/.worktrees/<repo>/<branch>--<slot>/` | `<branch>--<slot>` | Full git isolation per subagent. Subagents can rebase/merge back to primary cleanly. | More disk; one worktree per slot |
-| B — nested under primary, shared branch | `~/W/.worktrees/<repo>/<branch>/.subagents/<slot>/` | `<branch>` (shared) | Less disk | git refuses two worktrees on the same branch unless detached; concurrency footguns |
-| C — nested + detached HEAD | same as B | (none) | No git refusal | Lose branch tracking, no merge-back |
+| Layout                                              | Path                                                | Branch              | Pro                                                                                  | Con                                                                                |
+| --------------------------------------------------- | --------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| **A — sibling worktree, sibling branch** _(chosen)_ | `~/W/.worktrees/<repo>/<branch>--<slot>/`           | `<branch>--<slot>`  | Full git isolation per subagent. Subagents can rebase/merge back to primary cleanly. | More disk; one worktree per slot                                                   |
+| B — nested under primary, shared branch             | `~/W/.worktrees/<repo>/<branch>/.subagents/<slot>/` | `<branch>` (shared) | Less disk                                                                            | git refuses two worktrees on the same branch unless detached; concurrency footguns |
+| C — nested + detached HEAD                          | same as B                                           | (none)              | No git refusal                                                                       | Lose branch tracking, no merge-back                                                |
 
 **Layout A wins** because subagents that produce real diffs need to be
 able to merge back into the primary branch, which only works with

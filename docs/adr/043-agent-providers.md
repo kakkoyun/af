@@ -65,11 +65,11 @@ type Agent interface {
 
 Distilled from each agent's `--help`. **Subject to per-agent verification at implementation time.**
 
-| Agent | Launch | Resume | Yolo flag | Auto flag |
-|---|---|---|---|---|
-| **pi** | `pi` | `pi --continue` | (none — pi has internal approval flows) | (n/a) |
-| **claude** | `claude --session-id <uuid>` | `claude --continue` | `--dangerously-skip-permissions` | (n/a) |
-| **codex** | `codex` | `codex resume --last` | `--full-auto` | `--auto` |
+| Agent      | Launch                       | Resume                | Yolo flag                               | Auto flag |
+| ---------- | ---------------------------- | --------------------- | --------------------------------------- | --------- |
+| **pi**     | `pi`                         | `pi --continue`       | (none — pi has internal approval flows) | (n/a)     |
+| **claude** | `claude --session-id <uuid>` | `claude --continue`   | `--dangerously-skip-permissions`        | (n/a)     |
+| **codex**  | `codex`                      | `codex resume --last` | `--full-auto`                           | `--auto`  |
 
 ### Defaults
 
@@ -87,11 +87,11 @@ Used by `af doctor` (ADR-044) and `af create`'s implicit "if no
 
 For analysis only — `af` **never deletes or modifies** these files.
 
-| Agent | Path pattern |
-|---|---|
-| pi | `~/.pi/agent/sessions/<encoded-cwd>/<timestamp>_<session-id>.jsonl` |
-| claude | `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl` |
-| codex | (TBD per codex's session-log convention; impl researches at integration time) |
+| Agent  | Path pattern                                                                  |
+| ------ | ----------------------------------------------------------------------------- |
+| pi     | `~/.pi/agent/sessions/<encoded-cwd>/<timestamp>_<session-id>.jsonl`           |
+| claude | `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`                         |
+| codex  | (TBD per codex's session-log convention; impl researches at integration time) |
 
 `SessionLogPaths` returns `[]string` so callers (debugging, future
 analytics) can locate them without the agent's own `--list-sessions`
@@ -99,10 +99,10 @@ command.
 
 ### Excluded agents
 
-| Agent | Why excluded from v1 |
-|---|---|
-| gemini | Not used by the owner currently |
-| amp | Not used by the owner currently |
+| Agent   | Why excluded from v1            |
+| ------- | ------------------------------- |
+| gemini  | Not used by the owner currently |
+| amp     | Not used by the owner currently |
 | copilot | Not used by the owner currently |
 
 If any of these comes back, it's a new ADR + a new file in

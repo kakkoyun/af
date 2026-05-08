@@ -34,10 +34,10 @@ work. `af`'s job is to call those tools with the right context.
 
 Opens the workstream's worktree in an editor.
 
-| Mode | Action |
-|---|---|
+| Mode                   | Action                                                                                                                                                    |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--terminal` (default) | Run `[editor].terminal` in a tmux split inside the workstream's session. If `[editor].terminal == "$EDITOR"`, expand `$EDITOR` from the env at exec time. |
-| `--visual` | Run `[editor].visual <worktree-path>`. If `[editor].visual` is empty, auto-detect by trying `code` then `zed` in PATH. |
+| `--visual`             | Run `[editor].visual <worktree-path>`. If `[editor].visual` is empty, auto-detect by trying `code` then `zed` in PATH.                                    |
 
 For remote workstreams (per ADR-041), `--visual` falls back to printing
 a `vscode-remote://` or `zed://ssh/...` URL the user can click. This is
@@ -49,6 +49,7 @@ distilled to two lines of conditional URL construction.
 Runs `[diff].cmd` with token interpolation (per ADR-036).
 
 Default config:
+
 ```toml
 [diff]
 cmd = "git diff {base}...HEAD"
@@ -62,6 +63,7 @@ its working directory.
 `state.toml.[worktree].base_branch`.
 
 User customisations:
+
 ```toml
 [diff]
 cmd = "delta --paging always {base}...HEAD"
@@ -75,6 +77,7 @@ Runs `[pr].cmd` with token interpolation. Pushes the workstream's
 branch first if not pushed.
 
 Default config:
+
 ```toml
 [pr]
 cmd = "gh pr create --base {base} --head {head}"

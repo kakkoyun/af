@@ -35,16 +35,16 @@ remote-machine readiness before launching a workstream there.
 `af doctor` checks the following tools on the local machine, grouped
 by tier:
 
-| Tier | Tool | Required for |
-|---|---|---|
-| Must | `git` | core git operations |
-| Must | `tmux` | multiplexer (ADR-040) |
-| Must | one of `pi`/`claude`/`codex` | at least one agent (ADR-043) |
-| Should | `gh` | PR detection, `af pr` (ADR-048) |
-| Should | `fzf` | session picker in `af resume` |
-| Nice | `slicer` | local sandbox (ADR-042) |
-| Nice | `sbx` | local sandbox (ADR-042) |
-| Nice | `delta`, `diff-so-fancy` | nicer `af diff` rendering |
+| Tier   | Tool                         | Required for                    |
+| ------ | ---------------------------- | ------------------------------- |
+| Must   | `git`                        | core git operations             |
+| Must   | `tmux`                       | multiplexer (ADR-040)           |
+| Must   | one of `pi`/`claude`/`codex` | at least one agent (ADR-043)    |
+| Should | `gh`                         | PR detection, `af pr` (ADR-048) |
+| Should | `fzf`                        | session picker in `af resume`   |
+| Nice   | `slicer`                     | local sandbox (ADR-042)         |
+| Nice   | `sbx`                        | local sandbox (ADR-042)         |
+| Nice   | `delta`, `diff-so-fancy`     | nicer `af diff` rendering       |
 
 Plus any binaries listed in `[doctor].extra_tools` config.
 
@@ -88,13 +88,13 @@ result of `which`. Used for debugging unusual install paths.
 
 ### Install hints by platform
 
-| Platform | Detection | Install command pattern |
-|---|---|---|
-| macOS | `uname -s == Darwin` | `brew install <pkg>` |
-| Arch / Manjaro | `/etc/os-release ID == arch \| manjaro` | `pacman -S <pkg>` |
-| Debian / Ubuntu | `/etc/os-release ID_LIKE contains debian` | `apt install <pkg>` |
-| Other Linux | fallback | "see upstream docs" |
-| Other | fallback | "see upstream docs" |
+| Platform        | Detection                                 | Install command pattern |
+| --------------- | ----------------------------------------- | ----------------------- |
+| macOS           | `uname -s == Darwin`                      | `brew install <pkg>`    |
+| Arch / Manjaro  | `/etc/os-release ID == arch \| manjaro`   | `pacman -S <pkg>`       |
+| Debian / Ubuntu | `/etc/os-release ID_LIKE contains debian` | `apt install <pkg>`     |
+| Other Linux     | fallback                                  | "see upstream docs"     |
+| Other           | fallback                                  | "see upstream docs"     |
 
 For tools without distro packages (e.g. `pi`, `claude`, `slicer`),
 print the upstream install URL or `npm install -g <pkg>` / `cargo

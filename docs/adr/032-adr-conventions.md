@@ -32,16 +32,16 @@ Every v1 ADR begins with a YAML frontmatter block matching this schema:
 
 ```yaml
 ---
-adr: NNN                      # zero-padded three-digit number
-title: "..."                  # human-readable title
-status: proposed              # see lifecycle below
-implementation: pending       # see lifecycle below
-date: YYYY-MM-DD              # original authoring date (immutable)
-last_modified: YYYY-MM-DD     # bump on any body change
-supersedes: ["NNN", ...]      # ADR numbers this replaces (may be empty list)
-superseded_by: null           # set to "NNN" when a later ADR retires this
-related: ["NNN", ...]         # informational cross-refs (may be empty list)
-tags: ["..."]                 # free-form, used by Obsidian Bases filters
+adr: NNN # zero-padded three-digit number
+title: "..." # human-readable title
+status: proposed # see lifecycle below
+implementation: pending # see lifecycle below
+date: YYYY-MM-DD # original authoring date (immutable)
+last_modified: YYYY-MM-DD # bump on any body change
+supersedes: ["NNN", ...] # ADR numbers this replaces (may be empty list)
+superseded_by: null # set to "NNN" when a later ADR retires this
+related: ["NNN", ...] # informational cross-refs (may be empty list)
+tags: ["..."] # free-form, used by Obsidian Bases filters
 ---
 ```
 
@@ -57,29 +57,29 @@ proposed ──► accepted ──► superseded
    └──► rejected
 ```
 
-| Value | Meaning |
-|---|---|
-| `proposed` | Drafted; under review; not yet ratified by the owner |
-| `accepted` | Ratified; the decision stands |
-| `rejected` | Considered and declined; kept as a record of "no" |
-| `superseded` | Replaced by a later ADR; `superseded_by` is set |
-| `deprecated` | No longer applies but not formally replaced |
-| `abandoned` | Was accepted but never executed; the project moved on |
+| Value        | Meaning                                               |
+| ------------ | ----------------------------------------------------- |
+| `proposed`   | Drafted; under review; not yet ratified by the owner  |
+| `accepted`   | Ratified; the decision stands                         |
+| `rejected`   | Considered and declined; kept as a record of "no"     |
+| `superseded` | Replaced by a later ADR; `superseded_by` is set       |
+| `deprecated` | No longer applies but not formally replaced           |
+| `abandoned`  | Was accepted but never executed; the project moved on |
 
 ### Implementation lifecycle (the code)
 
 ```
 pending ──► in-progress ──► complete
-                           
+
 n/a (for meta ADRs that have no code)
 ```
 
-| Value | Meaning |
-|---|---|
-| `pending` | Code matching this ADR has not started |
-| `in-progress` | Code is being written |
-| `complete` | Code lives up to the ADR; tests cover the contract |
-| `n/a` | This ADR is meta (e.g. conventions, archival policy); no code |
+| Value         | Meaning                                                       |
+| ------------- | ------------------------------------------------------------- |
+| `pending`     | Code matching this ADR has not started                        |
+| `in-progress` | Code is being written                                         |
+| `complete`    | Code lives up to the ADR; tests cover the contract            |
+| `n/a`         | This ADR is meta (e.g. conventions, archival policy); no code |
 
 The two fields are **independent**. An accepted ADR can have
 `implementation: pending` for weeks; an `accepted, complete` ADR can
@@ -122,7 +122,7 @@ Every ADR body, after the frontmatter, follows this order:
 ### Body rules
 
 - **Maximum 3 pages of body.** If an ADR doesn't fit, split it into multiple ADRs that reference each other.
-- **Code listings: type signatures only.** No full implementations. Implementation lives in code; the ADR captures the *why*.
+- **Code listings: type signatures only.** No full implementations. Implementation lives in code; the ADR captures the _why_.
 - **Every supersession** lists the retired ADR number in `supersedes` frontmatter and explains the why in `## Context` or `## Decision`.
 - **Diagrams** use ASCII; no embedded images.
 - **No mutable wisdom in the body.** If the body needs updating after a key insight, write a new ADR rather than editing the old.

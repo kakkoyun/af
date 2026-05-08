@@ -63,14 +63,14 @@ persist to its own session log is lost.
 
 ### 3.1 Creation, teardown, listing
 
-| Command                | Purpose                                                                                                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `af create [name]`     | Create a workstream: branch, worktree, tmux session, primary agent (pi by default).                                                                                     |
-| `af done [session]`    | Tear down a workstream: kill tmux, remove worktree, delete branch (if `--force` or branch is merged), tear down remote/sandbox if applicable, archive state and ledger. |
-| `af list`              | List active workstreams grouped by repo. Includes status column (`active`, `suspended`).                                                                                |
+| Command                                    | Purpose                                                                                                                                                                 |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `af create [name]`                         | Create a workstream: branch, worktree, tmux session, primary agent (pi by default).                                                                                     |
+| `af done [session]`                        | Tear down a workstream: kill tmux, remove worktree, delete branch (if `--force` or branch is merged), tear down remote/sandbox if applicable, archive state and ledger. |
+| `af list`                                  | List active workstreams grouped by repo. Includes status column (`active`, `suspended`).                                                                                |
 | `af resume [session] [--bare] [--respawn]` | Re-attach to an active workstream, or rehydrate a suspended one. `--bare` skips multiplexer; `--respawn` recreates dead sandbox VMs.                                    |
-| `af suspend [session]` | Persist state, tear down tmux + remote/sandbox to free resources. Workstream becomes `suspended`.                                                                       |
-| `af session-branch`    | Launch the default agent with a session ID derived from the current branch (no worktree). For ad-hoc work in the existing checkout.                                     |
+| `af suspend [session]`                     | Persist state, tear down tmux + remote/sandbox to free resources. Workstream becomes `suspended`.                                                                       |
+| `af session-branch`                        | Launch the default agent with a session ID derived from the current branch (no worktree). For ad-hoc work in the existing checkout.                                     |
 
 ### 3.2 Multi-agent management
 

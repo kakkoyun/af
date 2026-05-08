@@ -30,12 +30,12 @@ use fakes.
 
 ### Test layers
 
-| Layer | Tool | Scope |
-|---|---|---|
-| Unit | stdlib `testing` | Pure logic in `internal/<pkg>/` |
-| Property | stdlib `testing/quick` | Invariants over generated inputs (e.g. naming, sanitization, lifecycle transitions) |
-| Integration (CLI) | `rogpeppe/go-internal/testscript` | `cmd/af/...` end-to-end against a built binary |
-| Manual | (none) | Real tmux/ssh/sandbox interactions, run by the owner before merging risky PRs |
+| Layer             | Tool                              | Scope                                                                               |
+| ----------------- | --------------------------------- | ----------------------------------------------------------------------------------- |
+| Unit              | stdlib `testing`                  | Pure logic in `internal/<pkg>/`                                                     |
+| Property          | stdlib `testing/quick`            | Invariants over generated inputs (e.g. naming, sanitization, lifecycle transitions) |
+| Integration (CLI) | `rogpeppe/go-internal/testscript` | `cmd/af/...` end-to-end against a built binary                                      |
+| Manual            | (none)                            | Real tmux/ssh/sandbox interactions, run by the owner before merging risky PRs       |
 
 ### Interface seams (replaces v0 CommandRunner)
 
@@ -105,12 +105,12 @@ external commands (configurable per scenario via `script` directives).
 
 ### What's NOT tested
 
-| Concern | Why not |
-|---|---|
-| Real tmux server | Requires CI tmux; fragile across versions |
-| Real ssh to a real host | Requires network + persistent infra |
-| Real slicer/sbx VMs | Requires Firecracker/Docker daemons |
-| Real Anthropic/OpenAI APIs | Requires keys + costs money |
+| Concern                    | Why not                                   |
+| -------------------------- | ----------------------------------------- |
+| Real tmux server           | Requires CI tmux; fragile across versions |
+| Real ssh to a real host    | Requires network + persistent infra       |
+| Real slicer/sbx VMs        | Requires Firecracker/Docker daemons       |
+| Real Anthropic/OpenAI APIs | Requires keys + costs money               |
 
 These are exercised manually before risky PRs. The owner runs `af
 create` against a real machine, observes correct behaviour, then
