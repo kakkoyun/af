@@ -7,7 +7,7 @@ date: 2026-05-06
 last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "036", "037", "047", "057"]
+related: ["031", "036", "037", "047", "057", "059"]
 tags: ["go", "proxy", "editor", "diff", "pr"]
 ---
 
@@ -59,8 +59,13 @@ The `{base}`, `{head}`, `{worktree}` tokens are substituted from
 workstream state. The command runs with the workstream's worktree as
 its working directory.
 
-`--base` overrides the base branch. The default uses
-`state.toml.[worktree].base_branch`.
+`--base` overrides the base branch. The default resolves as:
+
+1. If `state.toml.[stack].parent_branch` is non-empty → that.
+2. Else `state.toml.[worktree].base_branch`.
+
+This honors stacked workstreams transparently; non-stacked workstreams behave
+unchanged.
 
 User customisations:
 
@@ -144,3 +149,4 @@ parsing them.
 - ADR-036 — `[editor]` `[diff]` `[pr]` config schema and token interpolation rules.
 - ADR-037 — workstream state for token sources.
 - ADR-047 — Obsidian note updated on `af pr`.
+- ADR-059 — stacked workstreams change `--base` default to `parent_branch`.
