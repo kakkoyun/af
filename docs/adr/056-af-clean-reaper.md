@@ -7,7 +7,7 @@ date: 2026-05-08
 last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "037", "038", "046", "047", "048"]
+related: ["031", "037", "038", "046", "047", "048", "059"]
 tags: ["go", "command", "lifecycle", "cleanup"]
 ---
 
@@ -46,16 +46,16 @@ no detection regression.
 ### Command
 
 ```
-af clean [--dry-run] [--include-abandoned] [--max-age DURATION] [--force]
+af clean [--dry-run] [--include-abandoned] [--max-age DURATION] [--force [<name>...]]
 ```
 
 | Flag                  | Behaviour                                                                              |
 | --------------------- | -------------------------------------------------------------------------------------- |
-| (default)             | Reap workstreams whose PR is `merged` or `closed`. Refuses on `active`/`suspended`.    |
+| (default)             | Reap workstreams detected as merged or closed by the three-strategy chain.             |
 | `--dry-run`           | List what would be reaped; perform no destructive ops                                  |
 | `--include-abandoned` | Also reap workstreams whose status is already `abandoned`                              |
 | `--max-age DURATION`  | Only reap workstreams older than DURATION (e.g. `7d`, `30d`)                           |
-| `--force`             | Reap matching workstreams even if their lifecycle state is `active`/`suspended`        |
+| `--force <name>...`   | Skip merge detection; reap each named workstream directly. Must be paired with at least one workstream name — bulk-reap still requires merge detection. Useful for cleaning up failed experiments where no merge ever happened. |
 
 ### Reap algorithm — three-strategy merge detection
 
@@ -75,14 +75,26 @@ For each `~/.local/share/af/v1/sessions/*/state.toml`:
    reaped this run. Strategy verdicts are recorded as `merge_detection: <strategy>`
    on the reap event in the ledger.
 
-3. **Lifecycle gate.** If the workstream's `[session].status` is `active` or `suspended`
-   and `--force` is not set → skip with a warning line (the user should
-   `af suspend` then `af done` for in-flight work).
+#### Merge detection (reusable)
 
-4. **`--max-age` gate.** If `--max-age DURATION` is set and the workstream's
+The three-strategy chain above is a **reusable contract** consumed by both
+`af clean` (to decide what to reap) and `af sync` (ADR-059, to detect if
+a parent workstream has merged):
+
+- **Inputs:** a `state.toml` read (for `[pr].number`, `[worktree].branch`,
+  `[worktree].base_branch`), a live `gh` call (strategy 1), and local `git`
+  invocations (strategies 2 and 3).
+- **Output:** `merged | open | unknown`.
+- **Strategy chain:** strategy 1 (PR state) → strategy 2 (ancestry) →
+  strategy 3 (squash fingerprint). First definitive answer wins.
+- Network and git errors in strategy 1 fall through to strategy 2;
+  a still-uncertain result after strategy 2 falls through to strategy 3.
+  If all three are inconclusive, output is `unknown`.
+
+3. **`--max-age` gate.** If `--max-age DURATION` is set and the workstream's
    `last_touched_at` is more recent than `now - DURATION` → skip.
 
-5. **Reap action.** Equivalent to `af done` per ADR-046:
+4. **Reap action.** Equivalent to `af done` per ADR-046:
    - Write `session_completed` ledger event with `reaped_by: "af clean"`,
      `merge_detection: <strategy>`.
    - Move session dir to `~/.local/share/af/v1/archive/<name>/`.
@@ -133,10 +145,13 @@ fetches downgrade to "PR state unknown — skipping".
 
 ### Safety
 
-- Never operates on workstreams missing a `pr.number` — those need explicit `af done`.
-- `--force` is the only path that touches `active`/`suspended` workstreams; without it
-  the user gets a clear hint.
-- `--dry-run` is the recommended first invocation for any user new to the command.
+- Reaping requires a positive merge verdict from at least one of the three
+  detection strategies. Workstreams that no strategy can verify as merged
+  are skipped (the user can still run `af done <name>` manually).
+- `--force <name>` is the only path that bypasses merge detection. It
+  refuses to bulk-reap (must be paired with one or more workstream names).
+- `--dry-run` is the recommended first invocation for any user new to the
+  command.
 
 ## Consequences
 
@@ -174,4 +189,5 @@ fetches downgrade to "PR state unknown — skipping".
 - ADR-046 — `af done` (the underlying op `af clean` performs in batch).
 - ADR-047 — Obsidian frontmatter updates on completion.
 - ADR-048 — `af pr` populates the `[pr].state` field this command reads.
+- ADR-059 — `af sync` reuses the merge-detection contract defined in §"Merge detection (reusable)".
 - `git patch-id(1)` — strategy 3 mechanic.
