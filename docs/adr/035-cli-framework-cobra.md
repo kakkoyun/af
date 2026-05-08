@@ -81,7 +81,7 @@ af [--verbose|-v] [--config PATH] [--session NAME]
 ├── sync [session]
 │
 │   # Environment / setup (ADR-044, ADR-045)
-├── setup
+├── setup [--force] [--shell SHELL] [--skip-completions] [--skip-gitignore]
 ├── doctor [--remote HOST] [--verbose]
 │
 │   # Notes / Obsidian (ADR-047, ADR-058)

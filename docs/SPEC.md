@@ -108,7 +108,7 @@ All three subcommands accept `--session NAME` to target a workstream other than 
 
 | Command                                   | Purpose                                                                                       |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `af setup`                                | One-shot user-scope environment setup: gitignore entry, completions, config init, vault hint. |
+| `af setup [--force] [--shell SHELL] [--skip-completions] [--skip-gitignore]` | One-shot user-scope environment setup: gitignore entry, completions, config init, vault hint. `--force` overwrites existing config; `--shell` overrides shell auto-detect; `--skip-*` flags skip individual steps. |
 | `af doctor [--remote <host>] [--verbose]` | Probe required tools; print install commands. **Never** auto-installs.                        |
 | `af config show \| init`                  | Print effective config or write defaults.                                                     |
 | `af completions <shell>`                  | Emit shell completion script (bash, zsh, fish, powershell).                                   |

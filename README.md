@@ -74,7 +74,8 @@ af unstack [session]
 af sync [session]           # rebase/ff onto parent's current head
 
 # Environment
-af setup                    # one-shot user-scope setup (gitignore, completions, config init)
+af setup [--force] [--shell S] [--skip-completions] [--skip-gitignore]
+                            # one-shot user-scope setup (gitignore, completions, config init)
 af doctor [--remote <host>] # probe deps; print install commands; never auto-install
 af config show / init
 af completions <shell>
