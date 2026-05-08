@@ -7,7 +7,7 @@ date: 2026-05-08
 last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "037", "038", "046", "048", "054", "056"]
+related: ["031", "035", "037", "038", "046", "048", "054", "056"]
 tags: ["go", "stack", "branch", "rebase", "lifecycle"]
 ---
 
@@ -79,17 +79,15 @@ The auto-reparenting workhorse. Steps:
 1. `git fetch <upstream-or-origin>`.
 2. If `[stack].parent_session` is set:
    a. Read the parent's `state.toml`. Run merge detection on the parent
-      using the same three-strategy chain as ADR-056 §"Merge detection
-      (reusable)" (PR state → ancestry → squash fingerprint). If detected
-      merged, **auto-reparent**: set this workstream's `parent_session` to
-      the grandparent (or `""` if no grandparent), set `parent_branch` to
-      the grandparent's branch (or this workstream's `base_branch`), write
-      a `stack_reparented` ledger event.
+   using the same three-strategy chain as ADR-056 §"Merge detection
+   (reusable)" (PR state → ancestry → squash fingerprint). If detected
+   merged, **auto-reparent**: set this workstream's `parent_session` to
+   the grandparent (or `""` if no grandparent), set `parent_branch` to
+   the grandparent's branch (or this workstream's `base_branch`), write
+   a `stack_reparented` ledger event.
    b. Repeat (a) recursively in case the grandparent also merged.
 3. Determine target: parent's branch if still stacked, else `base_branch`.
-4. Run `git rebase <target>` in the worktree. On conflict: leave the rebase in progress,
-   emit a clear hint (`resolve, then 'git rebase --continue', then 'af sync' to
-   re-attempt`), exit non-zero.
+4. Run `git rebase <target>` in the worktree. On conflict: leave the rebase in progress, emit a clear hint (`resolve, then 'git rebase --continue', then 'af sync' to re-attempt`), and exit non-zero.
 5. If rebase succeeds, write a `synced` ledger event.
 
 ### Interaction with existing ADRs

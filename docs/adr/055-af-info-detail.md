@@ -7,7 +7,7 @@ date: 2026-05-08
 last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "037", "038", "039", "054"]
+related: ["031", "035", "037", "038", "039", "054"]
 tags: ["go", "command", "info", "introspection"]
 ---
 
@@ -30,11 +30,11 @@ pretty-print of `state.toml` plus the last N ledger events.
 af info [session] [--json] [--ledger N]
 ```
 
-| Flag         | Behaviour                                                                      |
-| ------------ | ------------------------------------------------------------------------------ |
-| `[session]`  | Workstream name; resolved per ADR-037 file-discovery rules if omitted          |
-| `--json`     | Emit the merged `state.toml` + ledger tail as JSON                             |
-| `--ledger N` | Show the last N ledger events (default 10; `--ledger 0` suppresses)            |
+| Flag         | Behaviour                                                             |
+| ------------ | --------------------------------------------------------------------- |
+| `[session]`  | Workstream name; resolved per ADR-037 file-discovery rules if omitted |
+| `--json`     | Emit the merged `state.toml` + ledger tail as JSON                    |
+| `--ledger N` | Show the last N ledger events (default 10; `--ledger 0` suppresses)   |
 
 ### Default output
 

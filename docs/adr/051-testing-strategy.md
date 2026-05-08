@@ -4,7 +4,7 @@ title: "Testing Strategy"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
 related: ["031", "034", "050", "052"]
@@ -30,9 +30,9 @@ use fakes.
 
 ### Test layers
 
-| Layer             | Tool                              | Scope                                                                               |
-| ----------------- | --------------------------------- | ----------------------------------------------------------------------------------- |
-| Unit                     | stdlib `testing`                  | Pure logic in `internal/<pkg>/`. No external processes.                                                                                              |
+| Layer                    | Tool                              | Scope                                                                                                                                               |
+| ------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit                     | stdlib `testing`                  | Pure logic in `internal/<pkg>/`. No external processes.                                                                                             |
 | Property                 | stdlib `testing/quick`            | Invariants over generated inputs (naming, sanitization, lifecycle transitions). No external processes.                                              |
 | Integration (mocked CLI) | `rogpeppe/go-internal/testscript` | `cmd/af/...` end-to-end against a built binary. **No real `tmux`/`ssh`/`slicer`/`sbx`** — fakes are injected via per-scenario env vars (see below). |
 | Manual smoke (out-of-CI) | (none)                            | Real `tmux`, `ssh`, `slicer`, `sbx`. Owner runs the full flow on a workstation before merging risky PRs.                                            |

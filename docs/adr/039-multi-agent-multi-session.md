@@ -4,7 +4,7 @@ title: "Multi-Agent Multi-Session Model"
 status: proposed
 implementation: pending
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
 related: ["031", "037", "038", "043"]
@@ -56,9 +56,7 @@ Workstream
   by `af create`).
 - **Slot names are unique within a workstream** but may repeat across
   workstreams.
-- A slot persists across `af agent stop` followed by `af agent add
-  --slot <same-name>` — the slot's `session_ids` list grows. This is
-  how an agent "resumes" in the same slot.
+- A slot persists across `af agent stop` followed by `af agent add --slot <same-name>` — the slot's `session_ids` list grows. This is how an agent "resumes" in the same slot.
 
 ### Session ID derivation
 
@@ -109,11 +107,11 @@ modifies them).
 
 ### `af agent` subcommands
 
-| Command | Behaviour |
-|---|---|
-| `af agent add --slot <name> --agent <provider> [--session NAME]` | Create slot, sub-worktree if applicable (ADR-038), pane, launch. Append `agent_added` and `agent_launched` ledger events. |
-| `af agent stop <slot> [--remove-worktree]` | Kill pane, mark slot status `stopped`. Append `agent_stopped` ledger event. With `--remove-worktree`, also `git worktree remove` the sub-worktree. |
-| `af agent list [--session NAME]` | Tabular: slot, agent, status, pane, session_ids count, last session timestamp. |
+| Command                                                          | Behaviour                                                                                                                                          |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `af agent add --slot <name> --agent <provider> [--session NAME]` | Create slot, sub-worktree if applicable (ADR-038), pane, launch. Append `agent_added` and `agent_launched` ledger events.                          |
+| `af agent stop <slot> [--remove-worktree]`                       | Kill pane, mark slot status `stopped`. Append `agent_stopped` ledger event. With `--remove-worktree`, also `git worktree remove` the sub-worktree. |
+| `af agent list [--session NAME]`                                 | Tabular: slot, agent, status, pane, session_ids count, last session timestamp.                                                                     |
 
 ### Crash detection (lazy)
 

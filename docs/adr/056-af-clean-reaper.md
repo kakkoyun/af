@@ -7,7 +7,7 @@ date: 2026-05-08
 last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "037", "038", "046", "047", "048", "059"]
+related: ["031", "035", "037", "038", "046", "047", "048", "059"]
 tags: ["go", "command", "lifecycle", "cleanup"]
 ---
 
@@ -49,12 +49,12 @@ no detection regression.
 af clean [--dry-run] [--include-abandoned] [--max-age DURATION] [--force [<name>...]]
 ```
 
-| Flag                  | Behaviour                                                                              |
-| --------------------- | -------------------------------------------------------------------------------------- |
-| (default)             | Reap workstreams detected as merged or closed by the three-strategy chain.             |
-| `--dry-run`           | List what would be reaped; perform no destructive ops                                  |
-| `--include-abandoned` | Also reap workstreams whose status is already `abandoned`                              |
-| `--max-age DURATION`  | Only reap workstreams older than DURATION. See §"Duration grammar" below: `7d`, `2w`, `120h`, `5h30m` are all valid. |
+| Flag                  | Behaviour                                                                                                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (default)             | Reap workstreams detected as merged or closed by the three-strategy chain.                                                                                                                                                      |
+| `--dry-run`           | List what would be reaped; perform no destructive ops                                                                                                                                                                           |
+| `--include-abandoned` | Also reap workstreams whose status is already `abandoned`                                                                                                                                                                       |
+| `--max-age DURATION`  | Only reap workstreams older than DURATION. See §"Duration grammar" below: `7d`, `2w`, `120h`, `5h30m` are all valid.                                                                                                            |
 | `--force <name>...`   | Skip merge detection; reap each named workstream directly. Must be paired with at least one workstream name — bulk-reap still requires merge detection. Useful for cleaning up failed experiments where no merge ever happened. |
 
 ### Reap algorithm — three-strategy merge detection
@@ -65,11 +65,11 @@ For each `~/.local/share/af/v1/sessions/*/state.toml`:
 2. **Determine merge status** by trying three strategies in order. The first strategy
    that returns a definitive answer wins; later strategies are skipped.
 
-   | Order | Strategy               | Inputs                                                         | Verdict semantics                                                                                                                                                        |
-   | ----- | ---------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-   | 1     | **PR state**           | `[pr].number` if non-zero; live `gh pr view <num> --json state` (5s timeout, 1h cache) | `merged` or `closed` → reapable. `open`/`draft` → not reapable. Network failure → fall through to (2). |
-   | 2     | **Ancestry**           | `[worktree].branch`, `[worktree].base_branch`                  | `git merge-base --is-ancestor <branch> <base_branch>` exit 0 → reapable. Catches merge-commit and fast-forward merges. Misses squash merges.                             |
-   | 3     | **Squash fingerprint** | branch diff vs base; recent commits on `base_branch`           | Compute `git diff <base>...<branch>` patch-id (`git patch-id`). Walk last 200 commits on `base_branch`; if any commit's patch-id matches → reapable. Catches squash merges. |
+   | Order | Strategy               | Inputs                                                                                 | Verdict semantics                                                                                                                                                           |
+   | ----- | ---------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | 1     | **PR state**           | `[pr].number` if non-zero; live `gh pr view <num> --json state` (5s timeout, 1h cache) | `merged` or `closed` → reapable. `open`/`draft` → not reapable. Network failure → fall through to (2).                                                                      |
+   | 2     | **Ancestry**           | `[worktree].branch`, `[worktree].base_branch`                                          | `git merge-base --is-ancestor <branch> <base_branch>` exit 0 → reapable. Catches merge-commit and fast-forward merges. Misses squash merges.                                |
+   | 3     | **Squash fingerprint** | branch diff vs base; recent commits on `base_branch`                                   | Compute `git diff <base>...<branch>` patch-id (`git patch-id`). Walk last 200 commits on `base_branch`; if any commit's patch-id matches → reapable. Catches squash merges. |
 
    If all three strategies say "not merged" or "unknown", the workstream is **not**
    reaped this run. Strategy verdicts are recorded as `merge_detection: <strategy>`

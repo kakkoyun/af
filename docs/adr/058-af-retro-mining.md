@@ -7,7 +7,7 @@ date: 2026-05-08
 last_modified: 2026-05-08
 supersedes: []
 superseded_by: null
-related: ["031", "037", "047", "057"]
+related: ["031", "035", "037", "047", "057"]
 tags: ["go", "command", "obsidian", "retrospective"]
 ---
 
@@ -24,8 +24,8 @@ Datadog's `gv retro` mines its archive folder for "reusable patterns and institu
 context." For a single-user tool the same idea is even simpler: filter completed notes
 by tag/PR/age, optionally summarise via an agent, and surface the result.
 
-The Bases aggregator (ADR-047) already gives a queryable table of *active* and
-*suspended* workstreams in Obsidian. `af retro` is the **completed/abandoned** counterpart
+The Bases aggregator (ADR-047) already gives a queryable table of _active_ and
+_suspended_ workstreams in Obsidian. `af retro` is the **completed/abandoned** counterpart
 and is **terminal-side**, not vault-side.
 
 ## Decision
@@ -36,13 +36,13 @@ and is **terminal-side**, not vault-side.
 af retro [--since DURATION] [--tag TAG]... [--search QUERY] [--ai] [--limit N]
 ```
 
-| Flag               | Behaviour                                                                      |
-| ------------------ | ------------------------------------------------------------------------------ |
+| Flag               | Behaviour                                                                                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `--since DURATION` | Only notes whose `af_completed_at` is within DURATION. Grammar defined in ADR-056 §"Duration grammar" — supports `Nd`/`Nw` shorthand on top of stdlib `time.ParseDuration`. Examples: `30d`, `4w`, `90d`, `5h30m`. |
-| `--tag TAG`        | Filter by `af_tags` containing TAG; repeatable (AND semantics)                  |
-| `--search QUERY`   | Plain-text grep over note bodies (case-insensitive)                            |
-| `--ai`             | Pass selected notes to the primary agent for synthesis (see below)             |
-| `--limit N`        | Cap to N most recent matches (default 50)                                      |
+| `--tag TAG`        | Filter by `af_tags` containing TAG; repeatable (AND semantics)                                                                                                                                                     |
+| `--search QUERY`   | Plain-text grep over note bodies (case-insensitive)                                                                                                                                                                |
+| `--ai`             | Pass selected notes to the primary agent for synthesis (see below)                                                                                                                                                 |
+| `--limit N`        | Cap to N most recent matches (default 50)                                                                                                                                                                          |
 
 ### Discovery
 
