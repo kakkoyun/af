@@ -109,6 +109,28 @@ Examples:
 
 ---
 
+## Command-surface drift
+
+**ADR-035 is the authoritative CLI contract.** Three other surfaces
+must agree with it: `docs/SPEC.md` §3, `README.md` §"Planned commands",
+and any per-command ADR's `## Decision` section.
+
+When a new ADR or amendment adds, removes, or modifies a command or
+flag, the **same commit batch** updates:
+
+1. The per-command ADR's `## Decision` (the source of truth for that
+   command).
+2. ADR-035's command tree (the central catalogue).
+3. `docs/SPEC.md` §3 (the user-visible summary).
+4. `README.md` §"Planned commands" (the elevator pitch).
+5. The new/changed ADR's `related:` frontmatter must include `"035"`.
+
+Drift between these surfaces is a review blocker. The command-surface
+reconciliation commit landed in May 2026 fixed an accumulated drift;
+future changes should not reintroduce one.
+
+---
+
 ## File-ownership manifest
 
 Used to coordinate parallel work and prevent overwrites when subagents
