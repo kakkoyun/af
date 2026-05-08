@@ -54,7 +54,7 @@ af clean [--dry-run] [--include-abandoned] [--max-age DURATION] [--force [<name>
 | (default)             | Reap workstreams detected as merged or closed by the three-strategy chain.             |
 | `--dry-run`           | List what would be reaped; perform no destructive ops                                  |
 | `--include-abandoned` | Also reap workstreams whose status is already `abandoned`                              |
-| `--max-age DURATION`  | Only reap workstreams older than DURATION (e.g. `7d`, `30d`)                           |
+| `--max-age DURATION`  | Only reap workstreams older than DURATION. See §"Duration grammar" below: `7d`, `2w`, `120h`, `5h30m` are all valid. |
 | `--force <name>...`   | Skip merge detection; reap each named workstream directly. Must be paired with at least one workstream name — bulk-reap still requires merge detection. Useful for cleaning up failed experiments where no merge ever happened. |
 
 ### Reap algorithm — three-strategy merge detection
@@ -92,7 +92,39 @@ a parent workstream has merged):
   If all three are inconclusive, output is `unknown`.
 
 3. **`--max-age` gate.** If `--max-age DURATION` is set and the workstream's
-   `last_touched_at` is more recent than `now - DURATION` → skip.
+   `last_touched_at` is more recent than `now - DURATION` → skip. DURATION is
+   parsed per the grammar in §"Duration grammar" — not `time.ParseDuration`,
+   which doesn't accept day or week suffixes.
+
+### Duration grammar
+
+Used by `--max-age` here and `af retro --since` (ADR-058). Defined in
+`internal/duration/duration.go` as a small wrapper around stdlib
+`time.ParseDuration`:
+
+- The string is split on a regexp matching `(\d+)(d|w)` at any position.
+- Each `Nd` token is converted to `(N * 24)h` and `Nw` to `(N * 168)h`
+  before the string is handed to `time.ParseDuration`.
+- Mixed forms work: `1w3d` → `240h`; `5h30m` is passed through unchanged;
+  `2w12h` → `348h`.
+- Months and years are deliberately **not** supported: their length
+  varies; if the user wants "older than ~30 days" they write `30d`.
+- Calendar-day rounding: `Nd` is exactly `N * 24h` from the moment of
+  invocation, not aligned to local midnight. The user wanting calendar
+  days runs the command at a fixed time of day.
+
+Valid grammar in EBNF:
+
+```
+duration = ( pair )+
+pair     = number unit
+number   = [0-9]+
+unit     = "d" | "w" | "h" | "m" | "s" | "ms" | "us" | "ns"
+```
+
+Invalid input (`30 days`, `1 month`, negative numbers, empty string)
+fails parsing with a clear error message; the command exits non-zero
+before any reaping decision.
 
 4. **Reap action.** Equivalent to `af done` per ADR-046:
    - Write `session_completed` ledger event with `reaped_by: "af clean"`,

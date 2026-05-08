@@ -38,7 +38,7 @@ af retro [--since DURATION] [--tag TAG]... [--search QUERY] [--ai] [--limit N]
 
 | Flag               | Behaviour                                                                      |
 | ------------------ | ------------------------------------------------------------------------------ |
-| `--since DURATION` | Only notes whose `af_completed_at` is within DURATION (e.g. `30d`, `90d`)      |
+| `--since DURATION` | Only notes whose `af_completed_at` is within DURATION. Grammar defined in ADR-056 §"Duration grammar" — supports `Nd`/`Nw` shorthand on top of stdlib `time.ParseDuration`. Examples: `30d`, `4w`, `90d`, `5h30m`. |
 | `--tag TAG`        | Filter by `af_tags` containing TAG; repeatable (AND semantics)                  |
 | `--search QUERY`   | Plain-text grep over note bodies (case-insensitive)                            |
 | `--ai`             | Pass selected notes to the primary agent for synthesis (see below)             |
