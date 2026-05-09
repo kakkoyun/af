@@ -27,8 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Go implementation
 
 - Added the initial Go module scaffold: `go.mod`, `cmd/af/`, the planned
-  `internal/...` package tree, and `examples/` placeholders. The binary is
-  scaffold-only until the cobra command tree lands in TODO item I0.2.
+  `internal/...` package tree, and `examples/` placeholders.
+- Added the minimal cobra root command with persistent `--verbose`,
+  `--config`, and `--session` flags plus `af version` backed by
+  `internal/version` build metadata.
 
 ### Removed
 

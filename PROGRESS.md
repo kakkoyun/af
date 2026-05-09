@@ -162,3 +162,50 @@ module scaffold while preserving the Rust v0 tree as read-only reference.
 Continue with `TODO.md` item I0.2: add the minimal cobra root command,
 persistent root flags, `af version`, and `internal/version` build-info
 wiring.
+
+---
+
+## 2026-05-09 — Session 3: cobra root + version
+
+### Goal
+
+Complete I0.2 by replacing the scaffold-only entrypoint with the minimal
+cobra root command, persistent root flags, `af version`, and build-info
+wiring from ADR-035 and ADR-053.
+
+### Done
+
+- Added the approved cobra dependency and generated `go.sum`.
+- Added `internal/version` with link-time-overridable `Version`,
+  `Commit`, and `Date` metadata plus `version.String()`.
+- Replaced the scaffold-only `run` path with a cobra root command using
+  `ExecuteContext`, root persistent flags (`--verbose` / `-v`,
+  `--config`, `--session`), root help output, and `af version`.
+- Followed TDD: new tests first failed on the missing cobra dependency,
+  missing `internal/version`, and missing root constructors; after
+  implementation, the package tests passed.
+- Updated `TODO.md`, `CHANGELOG.md`, `README.md`, ADR-035, and ADR-053
+  implementation frontmatter.
+
+### Verification
+
+- `gofmt -l cmd/af internal` produced no output.
+- `gofumpt -l cmd/af internal` and `goimports -l -local
+  github.com/kakkoyun/af cmd/af internal` produced no output after
+  formatting.
+- `go build -o /tmp/af-scaffold ./cmd/af` passes.
+- `go test -race -count=1 ./...` passes.
+- `go vet ./...` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- `golangci-lint run` reports `0 issues`.
+
+### Notes
+
+- The pre-existing formatting-only diff in
+  `docs/adr/037-session-metadata-schema.md` remains untouched.
+- No v0 Rust files were modified.
+
+### Next
+
+Continue with `TODO.md` item I0.3: add `.golangci.yml`, `Makefile`,
+format/lint/test/check targets, and local snapshot build targets.

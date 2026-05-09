@@ -2,9 +2,9 @@
 adr: 053
 title: "Build & Distribution — goreleaser + Make"
 status: proposed
-implementation: pending
+implementation: in-progress
 date: 2026-05-06
-last_modified: 2026-05-08
+last_modified: 2026-05-09
 supersedes: []
 superseded_by: null
 related: ["031", "034", "050", "051"]

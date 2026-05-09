@@ -5,10 +5,11 @@ stitching together the AI coding agents, terminal multiplexer, sandbox,
 and remote machines that I actually use.
 
 > **Status — v1 scaffold.** This repository is mid-rewrite. The first Go
-> scaffold now lives under `cmd/af/` and `internal/...`; product commands
-> are not implemented yet. The Rust tree (`src/`, `Cargo.toml`, etc.) is
-> **reference material only** until v1 has functional parity. See
-> [`docs/v0/README.md`](docs/v0/README.md) for the v0 archive.
+> scaffold now lives under `cmd/af/` and `internal/...`; root help and
+> `af version` are implemented, while product workstream commands are not
+> yet. The Rust tree (`src/`, `Cargo.toml`, etc.) is **reference material
+> only** until v1 has functional parity. See [`docs/v0/README.md`](docs/v0/README.md)
+> for the v0 archive.
 
 ## What it does
 
@@ -45,7 +46,8 @@ up later as if nothing happened.
 ## Planned commands
 
 ADR-035 is the authoritative CLI contract; the table below is the
-user-facing summary kept consistent with it.
+user-facing summary kept consistent with it. Currently implemented:
+`af --help` and `af version`.
 
 ```
 # Lifecycle
@@ -125,9 +127,8 @@ go install github.com/kakkoyun/af@latest
 git clone https://github.com/kakkoyun/af && cd af && make install
 ```
 
-Neither command is useful yet — the scaffold binary only reports that the
-cobra command tree lands in TODO item I0.2. The documentation is the
-contract while implementation proceeds.
+Only `af --help` and `af version` are useful today. The remaining command
+surface is still planned and will land in TODO order.
 
 ## License
 

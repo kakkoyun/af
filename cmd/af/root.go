@@ -1,0 +1,48 @@
+package main
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+)
+
+type rootOptions struct {
+	verbose     bool
+	configPath  string
+	sessionName string
+}
+
+func newRootCmd() *cobra.Command {
+	return newRootCmdWithOptions(&rootOptions{})
+}
+
+func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:           "af",
+		Short:         "Manage isolated AI-agent workstreams",
+		Long:          "af manages isolated AI-agent workstreams across git worktrees, tmux, sandboxes, and remote hosts.",
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if _, err := fmt.Fprint(cmd.OutOrStdout(), cmd.UsageString()); err != nil {
+				return fmt.Errorf("show help: %w", err)
+			}
+			return nil
+		},
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			if err := cmd.Context().Err(); err != nil {
+				return fmt.Errorf("prepare af command: %w", err)
+			}
+			return nil
+		},
+	}
+
+	flags := cmd.PersistentFlags()
+	flags.BoolVarP(&opts.verbose, "verbose", "v", false, "enable verbose diagnostic logging")
+	flags.StringVar(&opts.configPath, "config", "", "path to an af config file")
+	flags.StringVar(&opts.sessionName, "session", "", "target a specific workstream session")
+
+	cmd.AddCommand(newVersionCmd())
+
+	return cmd
+}

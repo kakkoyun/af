@@ -117,7 +117,7 @@ No product feature work until this stage is green.
 - [x] I0.1: ADR-034 — create the Go module scaffold (`go.mod`,
   `cmd/af/`, `internal/...`, `examples/`), preserving the v0 Rust tree as
   read-only reference.
-- [ ] I0.2: ADR-035 + ADR-053 — add a minimal cobra root command,
+- [x] I0.2: ADR-035 + ADR-053 — add a minimal cobra root command,
   persistent root flags, `af version`, and `internal/version` build-info
   wiring.
 - [ ] I0.3: ADR-050 + ADR-053 — add `.golangci.yml`, `Makefile`,
