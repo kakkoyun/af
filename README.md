@@ -4,11 +4,11 @@
 stitching together the AI coding agents, terminal multiplexer, sandbox,
 and remote machines that I actually use.
 
-> **Status — v1 scaffold.** This repository is mid-rewrite. The first Go
-> scaffold now lives under `cmd/af/` and `internal/...`; root help and
+> **Status — v1 scaffold.** This repository is mid-rewrite. The Go
+> scaffold lives under `cmd/af/` and `internal/...`; root help and
 > `af version` are implemented, while product workstream commands are not
-> yet. The Rust tree (`src/`, `Cargo.toml`, etc.) is **reference material
-> only** until v1 has functional parity. See [`docs/v0/README.md`](docs/v0/README.md)
+> yet. The Rust v0 source/tooling has been removed so the rewrite stays
+> focused. See [`docs/v0/README.md`](docs/v0/README.md) and git history
 > for the v0 archive.
 
 ## What it does
@@ -100,9 +100,9 @@ af version
 
 ## v0 → v1 boundary
 
-- **v0** (Rust, `src/`, `Cargo.toml`, `justfile`, etc.) is in this tree as reference. **Do not modify.** It will be removed once v1 has parity.
-- **v1** (Go) lives under `cmd/af/` and `internal/...` (paths to be created during implementation). Documentation is under `docs/`.
-- All v0 design history is at [`docs/v0/`](docs/v0/) (30 ADRs, full SPEC, full PLAN, eleven-session PROGRESS log).
+- **v0** (Rust source, Cargo files, `justfile`, and Rust tool configs) has been removed from the working tree at the start of implementation.
+- **v1** (Go) lives under `cmd/af/` and `internal/...`. Documentation is under `docs/`.
+- All v0 design history is at [`docs/v0/`](docs/v0/) (30 ADRs, full SPEC, full PLAN, eleven-session PROGRESS log); deleted source remains available through git history.
 
 ## Documentation
 

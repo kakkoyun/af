@@ -1,6 +1,0 @@
-doc-valid-idents = [
-    "CLI",
-    "GitHub",
-    "macOS",
-    "..",
-]

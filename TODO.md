@@ -115,11 +115,13 @@ Tracking rules for every item below:
 No product feature work until this stage is green.
 
 - [x] I0.1: ADR-034 — create the Go module scaffold (`go.mod`,
-  `cmd/af/`, `internal/...`, `examples/`), preserving the v0 Rust tree as
-  read-only reference.
+  `cmd/af/`, `internal/...`, `examples/`).
 - [x] I0.2: ADR-035 + ADR-053 — add a minimal cobra root command,
   persistent root flags, `af version`, and `internal/version` build-info
   wiring.
+- [x] I0.2a: User override — remove the Rust v0 source/tooling tree
+  (`src/`, `tests/`, Cargo files, `justfile`, and Rust tool configs) at
+  rewrite start; rely on `docs/v0/` and git history for reference.
 - [ ] I0.3: ADR-050 + ADR-053 — add `.golangci.yml`, `Makefile`,
   `gofumpt`, `goimports`, `make fmt-check`, `make lint`, `make test`,
   `make check`, and local snapshot build targets.
@@ -279,9 +281,10 @@ This stage should not add broad new feature surface.
   smoke plan for real tmux/ssh/sandbox paths.
 - [ ] I8.3: Update README, CHANGELOG, Godoc, ADR implementation
   frontmatter, TODO, and PROGRESS for all completed v1 behaviour.
-- [ ] I8.4: Remove the Rust v0 source tree (`src/`, `tests/`,
-  `Cargo.toml`, `Cargo.lock`, `justfile`, Rust tool configs) in one
-  final cleanup commit after Go v1 functional parity is verified.
+- [x] I8.4: Remove the Rust v0 source tree (`src/`, `tests/`,
+  `Cargo.toml`, `Cargo.lock`, `justfile`, Rust tool configs). Completed
+  early during Stage 0 by explicit user override; no final v0 source
+  cleanup remains.
 
 ---
 

@@ -5,9 +5,11 @@ Ground rules for every agent (human or AI) working on this project.
 the constitution and [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) for
 file-ownership and subagent dispatch protocol.
 
-> **v0 boundary.** The Rust source tree (`src/`, `Cargo.toml`, `justfile`,
-> etc.) is reference material only. Do not modify it. v1 implementation
-> goes under `cmd/af/` and `internal/...`.
+> **v0 boundary.** The Rust source/tooling tree (`src/`, `tests/`,
+> `Cargo.toml`, `justfile`, etc.) was removed at the start of the Go
+> rewrite. v0 documentation remains frozen under `docs/v0/`, and deleted
+> source is available through git history. v1 implementation goes under
+> `cmd/af/` and `internal/...`.
 
 ---
 

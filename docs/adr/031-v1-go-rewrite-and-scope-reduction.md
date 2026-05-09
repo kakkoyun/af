@@ -2,9 +2,9 @@
 adr: 031
 title: "v1: Migration to Go + Scope Reduction"
 status: proposed
-implementation: pending
+implementation: in-progress
 date: 2026-05-06
-last_modified: 2026-05-08
+last_modified: 2026-05-09
 supersedes: []
 superseded_by: null
 related: ["032", "033", "034", "043", "049", "053"]
@@ -41,10 +41,10 @@ a different language. This ADR draws the boundary.
 This is the **master ADR for v1**. It establishes:
 
 1. **v1 is a Go rewrite.** No Rust toolchain, no `Cargo.toml`. The Rust
-   source tree (`src/`, `Cargo.*`, `clippy.toml`, `deny.toml`,
-   `rust-toolchain.toml`, `rustfmt.toml`, `.cargo/`, `justfile`) stays
-   in-tree as **read-only reference** until v1 has functional parity,
-   then is removed in a single commit. v0 remains accessible via git
+   source/tooling tree (`src/`, `tests/`, `Cargo.*`, `clippy.toml`,
+   `deny.toml`, `rust-toolchain.toml`, `rustfmt.toml`, `.cargo/`,
+   `justfile`) is removed from the working tree at rewrite start so v1
+   work stays focused. v0 remains accessible via `docs/v0/` and git
    history.
 
 2. **No release.** Single user. Install via `go install` or
@@ -104,7 +104,7 @@ This is the **master ADR for v1**. It establishes:
 | Superterm notification integration                          | **Dropped**                                                      | Not used by the owner currently                             |
 | `af export`, `af stats`                                     | **Dropped**                                                      | Niche; `jq` over `ledger.jsonl` is enough                   |
 | mdBook user guide                                           | **Dropped**                                                      | Single-user; no audience                                    |
-| Rust toolchain (`Cargo.toml` etc.)                          | **Removed after parity**                                         | Replaced by `go.mod`, `Makefile`                            |
+| Rust source/tooling (`src/`, `tests/`, `Cargo.toml`, etc.)   | **Removed at rewrite start**                                     | Replaced by Go tree; reference remains in git history        |
 | `justfile`                                                  | **Replaced by `Makefile`** (ADR-053)                             | Standard Go convention                                      |
 
 ### New components in v1
@@ -124,7 +124,8 @@ This is the **master ADR for v1**. It establishes:
 2. v1 ADRs 031–053 land (this commit and 22 others).
 3. Implementation proceeds per `docs/PLAN.md` ADR-dependency stages.
 4. Each ADR's `implementation` frontmatter advances `pending → in-progress → complete` as Go code lands.
-5. When ADRs 034–048 are all `implementation: complete`, the Rust source tree is removed in a single commit.
+5. The Rust source/tooling tree is removed once the Go scaffold exists,
+   by explicit user override, before feature implementation continues.
 
 There is no "v0 to v1 data migration." `af` was unreleased; the owner
 will `af done --force` any active v0 workstreams before running the
@@ -133,7 +134,8 @@ new v1 binary.
 ## Consequences
 
 - The Go tree starts truly fresh — no compatibility shim from v0 schemas.
-- Removing `src/` later is a pure-deletion commit, easy to rollback via `git revert`.
+- Removing `src/` early keeps searches, linting, and agent context focused
+  on v1; rollback remains a normal `git revert` if needed.
 - Adding a runtime dep is a deliberate ADR-amending act, not a casual `go get`.
 - The 30 v0 ADRs remain useful for "how did we think about X?" but never as runtime authority.
 - Single-user constraint avoids release engineering overhead. If v1 escapes that scope later, ADR-053 will be amended.

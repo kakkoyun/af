@@ -81,7 +81,7 @@ The ADR dependency graph dictates the order:
 | **Remote & sandbox** | `--remote`, `--sandbox`, secret management                                      | 041, 042, 049                |
 | **Proxies**          | `editor`, `diff`, `pr --ai`                                                     | 048, 057                     |
 | **Polish**           | Formal verification experiments                                                 | 052                          |
-| **v0 retirement**    | Remove `src/`, `Cargo.toml`, `justfile`, etc.                                   | (no ADR; one-line commit)    |
+| **v0 retirement**    | Rust source/tooling removed early at rewrite start by user override.            | ADR-031                      |
 
 This sequence is descriptive, not prescriptive. The concrete execution
 order is maintained in `TODO.md`, with static checks and the test

@@ -209,3 +209,55 @@ wiring from ADR-035 and ADR-053.
 
 Continue with `TODO.md` item I0.3: add `.golangci.yml`, `Makefile`,
 format/lint/test/check targets, and local snapshot build targets.
+
+---
+
+## 2026-05-09 — Session 4: remove Rust v0 source/tooling
+
+### Goal
+
+Honor the user's explicit override to remove the Rust v0 source/tooling
+now that the Go rewrite has started, instead of keeping it in-tree until
+parity.
+
+### Done
+
+- Removed tracked Rust-era source and tests (`src/`, `tests/`).
+- Removed Rust-era tooling/config (`Cargo.toml`, `Cargo.lock`,
+  `.cargo/`, `clippy.toml`, `deny.toml`, `rust-toolchain.toml`,
+  `rustfmt.toml`, `justfile`) and the local `target/` build output.
+- Updated `README.md`, `AGENTS.md`, `CLAUDE.md`, `docs/CONVENTIONS.md`,
+  `docs/PLAN.md`, ADR-031, `CHANGELOG.md`, and `TODO.md` so the project
+  no longer tells agents to preserve a Rust working tree.
+
+### Verification
+
+- Checked that stale "keep Rust read-only until parity" wording is gone
+  from active project docs.
+- Confirmed `.cargo/`, `Cargo.toml`, `Cargo.lock`, `clippy.toml`,
+  `deny.toml`, `rust-toolchain.toml`, `rustfmt.toml`, `justfile`, `src/`,
+  `tests/`, and `target/` no longer exist in the working tree.
+- `gofmt -l cmd/af internal` produced no output.
+- `gofumpt -l cmd/af internal` and `goimports -l -local
+  github.com/kakkoyun/af cmd/af internal` produced no output.
+- `go build -o /tmp/af-scaffold ./cmd/af` passes.
+- `go test -race -count=1 ./...` passes.
+- `go vet ./...` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- `golangci-lint run` reports `0 issues`.
+
+### Notes
+
+- The previous read-only stance came from the project constitution,
+  AGENTS/CLAUDE guidance, ADR-031, and TODO I8.4. The user explicitly
+  superseded that plan to keep the rewrite focused and avoid Rust files
+  slowing searches/lint/context.
+- `docs/v0/**` remains the frozen v0 documentation archive; deleted Rust
+  source remains available through git history.
+- The pre-existing formatting-only diff in
+  `docs/adr/037-session-metadata-schema.md` remains untouched.
+
+### Next
+
+Continue with `TODO.md` item I0.3: add `.golangci.yml`, `Makefile`,
+format/lint/test/check targets, and local snapshot build targets.

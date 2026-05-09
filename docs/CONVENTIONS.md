@@ -163,10 +163,12 @@ The package interfaces (`internal/agent/agent.go`, `internal/mux/mux.go`,
 
 ### v0 reference tree
 
-`src/`, `tests/`, `Cargo.toml`, `Cargo.lock`, `clippy.toml`, `deny.toml`,
-`rust-toolchain.toml`, `rustfmt.toml`, `.cargo/`, `target/`, `justfile`
-are **read-only**. No agent — lead or subagent — may modify them. They
-will be removed in a single commit once Go has functional parity.
+The Rust v0 source/tooling tree (`src/`, `tests/`, `Cargo.toml`,
+`Cargo.lock`, `clippy.toml`, `deny.toml`, `rust-toolchain.toml`,
+`rustfmt.toml`, `.cargo/`, `target/`, `justfile`) has been removed from
+the working tree at the start of the Go rewrite by explicit user
+direction. Use `docs/v0/` and git history for reference. Do not resurrect
+Rust-era files unless the user explicitly asks.
 
 ---
 

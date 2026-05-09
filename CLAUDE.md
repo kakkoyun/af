@@ -7,9 +7,10 @@ stitching together AI coding agents, tmux, sandboxes, and remote machines.
 Owner: @kakkoyun. Single-module Go project, MSRV pinned in `go.mod` once
 toolchain lands.
 
-**v0 (Rust) is reference material at `src/`.** It is not built and not
-modified. v1 lives at `cmd/af/` and `internal/...` once implementation
-begins. See [`docs/v0/README.md`](docs/v0/README.md) for the archive.
+**v0 (Rust) source/tooling has been removed from the working tree.** v1
+lives at `cmd/af/` and `internal/...`. See
+[`docs/v0/README.md`](docs/v0/README.md) for the documentation archive;
+deleted Rust source remains available through git history.
 
 ## Constitution
 
@@ -85,12 +86,13 @@ silent `go get`.
 If blocked, record the blocker in `PROGRESS.md` and mark the TODO item
 with a note. Move on to the next task. Never silently skip work.
 
-### 10. v0 Tree Is Read-Only
+### 10. v0 Tree Is Removed
 
-`src/`, `Cargo.toml`, `Cargo.lock`, `clippy.toml`, `deny.toml`,
-`rust-toolchain.toml`, `rustfmt.toml`, `.cargo/`, `justfile` are kept
-in-tree as reference until v1 has parity. **Do not modify them.** Do
-not build them. Refer to them for behavioural questions only.
+`src/`, `tests/`, `Cargo.toml`, `Cargo.lock`, `clippy.toml`,
+`deny.toml`, `rust-toolchain.toml`, `rustfmt.toml`, `.cargo/`,
+`justfile`, and other Rust-era tooling are removed from the working tree.
+Do not resurrect them unless the user explicitly asks. For behavioural
+reference, use `docs/v0/` and git history.
 
 ## Session Start Protocol
 
@@ -102,9 +104,8 @@ Every new session, before writing any code:
 4. Verify baseline is green before making changes.
 5. Follow the TDD workflow in `AGENTS.md`.
 
-During the doc pass (no Go code yet), step 3 is reduced to "no v0
-files modified" — `git status -- src/ Cargo.toml Cargo.lock` should
-be empty.
+The Rust v0 tree has been removed; session startup no longer includes a
+v0-file modification check. Preserve `docs/v0/**` as the frozen archive.
 
 ## Documentation Hierarchy
 
@@ -135,7 +136,8 @@ make install            # go install ./cmd/af
 ```
 
 Until the `Makefile` exists, run the equivalent `go ...` commands
-directly. Do **not** run `cargo` or `just` — those target v0.
+directly. Do **not** run `cargo` or `just`; Rust-era tooling has been
+removed from v1.
 
 ## Architecture (target state, per ADRs to be written)
 

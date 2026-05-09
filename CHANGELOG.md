@@ -34,11 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-> The following items will be **explicitly removed** in v1 once Go
-> implementation begins. They are listed here as a forward-looking
-> contract, not as already-removed in this changelog entry. Each is
-> ratified in an ADR (see `docs/adr/` once written).
+> v1 removes the Rust-era implementation surface and several v0 features.
+> The v0 documentation archive remains under `docs/v0/`; deleted source
+> remains available through git history.
 
+- Rust v0 source, integration tests, Cargo files, `.cargo/`, `justfile`,
+  and Rust tool configs (`src/`, `tests/`, `Cargo.toml`, `Cargo.lock`,
+  `clippy.toml`, `deny.toml`, `rust-toolchain.toml`, `rustfmt.toml`).
 - DD Workspaces remote provider (replaced by generic SSH-host model).
 - exe.dev remote provider special-casing (subsumed by generic SSH-host model).
 - cmux multiplexer; zellij/Ghostty multiplexer scaffolding.
@@ -50,7 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - mdBook user guide.
 - `clap_complete` machinery (replaced by `cobra` completion generator).
 - `keyring`/`secrecy`/`zeroize` Rust dependencies (replaced by `zalando/go-keyring`).
-- Rust toolchain entirely (`Cargo.toml`, `Cargo.lock`, `clippy.toml`, `deny.toml`, `rust-toolchain.toml`, `rustfmt.toml`, `.cargo/`, `justfile`).
 
 ### Reduced surface (compared to v0)
 
