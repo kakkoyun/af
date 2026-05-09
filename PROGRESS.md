@@ -144,7 +144,7 @@ module scaffold while preserving the Rust v0 tree as read-only reference.
 
 - `gofmt -l cmd/af internal` produced no output after formatting.
 - `gofumpt -l cmd/af internal` and `goimports -l -local
-  github.com/kakkoyun/af cmd/af internal` produced no output.
+github.com/kakkoyun/af cmd/af internal` produced no output.
 - `go build ./cmd/af` passes.
 - `go test -race -count=1 ./...` passes.
 - `go vet ./...` passes.
@@ -191,7 +191,7 @@ wiring from ADR-035 and ADR-053.
 
 - `gofmt -l cmd/af internal` produced no output.
 - `gofumpt -l cmd/af internal` and `goimports -l -local
-  github.com/kakkoyun/af cmd/af internal` produced no output after
+github.com/kakkoyun/af cmd/af internal` produced no output after
   formatting.
 - `go build -o /tmp/af-scaffold ./cmd/af` passes.
 - `go test -race -count=1 ./...` passes.
@@ -239,7 +239,7 @@ parity.
   `tests/`, and `target/` no longer exist in the working tree.
 - `gofmt -l cmd/af internal` produced no output.
 - `gofumpt -l cmd/af internal` and `goimports -l -local
-  github.com/kakkoyun/af cmd/af internal` produced no output.
+github.com/kakkoyun/af cmd/af internal` produced no output.
 - `go build -o /tmp/af-scaffold ./cmd/af` passes.
 - `go test -race -count=1 ./...` passes.
 - `go vet ./...` passes.

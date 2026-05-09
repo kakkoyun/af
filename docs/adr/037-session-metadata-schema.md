@@ -134,26 +134,26 @@ Common fields on every event:
 
 Event types:
 
-| Event | Required fields | Description |
-|---|---|---|
-| `session_created` | `mode`, `branch`, `base_branch`, `agents` (initial slot list), `af_version` | `af create` |
-| `session_suspended` | `active_slots` | `af suspend` |
-| `session_resumed` | `recovery` (`"warm"` if tmux still alive, `"cold"` if rehydrating from disk) | `af resume` |
-| `session_completed` | `duration_seconds` | `af done` clean; when triggered by `af clean`, also carries `reaped_by: "af clean"` and `merge_detection: <strategy>` |
-| `session_abandoned` | `reason`, `duration_seconds` | `af done --force` on unmerged |
-| `agent_launched` | `slot`, `agent`, `session_id`, `pane`, `cmd` | New agent process started |
-| `agent_added` | `slot`, `agent`, `pane`, `cmd` | `af agent add` |
-| `agent_resumed` | `slot`, `agent`, `cmd` | Agent re-attached |
-| `agent_stopped` | `slot`, `agent`, `reason` | `af agent stop` or session teardown |
-| `agent_crashed` | `slot`, `agent`, `exit_code` | Detected non-zero exit |
-| `pr_opened` | `number`, `url` | `af pr` or detection |
-| `pr_merged` | `number` | Detection on `af done` |
-| `pr_closed` | `number` | Detection on `af done` |
-| `error` | `op`, `message` | Recoverable error logged for diagnostics |
-| `stack_linked` | `parent_session`, `parent_branch` | `af stack --parent` |
-| `stack_unlinked` | (none) | `af unstack` |
-| `stack_reparented` | `old_parent`, `new_parent`, `via` (`pr-state` \| `ancestry` \| `squash-fingerprint`) | Auto-reparent on parent merge during `af sync` |
-| `synced` | `target` (parent or trunk branch) | `af sync` succeeded |
+| Event               | Required fields                                                                      | Description                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `session_created`   | `mode`, `branch`, `base_branch`, `agents` (initial slot list), `af_version`          | `af create`                                                                                                           |
+| `session_suspended` | `active_slots`                                                                       | `af suspend`                                                                                                          |
+| `session_resumed`   | `recovery` (`"warm"` if tmux still alive, `"cold"` if rehydrating from disk)         | `af resume`                                                                                                           |
+| `session_completed` | `duration_seconds`                                                                   | `af done` clean; when triggered by `af clean`, also carries `reaped_by: "af clean"` and `merge_detection: <strategy>` |
+| `session_abandoned` | `reason`, `duration_seconds`                                                         | `af done --force` on unmerged                                                                                         |
+| `agent_launched`    | `slot`, `agent`, `session_id`, `pane`, `cmd`                                         | New agent process started                                                                                             |
+| `agent_added`       | `slot`, `agent`, `pane`, `cmd`                                                       | `af agent add`                                                                                                        |
+| `agent_resumed`     | `slot`, `agent`, `cmd`                                                               | Agent re-attached                                                                                                     |
+| `agent_stopped`     | `slot`, `agent`, `reason`                                                            | `af agent stop` or session teardown                                                                                   |
+| `agent_crashed`     | `slot`, `agent`, `exit_code`                                                         | Detected non-zero exit                                                                                                |
+| `pr_opened`         | `number`, `url`                                                                      | `af pr` or detection                                                                                                  |
+| `pr_merged`         | `number`                                                                             | Detection on `af done`                                                                                                |
+| `pr_closed`         | `number`                                                                             | Detection on `af done`                                                                                                |
+| `error`             | `op`, `message`                                                                      | Recoverable error logged for diagnostics                                                                              |
+| `stack_linked`      | `parent_session`, `parent_branch`                                                    | `af stack --parent`                                                                                                   |
+| `stack_unlinked`    | (none)                                                                               | `af unstack`                                                                                                          |
+| `stack_reparented`  | `old_parent`, `new_parent`, `via` (`pr-state` \| `ancestry` \| `squash-fingerprint`) | Auto-reparent on parent merge during `af sync`                                                                        |
+| `synced`            | `target` (parent or trunk branch)                                                    | `af sync` succeeded                                                                                                   |
 
 Slot-scoped events always carry `slot` and `agent` to disambiguate
 multi-agent workstreams.
@@ -223,7 +223,7 @@ ADR-038 specifies the symlink mechanics.
 - The two-layer model (live state + event log) gives both a quick "what
   is the workstream right now?" and a "what happened?" trail.
 - `flock` ensures multi-process safety for `af list` running while `af
-  create` writes.
+create` writes.
 - Atomic `state.toml` writes prevent half-written files surviving
   crashes.
 - Schema versioning gives a migration path without breaking old data.

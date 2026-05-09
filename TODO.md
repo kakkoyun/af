@@ -115,67 +115,67 @@ Tracking rules for every item below:
 No product feature work until this stage is green.
 
 - [x] I0.1: ADR-034 — create the Go module scaffold (`go.mod`,
-  `cmd/af/`, `internal/...`, `examples/`).
+      `cmd/af/`, `internal/...`, `examples/`).
 - [x] I0.2: ADR-035 + ADR-053 — add a minimal cobra root command,
-  persistent root flags, `af version`, and `internal/version` build-info
-  wiring.
+      persistent root flags, `af version`, and `internal/version` build-info
+      wiring.
 - [x] I0.2a: User override — remove the Rust v0 source/tooling tree
-  (`src/`, `tests/`, Cargo files, `justfile`, and Rust tool configs) at
-  rewrite start; rely on `docs/v0/` and git history for reference.
+      (`src/`, `tests/`, Cargo files, `justfile`, and Rust tool configs) at
+      rewrite start; rely on `docs/v0/` and git history for reference.
 - [ ] I0.3: ADR-050 + ADR-053 — add `.golangci.yml`, `Makefile`,
-  `gofumpt`, `goimports`, `make fmt-check`, `make lint`, `make test`,
-  `make check`, and local snapshot build targets.
+      `gofumpt`, `goimports`, `make fmt-check`, `make lint`, `make test`,
+      `make check`, and local snapshot build targets.
 - [ ] I0.4: ADR-051 — add the test scaffold: `testscript` harness,
-  `cmd/af/testdata/script/`, fake external-command hooks, package
-  `testutil` helpers, and baseline smoke scripts for `af version` /
-  `af --help`.
+      `cmd/af/testdata/script/`, fake external-command hooks, package
+      `testutil` helpers, and baseline smoke scripts for `af version` /
+      `af --help`.
 - [ ] I0.5: ADR-052 — add the property-test scaffold for lifecycle and
-  naming invariants without enabling formal verification as a release
-  gate.
+      naming invariants without enabling formal verification as a release
+      gate.
 - [ ] I0.6: Baseline verification — `make check` passes on the scaffold;
-  update `PROGRESS.md` with the first green baseline.
+      update `PROGRESS.md` with the first green baseline.
 
 ### Implementation Stage 1 — Pure foundations and durable state
 
 These packages are mostly pure or fake-backed. They unblock all commands.
 
 - [ ] I1.1: ADR-036 — implement layered TOML config loading, schema
-  defaults, global-only sections, `~` expansion, proxy command config
-  shapes, and config tests.
+      defaults, global-only sections, `~` expansion, proxy command config
+      shapes, and config tests.
 - [ ] I1.2: ADR-056 + ADR-058 — implement the shared duration grammar
-  (`d`/`w` plus stdlib duration units) with table and property tests.
+      (`d`/`w` plus stdlib duration units) with table and property tests.
 - [ ] I1.3: ADR-038 + ADR-039 — implement naming, branch-prefix rules,
-  session-name sanitization, sub-branch naming, and UUID/session-ID
-  derivation.
+      session-name sanitization, sub-branch naming, and UUID/session-ID
+      derivation.
 - [ ] I1.4: ADR-037 — implement `state.toml` and `ledger.jsonl`
-  read/write, atomic writes, flock locking, schema version checks,
-  derived `last_touched_at`, `repo_slug`, and current-workstream
-  discovery.
+      read/write, atomic writes, flock locking, schema version checks,
+      derived `last_touched_at`, `repo_slug`, and current-workstream
+      discovery.
 - [ ] I1.5: ADR-038 — implement local worktree path planning,
-  `.af/state.toml` symlink handling, sub-worktree path planning, and git
-  cleanup planning.
+      `.af/state.toml` symlink handling, sub-worktree path planning, and git
+      cleanup planning.
 - [ ] I1.6: ADR-049 — implement secret redaction handler and the keyring
-  interface with fakes; keep envelope transport disabled until remote /
-  sandbox stages.
+      interface with fakes; keep envelope transport disabled until remote /
+      sandbox stages.
 - [ ] I1.7: ADR-047 — implement Obsidian frontmatter parse/emit helpers
-  and note path resolution, fake-backed and without command integration.
+      and note path resolution, fake-backed and without command integration.
 
 ### Implementation Stage 2 — External system interfaces and fakes
 
 This stage creates every seam before commands depend on real tools.
 
 - [ ] I2.1: ADR-043 — implement `internal/agent.Agent`, `BodyCmd`,
-  provider registry, fake provider, and availability checks for `pi`,
-  `claude`, and `codex`.
+      provider registry, fake provider, and availability checks for `pi`,
+      `claude`, and `codex`.
 - [ ] I2.2: ADR-040 — implement `internal/mux.Multiplexer`, fake mux,
-  and tmux command construction with tests that do not require real tmux.
+      and tmux command construction with tests that do not require real tmux.
 - [ ] I2.3: ADR-041 — implement SSH remote command construction,
-  remote path mapping, and fake remote executor.
+      remote path mapping, and fake remote executor.
 - [ ] I2.4: ADR-042 — implement sandbox provider interfaces, fake
-  sandbox, and slicer/sbx command construction.
+      sandbox, and slicer/sbx command construction.
 - [ ] I2.5: ADR-051 — wire all command-facing code to fakes in tests;
-  no unit or testscript path may require real tmux, ssh, slicer, sbx, or
-  agent CLIs.
+      no unit or testscript path may require real tmux, ssh, slicer, sbx, or
+      agent CLIs.
 
 ### Implementation Stage 3 — Utility commands before workstreams
 
@@ -184,14 +184,14 @@ These commands validate the scaffold without creating workstreams.
 - [ ] I3.1: ADR-036 — implement `af config init` and `af config show`.
 - [ ] I3.2: ADR-035 + ADR-045 — implement `af completions <shell>`.
 - [ ] I3.3: ADR-044 — implement local `af doctor` using the interface
-  probes and install-hint rendering.
+      probes and install-hint rendering.
 - [ ] I3.4: ADR-041 + ADR-044 — implement `af doctor --remote <host>`
-  with fake-backed SSH probes.
+      with fake-backed SSH probes.
 - [ ] I3.5: ADR-045 + ADR-049 — implement `af setup`: state directory
-  creation, config init, global gitignore update, completion install,
-  secrets directory creation, and Obsidian vault hint.
+      creation, config init, global gitignore update, completion install,
+      secrets directory creation, and Obsidian vault hint.
 - [ ] I3.6: ADR-049 — implement `af auth set|get|status|clear|list`
-  against the keyring interface, including TTY/redaction behaviour.
+      against the keyring interface, including TTY/redaction behaviour.
 
 ### Implementation Stage 4 — Local workstream MVP
 
@@ -199,38 +199,38 @@ First feature slice: local-only, no remote, no sandbox, one primary
 agent. This proves config, state, git, mux, and agent seams together.
 
 - [ ] I4.1: ADR-038 + ADR-039 — implement local `af create [name]`
-  with branch/worktree creation, state/ledger creation, note creation,
-  tmux session creation, and primary-agent launch.
+      with branch/worktree creation, state/ledger creation, note creation,
+      tmux session creation, and primary-agent launch.
 - [ ] I4.2: ADR-037 + ADR-035 — implement `af list` as a read-only view
-  over active/suspended local workstreams.
+      over active/suspended local workstreams.
 - [ ] I4.3: ADR-055 — implement `af info [session] [--json] [--ledger N]`
-  using state + ledger tail only.
+      using state + ledger tail only.
 - [ ] I4.4: ADR-039 — implement `af agent list`, then `af agent add`,
-  then `af agent stop`, including sub-worktree creation/removal.
+      then `af agent stop`, including sub-worktree creation/removal.
 - [ ] I4.5: ADR-038 + ADR-046 — implement local `af done [session]`
-  and `af done --force` with worktree/sub-worktree cleanup, archive move,
-  ledger events, and Obsidian status updates.
+      and `af done --force` with worktree/sub-worktree cleanup, archive move,
+      ledger events, and Obsidian status updates.
 - [ ] I4.6: ADR-035 — implement `af session-branch` for ad-hoc work in
-  the current checkout.
+      the current checkout.
 
 ### Implementation Stage 5 — Lifecycle, notes, cleanup, and stacking
 
 These build on the local MVP and should remain fake-backed in tests.
 
 - [ ] I5.1: ADR-046 — implement local `af suspend` and warm/cold
-  `af resume`, including per-slot resume and crash reconciliation.
+      `af resume`, including per-slot resume and crash reconciliation.
 - [ ] I5.2: ADR-047 — implement `af note [session]` and
-  `af note --append TEXT`, including fallback editor behaviour.
+      `af note --append TEXT`, including fallback editor behaviour.
 - [ ] I5.3: ADR-056 — implement reusable merge detection
-  (`pr-state`, ancestry, squash fingerprint) as an internal service.
+      (`pr-state`, ancestry, squash fingerprint) as an internal service.
 - [ ] I5.4: ADR-056 — implement `af clean` with dry-run,
-  include-abandoned, max-age, force-by-name, archive, and Obsidian
-  updates.
+      include-abandoned, max-age, force-by-name, archive, and Obsidian
+      updates.
 - [ ] I5.5: ADR-059 — implement `af stack`, `af unstack`, and `af sync`
-  using the reusable merge-detection contract.
+      using the reusable merge-detection contract.
 - [ ] I5.6: ADR-054 — implement `af status [--json] [--all]
-  [--filter STATE]`, including stack suffixes, `repo_slug` handling,
-  bounded `gh` fan-out, and stable JSON.
+[--filter STATE]`, including stack suffixes, `repo_slug` handling,
+      bounded `gh` fan-out, and stable JSON.
 
 ### Implementation Stage 6 — Remote, sandbox, and secret transport
 
@@ -238,16 +238,16 @@ Do this after the local lifecycle is solid; it composes the same state
 and command paths with remote/sandbox execution.
 
 - [ ] I6.1: ADR-049 — implement ephemeral envelope creation,
-  source-and-delete wrappers, lazy stale-envelope sweep, and tests for
-  redaction/no-secret-in-state invariants.
+      source-and-delete wrappers, lazy stale-envelope sweep, and tests for
+      redaction/no-secret-in-state invariants.
 - [ ] I6.2: ADR-041 — implement `af create --remote`, remote clone/path
-  setup, remote tmux launch, `af resume` attach, and remote teardown.
+      setup, remote tmux launch, `af resume` attach, and remote teardown.
 - [ ] I6.3: ADR-042 — implement `af create --sandbox`, sandbox launch,
-  health check, teardown, and `--respawn`.
+      health check, teardown, and `--respawn`.
 - [ ] I6.4: ADR-041 + ADR-042 + ADR-049 — compose
-  `--remote --sandbox` with remote-side envelope transport and teardown.
+      `--remote --sandbox` with remote-side envelope transport and teardown.
 - [ ] I6.5: ADR-046 — extend suspend/resume/done/clean tests across
-  local, remote, sandbox, and remote+sandbox modes using fakes.
+      local, remote, sandbox, and remote+sandbox modes using fakes.
 
 ### Implementation Stage 7 — Proxy commands, PR AI, and retrospectives
 
@@ -255,36 +255,36 @@ These are deliberately late because they depend on config, state,
 Obsidian notes, agent `BodyCmd`, and local/stack base resolution.
 
 - [ ] I7.1: ADR-048 — implement `af editor [--terminal|--visual]
-  [session]`, including remote URL fallback.
+[session]`, including remote URL fallback.
 - [ ] I7.2: ADR-048 + ADR-059 — implement `af diff [session]
-  [--base REF]`, argv-vs-shell parsing, token interpolation, and stacked
-  base defaults.
+[--base REF]`, argv-vs-shell parsing, token interpolation, and stacked
+      base defaults.
 - [ ] I7.3: ADR-048 — implement base `af pr [session] [--title]
-  [--draft] [--web]`, push-if-needed, PR metadata detection, state
-  update, ledger event, and Obsidian PR fields.
+[--draft] [--web]`, push-if-needed, PR metadata detection, state
+      update, ledger event, and Obsidian PR fields.
 - [ ] I7.4: ADR-057 — implement `af pr --ai` and `--ai-model` using
-  primary-agent `BodyCmd`, body prompt construction, `flag_template.body`,
-  empty-diff/empty-body errors, and `--web` incompatibility.
+      primary-agent `BodyCmd`, body prompt construction, `flag_template.body`,
+      empty-diff/empty-body errors, and `--web` incompatibility.
 - [ ] I7.5: ADR-058 — implement `af retro` filters (`--since`, `--tag`,
-  `--search`, `--limit`) over archived notes.
+      `--search`, `--limit`) over archived notes.
 - [ ] I7.6: ADR-058 + ADR-057 — implement `af retro --ai` using
-  `BodyCmd` with `BodyOpts.Cwd = ""`.
+      `BodyCmd` with `BodyOpts.Cwd = ""`.
 
 ### Implementation Stage 8 — Hardening, verification, and v0 retirement
 
 This stage should not add broad new feature surface.
 
 - [ ] I8.1: ADR-052 — add lifecycle state-machine property tests and
-  document any invariants worth carrying into optional TLA+.
+      document any invariants worth carrying into optional TLA+.
 - [ ] I8.2: ADR-050 + ADR-051 + ADR-053 — run full quality pass:
-  coverage review, `make check`, cross-compile snapshot, and manual
-  smoke plan for real tmux/ssh/sandbox paths.
+      coverage review, `make check`, cross-compile snapshot, and manual
+      smoke plan for real tmux/ssh/sandbox paths.
 - [ ] I8.3: Update README, CHANGELOG, Godoc, ADR implementation
-  frontmatter, TODO, and PROGRESS for all completed v1 behaviour.
+      frontmatter, TODO, and PROGRESS for all completed v1 behaviour.
 - [x] I8.4: Remove the Rust v0 source tree (`src/`, `tests/`,
-  `Cargo.toml`, `Cargo.lock`, `justfile`, Rust tool configs). Completed
-  early during Stage 0 by explicit user override; no final v0 source
-  cleanup remains.
+      `Cargo.toml`, `Cargo.lock`, `justfile`, Rust tool configs). Completed
+      early during Stage 0 by explicit user override; no final v0 source
+      cleanup remains.
 
 ---
 

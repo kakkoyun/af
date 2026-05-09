@@ -104,7 +104,7 @@ This is the **master ADR for v1**. It establishes:
 | Superterm notification integration                          | **Dropped**                                                      | Not used by the owner currently                             |
 | `af export`, `af stats`                                     | **Dropped**                                                      | Niche; `jq` over `ledger.jsonl` is enough                   |
 | mdBook user guide                                           | **Dropped**                                                      | Single-user; no audience                                    |
-| Rust source/tooling (`src/`, `tests/`, `Cargo.toml`, etc.)   | **Removed at rewrite start**                                     | Replaced by Go tree; reference remains in git history        |
+| Rust source/tooling (`src/`, `tests/`, `Cargo.toml`, etc.)  | **Removed at rewrite start**                                     | Replaced by Go tree; reference remains in git history       |
 | `justfile`                                                  | **Replaced by `Makefile`** (ADR-053)                             | Standard Go convention                                      |
 
 ### New components in v1
