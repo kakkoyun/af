@@ -88,4 +88,32 @@ proposal during Stage D:
 ### Next session
 
 Continue Stage B (TODO.md, README.md, CLAUDE+AGENTS.md), then Stage C
-(SPEC, PLAN, CONVENTIONS), then Stage D (23 ADRs).
+(SPEC, PLAN, CONVENTIONS), then Stage D (ADRs 031-059).
+
+---
+
+## 2026-05-08 — Session 1: implementation DAG captured
+
+### Goal
+
+Turn the settled v1 ADR set into an implementation checklist that can be
+worked from `TODO.md`, with static checks and test scaffolding before
+feature work.
+
+### Done
+
+- Replaced the placeholder post-doc-pass section in `TODO.md` with a
+  topologically sorted implementation plan for ADRs 034–059.
+- Front-loaded Go scaffold, lint, format, build, and test harness setup
+  before user-facing feature commands.
+- Grouped later work into dependency-ordered stages: foundations,
+  external-system fakes, utility commands, local workstream MVP,
+  lifecycle/cleanup/stacking, remote/sandbox/secrets, proxies/AI/retro,
+  and final hardening/v0 retirement.
+- Updated `docs/PLAN.md` so it points to `TODO.md` as the operational
+  checklist instead of saying no implementation phase artifact exists.
+
+### Next
+
+Start with `TODO.md` item I0.1: scaffold the Go module and package tree
+from ADR-034 while keeping the v0 Rust tree read-only.

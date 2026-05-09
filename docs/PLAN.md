@@ -55,10 +55,12 @@ useful binary (`af version`, `af list`). Ring 2 is **commands** that
 exercise the foundation. Ring 3 is **the harness** — lint, test,
 verification, build — applied continuously as Rings 1 and 2 grow.
 
-There is **no phase artifact** beyond this picture. The TODO list
-mirrors ADRs; each ADR carries its own `implementation` frontmatter
+The operational, topologically sorted implementation checklist lives in
+[`TODO.md`](../TODO.md). This plan stays deliberately lightweight: it
+explains the dependency shape, while TODO carries the concrete
+checkboxes. Each ADR still carries its own `implementation` frontmatter
 lifecycle (`pending → in-progress → complete`); progress flows through
-those status flips.
+those status flips and the TODO checklist.
 
 ---
 
@@ -71,7 +73,7 @@ The ADR dependency graph dictates the order:
 | **Meta**             | Master, conventions, archival policy                                            | 031, 032, 033                |
 | **Bootstrap**        | Module layout, CLI framework, lint/test harness, build                          | 034, 035, 050, 051, 053      |
 | **Foundation**       | Config, session schema, worktree layout, mux, agents                            | 036, 037, 038, 039, 040, 043 |
-| **Core commands**    | `create`, `done`, `list`, `resume`, `session-branch`, `agent {add,stop,list}`   | depends on Foundation        |
+| **Core commands**    | `create`, `done`, `list`, `session-branch`, `agent {add,stop,list}`             | depends on Foundation        |
 | **Lifecycle**        | `setup`, `suspend`/`resume`, `clean`, `doctor`, `note`, `config`, `completions` | 044, 045, 046, 047, 056      |
 | **Inspection**       | `list`, `status`, `info`                                                        | 054, 055                     |
 | **Stacking**         | `stack`, `unstack`, `sync`                                                      | 059                          |
@@ -81,9 +83,11 @@ The ADR dependency graph dictates the order:
 | **Polish**           | Formal verification experiments                                                 | 052                          |
 | **v0 retirement**    | Remove `src/`, `Cargo.toml`, `justfile`, etc.                                   | (no ADR; one-line commit)    |
 
-This sequence is descriptive, not prescriptive. Two stages can be in
-flight at once if their ADRs don't conflict; the `implementation`
-frontmatter is the source of truth for what's currently in progress.
+This sequence is descriptive, not prescriptive. The concrete execution
+order is maintained in `TODO.md`, with static checks and the test
+harness scaffolded before feature work. Two stages can be in flight at
+once if their ADRs don't conflict; the `implementation` frontmatter is
+the source of truth for what's currently in progress.
 
 ---
 
