@@ -4,10 +4,10 @@
 stitching together the AI coding agents, terminal multiplexer, sandbox,
 and remote machines that I actually use.
 
-> **Status — v1 doc pass.** This repository is mid-rewrite. Source is
-> Rust (v0, in `src/`); v1 is being written in Go and currently exists
-> only as documentation under `docs/`. The Rust tree is **reference
-> material only** until v1 has functional parity. See
+> **Status — v1 scaffold.** This repository is mid-rewrite. The first Go
+> scaffold now lives under `cmd/af/` and `internal/...`; product commands
+> are not implemented yet. The Rust tree (`src/`, `Cargo.toml`, etc.) is
+> **reference material only** until v1 has functional parity. See
 > [`docs/v0/README.md`](docs/v0/README.md) for the v0 archive.
 
 ## What it does
@@ -125,8 +125,9 @@ go install github.com/kakkoyun/af@latest
 git clone https://github.com/kakkoyun/af && cd af && make install
 ```
 
-Neither command works yet — there is no Go code in this repository. The
-documentation is the contract until implementation begins.
+Neither command is useful yet — the scaffold binary only reports that the
+cobra command tree lands in TODO item I0.2. The documentation is the
+contract while implementation proceeds.
 
 ## License
 

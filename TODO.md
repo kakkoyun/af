@@ -114,7 +114,7 @@ Tracking rules for every item below:
 
 No product feature work until this stage is green.
 
-- [ ] I0.1: ADR-034 — create the Go module scaffold (`go.mod`,
+- [x] I0.1: ADR-034 — create the Go module scaffold (`go.mod`,
   `cmd/af/`, `internal/...`, `examples/`), preserving the v0 Rust tree as
   read-only reference.
 - [ ] I0.2: ADR-035 + ADR-053 — add a minimal cobra root command,

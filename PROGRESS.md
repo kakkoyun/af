@@ -117,3 +117,48 @@ feature work.
 
 Start with `TODO.md` item I0.1: scaffold the Go module and package tree
 from ADR-034 while keeping the v0 Rust tree read-only.
+
+---
+
+## 2026-05-09 — Session 2: Go module scaffold
+
+### Goal
+
+Start implementation from `TODO.md` by completing I0.1: create the Go
+module scaffold while preserving the Rust v0 tree as read-only reference.
+
+### Done
+
+- Created `go.mod` for `github.com/kakkoyun/af` with the local Go 1.26
+  toolchain pin.
+- Added `cmd/af/` with a scaffold-only, context-aware entrypoint. The
+  binary deliberately reports that the cobra command tree lands in I0.2.
+- Followed the red/green cycle: `go test ./...` first failed on missing
+  `run` / sentinel errors, then passed after implementation.
+- Added package doc scaffolds for the planned `internal/...` packages
+  from ADR-034 and placeholder `examples/` directories.
+- Updated `TODO.md`, `CHANGELOG.md`, `README.md`, and ADR-034
+  implementation frontmatter for the scaffold.
+
+### Verification
+
+- `gofmt -l cmd/af internal` produced no output after formatting.
+- `gofumpt -l cmd/af internal` and `goimports -l -local
+  github.com/kakkoyun/af cmd/af internal` produced no output.
+- `go build ./cmd/af` passes.
+- `go test -race -count=1 ./...` passes.
+- `go vet ./...` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- `golangci-lint run` reports `0 issues`.
+
+### Notes
+
+- The pre-existing formatting-only diff in
+  `docs/adr/037-session-metadata-schema.md` was left untouched.
+- No v0 Rust files were modified.
+
+### Next
+
+Continue with `TODO.md` item I0.2: add the minimal cobra root command,
+persistent root flags, `af version`, and `internal/version` build-info
+wiring.

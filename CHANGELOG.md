@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > README/CLAUDE/AGENTS land in subsequent commits in this same
 > Unreleased block. Each ADR will be listed once `accepted`.
 
+#### Go implementation
+
+- Added the initial Go module scaffold: `go.mod`, `cmd/af/`, the planned
+  `internal/...` package tree, and `examples/` placeholders. The binary is
+  scaffold-only until the cobra command tree lands in TODO item I0.2.
+
 ### Removed
 
 > The following items will be **explicitly removed** in v1 once Go
