@@ -52,6 +52,7 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 	cmd.AddCommand(newCompletionsCmd())
 	cmd.AddCommand(newDoctorCmd(opts))
 	cmd.AddCommand(newSetupCmd(opts))
+	cmd.AddCommand(newAuthCmd(opts))
 
 	return cmd
 }

@@ -190,7 +190,7 @@ These commands validate the scaffold without creating workstreams.
 - [x] I3.5: ADR-045 + ADR-049 — implement `af setup`: state directory
       creation, config init, global gitignore update, completion install,
       secrets directory creation, and Obsidian vault hint.
-- [ ] I3.6: ADR-049 — implement `af auth set|get|status|clear|list`
+- [x] I3.6: ADR-049 — implement `af auth set|get|status|clear|list`
       against the keyring interface, including TTY/redaction behaviour.
 
 ### Implementation Stage 4 — Local workstream MVP
