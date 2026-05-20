@@ -507,3 +507,46 @@ Complete I1.2 by implementing the shared duration parser used by future
 Continue with `TODO.md` item I1.3: implement naming, branch-prefix
 rules, session-name sanitization, sub-branch naming, and UUID/session-ID
 derivation.
+
+---
+
+## 2026-05-20 — Session 11: workstream naming helpers
+
+### Goal
+
+Complete I1.3 by implementing pure naming helpers for workstream
+branches, tmux-safe session names, subagent branches, and agent session
+IDs before state/worktree code depends on them.
+
+### Done
+
+- Wrote naming tests first for double-dash tmux sanitization, branch
+  prefix rules, auto-generated session names, sub-branch naming, and
+  deterministic UUID session IDs.
+- Added `github.com/google/uuid` as the approved UUID runtime
+  dependency.
+- Updated `Sanitize` to match ADR-038's `--` replacement rule for tmux
+  session names.
+- Added branch prefix helpers that respect `prefix_on_fork_only` and
+  `upstream` remote presence.
+- Added auto session-name, sub-branch, and UUID5 session-ID derivation
+  helpers.
+- Marked `TODO.md` I1.3 complete and advanced ADR-038 / ADR-039
+  implementation state.
+
+### Verification
+
+- `go test ./internal/workstream` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make test-property` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i1-3-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I1.4: implement `state.toml` and
+`ledger.jsonl` read/write, atomic writes, locking, schema checks,
+derived metadata, and current-workstream discovery.

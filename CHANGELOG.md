@@ -45,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   proxy command shape validation.
 - Added the shared `internal/duration` grammar for `d` / `w` shorthand
   plus stdlib duration units, with table and property tests.
+- Expanded `internal/workstream` naming helpers for double-dash session
+  sanitization, branch prefix rules, sub-branch names, auto session names,
+  and deterministic UUID session IDs.
 
 ### Removed
 

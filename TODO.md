@@ -144,7 +144,7 @@ These packages are mostly pure or fake-backed. They unblock all commands.
       shapes, and config tests.
 - [x] I1.2: ADR-056 + ADR-058 — implement the shared duration grammar
       (`d`/`w` plus stdlib duration units) with table and property tests.
-- [ ] I1.3: ADR-038 + ADR-039 — implement naming, branch-prefix rules,
+- [x] I1.3: ADR-038 + ADR-039 — implement naming, branch-prefix rules,
       session-name sanitization, sub-branch naming, and UUID/session-ID
       derivation.
 - [ ] I1.4: ADR-037 — implement `state.toml` and `ledger.jsonl`
