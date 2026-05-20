@@ -59,6 +59,14 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 	cmd.AddCommand(newAgentCmd(opts))
 	cmd.AddCommand(newDoneCmd(opts))
 	cmd.AddCommand(newSessionBranchCmd(opts))
+	cmd.AddCommand(newSuspendCmd(opts))
+	cmd.AddCommand(newResumeCmd(opts))
+	cmd.AddCommand(newNoteCmd(opts))
+	cmd.AddCommand(newCleanCmd(opts))
+	cmd.AddCommand(newStatusCmd(opts))
+	cmd.AddCommand(newStackCmd(opts))
+	cmd.AddCommand(newUnstackCmd(opts))
+	cmd.AddCommand(newSyncCmd(opts))
 
 	return cmd
 }

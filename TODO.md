@@ -217,18 +217,18 @@ agent. This proves config, state, git, mux, and agent seams together.
 
 These build on the local MVP and should remain fake-backed in tests.
 
-- [ ] I5.1: ADR-046 — implement local `af suspend` and warm/cold
+- [x] I5.1: ADR-046 — implement local `af suspend` and warm/cold
       `af resume`, including per-slot resume and crash reconciliation.
-- [ ] I5.2: ADR-047 — implement `af note [session]` and
+- [x] I5.2: ADR-047 — implement `af note [session]` and
       `af note --append TEXT`, including fallback editor behaviour.
-- [ ] I5.3: ADR-056 — implement reusable merge detection
+- [x] I5.3: ADR-056 — implement reusable merge detection
       (`pr-state`, ancestry, squash fingerprint) as an internal service.
-- [ ] I5.4: ADR-056 — implement `af clean` with dry-run,
+- [x] I5.4: ADR-056 — implement `af clean` with dry-run,
       include-abandoned, max-age, force-by-name, archive, and Obsidian
       updates.
-- [ ] I5.5: ADR-059 — implement `af stack`, `af unstack`, and `af sync`
+- [x] I5.5: ADR-059 — implement `af stack`, `af unstack`, and `af sync`
       using the reusable merge-detection contract.
-- [ ] I5.6: ADR-054 — implement `af status [--json] [--all]
+- [x] I5.6: ADR-054 — implement `af status [--json] [--all]
 [--filter STATE]`, including stack suffixes, `repo_slug` handling,
       bounded `gh` fan-out, and stable JSON.
 
