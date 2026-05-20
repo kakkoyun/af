@@ -48,6 +48,7 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 	flags.StringVar(&opts.sessionName, "session", "", "target a specific workstream session")
 
 	cmd.AddCommand(newVersionCmd())
+	cmd.AddCommand(newConfigCmd(opts))
 
 	return cmd
 }

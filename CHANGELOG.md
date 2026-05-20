@@ -67,6 +67,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   builders, recording runner, and fake sandbox.
 - Added testscript fake-command PATH wiring for tmux, ssh, slicer, sbx,
   pi, claude, and codex.
+- Added `af config init` and `af config show`: `init` scaffolds the
+  annotated user config at `$HOME/.config/af/config.toml` (or the path
+  given via `--config`) and refuses to overwrite an existing file;
+  `show` prints the effective layered configuration as canonical TOML.
+  Backed by reusable `internal/config.WriteUserConfig`,
+  `UserConfigTemplate`, and `Render` helpers.
 
 ### Removed
 

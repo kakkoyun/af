@@ -1,0 +1,22 @@
+# af config show emits the effective merged config, layering defaults
+# with the user config under $HOME and any repo config in the cwd.
+
+env HOME=$WORK/home
+mkdir $WORK/home/.config/af
+cp user.toml $WORK/home/.config/af/config.toml
+
+exec af config show
+stdout 'schema_version = 1'
+stdout 'default_agent = "claude"'
+stdout 'worktree_root = "/tmp/owner/worktrees"'
+stdout 'personal = "/tmp/owner/Vaults/personal"'
+
+-- user.toml --
+schema_version = 1
+
+[general]
+default_agent = "claude"
+worktree_root = "/tmp/owner/worktrees"
+
+[obsidian.vaults]
+personal = "/tmp/owner/Vaults/personal"

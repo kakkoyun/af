@@ -181,7 +181,7 @@ This stage creates every seam before commands depend on real tools.
 
 These commands validate the scaffold without creating workstreams.
 
-- [ ] I3.1: ADR-036 — implement `af config init` and `af config show`.
+- [x] I3.1: ADR-036 — implement `af config init` and `af config show`.
 - [ ] I3.2: ADR-035 + ADR-045 — implement `af completions <shell>`.
 - [ ] I3.3: ADR-044 — implement local `af doctor` using the interface
       probes and install-hint rendering.

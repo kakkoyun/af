@@ -32,7 +32,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return errNilOutput
 	}
 
-	cmd := newRootCmd()
+	cmd := newRootCmd() //nolint:contextcheck // cobra threads context via ExecuteContext, not constructor parameters.
 	cmd.SetOut(stdout)
 	cmd.SetErr(stderr)
 	cmd.SetArgs(commandArgs(args))

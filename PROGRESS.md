@@ -917,3 +917,70 @@ fakes rather than requiring real tmux, ssh, slicer, sbx, or agent binaries.
 
 Continue with Stage 3, starting `TODO.md` item I3.1: implement
 `af config init` and `af config show`.
+
+## 2026-05-21 — Session 21: af config init and show
+
+### Goal
+
+Complete I3.1 by adding `af config init` (write annotated user-config
+template) and `af config show` (print effective merged configuration as
+TOML).
+
+### Done
+
+- Verified the previous implementer's Stage 2 claims: I2.1–I2.5 are
+  substantially complete; `make check` was green; coverage for the four
+  Stage 2 seams is 41–77%; testscript `fake-path.txt` actually exercises
+  the shadowed external CLIs; ADRs 040–043 and 051 carry the correct
+  `implementation: in-progress` frontmatter. Reverted a stray uncommitted
+  PROGRESS.md whitespace regression on line 335 (lost continuation
+  indent under a wrapped bullet).
+- Wrote the failing tests first: `internal/config/render_test.go`
+  (section coverage, argv/shell polymorphism, deterministic vault
+  ordering, round-trip through `Load`), `internal/config/template_test.go`
+  (decodes to `Defaults()`, annotation markers, parent-dir creation,
+  overwrite refusal, empty path), and `cmd/af/config_test.go` (help,
+  default path under `$HOME`, `--config` override, refuse overwrite,
+  effective merge, defaults-only fallback).
+- Implemented `internal/config/render.go` as a hand-rolled deterministic
+  TOML renderer: every section is emitted in a stable order; map keys
+  (`pr.flag_template`, `obsidian.vaults`) are sorted; `ProxyCommandConfig`
+  is rendered as either `cmd = [...]` or `cmd = "..."` per ADR-036.
+- Implemented `internal/config/template.go`: `UserConfigTemplate()`
+  returns the annotated TOML body; `WriteUserConfig(path)` creates
+  parent dirs at 0750, writes the file at 0600, and returns a wrapped
+  `fs.ErrExist` when the target already exists. Exported
+  `ResolveUserConfigPath` so command code reuses the same default path.
+- Implemented `cmd/af/config.go` with constructor-per-subcommand idiom
+  (`newConfigCmd`/`newConfigInitCmd`/`newConfigShowCmd`); wired into
+  `newRootCmdWithOptions` so `--config` flows through.
+- Added `testdata/script/config-init.txt` and `config-show.txt`
+  testscript scenarios.
+- Resolved eight lint findings on the first pass: contextcheck false
+  positive on the cobra constructor chain silenced at `main.go:35` with
+  a documented `//nolint:contextcheck` comment; err113 replaced a
+  dynamic error string with a wrapped `fs.ErrExist`; gosec G304 on test
+  reads suppressed with a tempdir-scope comment; three noinlineerr
+  rewrites; one staticcheck De Morgan simplification.
+- Updated `TODO.md` (I3.1 ✓), `CHANGELOG.md`, and ADR-036
+  `last_modified` (frontmatter `implementation: in-progress` remains
+  until all command-facing ADR-036 surface lands; `af setup` will pick
+  up `WriteUserConfig` next).
+
+### Verification
+
+- `go test -race -count=1 -shuffle=on ./...` passes.
+- `go test -v -run 'TestScripts/(config-init|config-show)' ./cmd/af`
+  passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes; `Render`,
+  `UserConfigTemplate`, `WriteUserConfig`, and `ResolveUserConfigPath`
+  carry first-word doc comments.
+
+### Next
+
+Continue with `TODO.md` item I3.2: implement `af completions <shell>`
+(ADR-035 + ADR-045) using cobra's built-in completion generators.
