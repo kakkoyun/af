@@ -1112,3 +1112,66 @@ Finish Stage 3 by adding `af setup` (I3.5, ADR-045) and `af auth` (I3.6, ADR-049
 ### Next
 
 Move into Stage 4 with `TODO.md` item I4.1: implement local `af create [name]` — the first feature slice that proves config, state, git, mux, and agent seams compose.
+
+## 2026-05-22 — Session 26: Stage 9 — close out in-progress ADRs
+
+### Goal
+
+Follow the Session 25 audit: replace the three remaining placeholders
+(`af pr --ai`, `af retro --ai`, `af sync`) with real implementations, add
+`.goreleaser.yaml` + snapshot tooling, write the missing integration
+testscripts for tmux / ssh / sandbox / proxy, wire `secret.Envelope`
+into the remote+sandbox create flow, then advance every still-`in-progress`
+ADR (040, 041, 042, 046, 048, 049, 052, 053, 057, 058, 059) to
+`implementation: complete`.
+
+### Pre-flight (confirmed before launching agents)
+
+All tools present on host: `go 1.26.3`, `gofumpt`, `goimports`,
+`golangci-lint`, `make`, `git 2.54.0`, `jq`, `tmux 3.6a`, `ssh
+OpenSSH_10.2p1`, `gh 2.92.0` (authed as `kakkoyun`, scopes
+`repo,workflow`), `pi`, `claude`, `codex`, `slicer`, `sbx`, `docker`,
+`lima`, `security` (macOS Keychain), `gpg`, `goreleaser 2.15.4`,
+`zig` (cross-compile).
+
+### Plan
+
+Wave 1 — four parallel subagents, each owns disjoint file globs:
+
+- **A**: ADR-057 `af pr --ai` real BodyCmd wiring — owns
+  `cmd/af/proxy_commands.go`, `cmd/af/proxy_commands_test.go`,
+  `docs/adr/057-*.md` frontmatter.
+- **B**: ADR-058 `af retro --ai` real BodyCmd wiring + frontmatter
+  flip-then-complete — owns `cmd/af/retro.go`, `cmd/af/retro_test.go`,
+  `docs/adr/058-*.md`.
+- **C**: ADR-059 `af sync` rebase algorithm — owns `cmd/af/stack.go`
+  (sync only), new `internal/lifecycle/sync.go`, new
+  `internal/lifecycle/sync_test.go`, `docs/adr/059-*.md`.
+- **D**: ADR-053 goreleaser + `make snapshot` — owns new
+  `.goreleaser.yaml`, `Makefile` (snapshot target only),
+  `docs/adr/053-*.md`.
+
+After Wave 1 integration, Wave 2 (also four parallel agents):
+
+- **E**: ADR-048 testscript scenarios for `editor`/`diff`/`pr` —
+  `cmd/af/testdata/script/editor.txt`, `diff.txt`, `pr.txt`.
+- **F**: ADR-040 + ADR-046 tmux integration testscript —
+  `cmd/af/testdata/script/tmux-lifecycle.txt`.
+- **G**: ADR-041 SSH localhost integration test —
+  `cmd/af/testdata/script/ssh-remote.txt` (skipped if no sshd).
+- **H**: ADR-042 + ADR-049 envelope-into-create wiring —
+  `internal/lifecycle/remote_sandbox.go`, new envelope integration tests.
+
+Wave 3 — close-out (lead, single-threaded):
+
+- Advance ADR frontmatter to `complete` for everything that now ships
+  real behaviour; update README/CHANGELOG/PROGRESS; check off TODO
+  items I9.1–I9.10.
+
+### Lead-coordinator rules for this session (re Session 25 conflict)
+
+1. No subagent touches `PROGRESS.md` or `TODO.md`. The lead writes both.
+2. Each subagent declares its file ownership at the top of its prompt
+   and is explicitly forbidden from touching any other path.
+3. Lead runs `git status` after every wave and reverts any file written
+   outside the declared scope before integrating.

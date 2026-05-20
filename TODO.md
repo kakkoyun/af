@@ -286,6 +286,54 @@ This stage should not add broad new feature surface.
       early during Stage 0 by explicit user override; no final v0 source
       cleanup remains.
 
+### Implementation Stage 9 — Close out the 11 in-progress ADRs
+
+After the Session 25 audit revealed that several Stage 5/7 items shipped
+as placeholders (sync, pr --ai, retro --ai) and that ADRs 040/041/042/
+046/048/049/052/053 still need their real-tool surface verified, this
+stage exists to land the deferred logic and advance every in-progress
+ADR to `implementation: complete`.
+
+Wave 1 — deferred placeholders + release tooling (parallel agents):
+
+- [ ] I9.1: ADR-057 — wire `af pr --ai` to `agent.BodyCmd(BodyOpts{Cwd,
+      Model})`; build the prompt from the worktree diff; handle
+      empty-diff and empty-body errors; reject `--ai` with `--web`.
+- [ ] I9.2: ADR-058 — wire `af retro --ai` to `agent.BodyCmd` with
+      `BodyOpts.Cwd = ""`; synthesise narrative from the collected
+      notes; revert ADR-058 frontmatter to `in-progress` first, then
+      advance to `complete` once shipped.
+- [ ] I9.3: ADR-059 — implement `af sync` real rebase algorithm:
+      `git fetch`, `git rebase --onto parent-base parent-head head`,
+      detect/report conflicts.
+- [ ] I9.4: ADR-053 — add `.goreleaser.yaml` and `make snapshot`
+      target; verify cross-compile snapshot builds (darwin/arm64,
+      linux/amd64, linux/arm64) with the installed goreleaser 2.15.4.
+
+Wave 2 — integration tests + envelope wiring:
+
+- [ ] I9.5: ADR-048 — testscript scenarios for `af editor`, `af diff`,
+      `af pr` using fake-path shadow binaries; verify token
+      interpolation and `flag_template` expansion end-to-end.
+- [ ] I9.6: ADR-040 + ADR-046 — tmux integration testscript that
+      exercises real tmux on the host (skipped if `tmux` missing);
+      verify SessionExists + CreateSession + suspend/resume respawn.
+- [ ] I9.7: ADR-041 — SSH integration test using `ssh -o
+      BatchMode=yes localhost` (skipped if no sshd); validate the
+      `internal/remote.Exec` path against a real ssh client.
+- [ ] I9.8: ADR-042 + ADR-049 — wire `secret.Envelope` into the
+      remote+sandbox create flow; add integration testscripts using
+      fake `slicer`/`sbx` shadows that assert the envelope file is
+      written, sourced, and deleted.
+
+Wave 3 — close-out:
+
+- [ ] I9.9: Advance ADR frontmatter to `complete` for 040, 041, 042,
+      046, 048, 049, 052, 053, 057, 058, 059 once their Wave 1/2 work
+      lands. Also advance 031 (master) to `complete`.
+- [ ] I9.10: Refresh README, CHANGELOG, PROGRESS to reflect the closed
+      in-progress set. Document the residual scope going to ADR-060–063.
+
 ---
 
 ## Backlog (post-v1, unscheduled)
