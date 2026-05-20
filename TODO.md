@@ -167,7 +167,7 @@ This stage creates every seam before commands depend on real tools.
 - [x] I2.1: ADR-043 — implement `internal/agent.Agent`, `BodyCmd`,
       provider registry, fake provider, and availability checks for `pi`,
       `claude`, and `codex`.
-- [ ] I2.2: ADR-040 — implement `internal/mux.Multiplexer`, fake mux,
+- [x] I2.2: ADR-040 — implement `internal/mux.Multiplexer`, fake mux,
       and tmux command construction with tests that do not require real tmux.
 - [ ] I2.3: ADR-041 — implement SSH remote command construction,
       remote path mapping, and fake remote executor.

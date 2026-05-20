@@ -760,3 +760,43 @@ before any command depends on real agent CLIs.
 Continue with `TODO.md` item I2.2: implement the multiplexer interface,
 fake mux, and tmux command construction without requiring real tmux in
 tests.
+
+---
+
+## 2026-05-20 — Session 17: tmux multiplexer seam
+
+### Goal
+
+Complete I2.2 by adding the tmux-only multiplexer seam, command builder,
+and fake implementation before command integration.
+
+### Done
+
+- Wrote tests first for tmux create-session command construction,
+  vertical split pane-id parsing, and fake multiplexer session/pane/env
+  behavior.
+- Added `Multiplexer`, `Session`, `Pane`, and errors in `internal/mux`.
+- Added `Tmux` with an injectable `Runner`, `ExecRunner`, and command
+  construction for create/kill/attach/send-keys/env/options/list/split
+  pane operations.
+- Added `RecordingRunner` so tests assert argv without touching a real
+  tmux server.
+- Added `FakeMultiplexer` for future command tests.
+- Kept CLI command integration for later stages.
+- Marked `TODO.md` I2.2 complete and advanced ADR-040 implementation
+  state.
+
+### Verification
+
+- `go test ./internal/mux` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i2-2-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I2.3: implement SSH remote command
+construction, remote path mapping, and fake remote executor.

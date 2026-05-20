@@ -2,9 +2,9 @@
 adr: 040
 title: "tmux-only Multiplexer"
 status: proposed
-implementation: pending
+implementation: in-progress
 date: 2026-05-06
-last_modified: 2026-05-08
+last_modified: 2026-05-20
 supersedes: []
 superseded_by: null
 related: ["031", "039", "046"]
