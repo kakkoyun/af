@@ -331,11 +331,14 @@ Wave 2 — integration tests + envelope wiring:
 
 Wave 3 — close-out:
 
-- [ ] I9.9: Advance ADR frontmatter to `complete` for 040, 041, 042,
-      046, 048, 049, 052, 053, 057, 058, 059 once their Wave 1/2 work
-      lands. Also advance 031 (master) to `complete`.
-- [ ] I9.10: Refresh README, CHANGELOG, PROGRESS to reflect the closed
-      in-progress set. Document the residual scope going to ADR-060–063.
+- [x] I9.9: Advanced ADR frontmatter to `complete` for 031, 040, 041,
+      042, 046, 048, 049, 052, 053, 057, 058, 059. Only `pending`
+      ADRs left are 060–064 (post-v1 scope).
+- [x] I9.10: Refreshed README (status banner, command table, caveats),
+      CHANGELOG (Stage 9 section), PROGRESS (Session 26 close-out).
+      Residual scope going to ADR-060 (slicer-only sandbox), 061 (repo-
+      scoped control), 062 (per-repo VM profiles), 063 (Tailscale +
+      superterm remote), 064 (opinionated diff rendering).
 
 ---
 

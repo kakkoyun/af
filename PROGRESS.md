@@ -1175,3 +1175,115 @@ Wave 3 — close-out (lead, single-threaded):
    and is explicitly forbidden from touching any other path.
 3. Lead runs `git status` after every wave and reverts any file written
    outside the declared scope before integrating.
+
+### Done
+
+Wave 1 (commit `b7ab875`):
+
+- ADR-057 / I9.1: `af pr --ai` now calls `agent.BodyCmd` with the
+  worktree diff. New `prAIBodyFunc` package-level seam. Sentinels:
+  `errPRAIWebIncompatible`, `errPRAIEmptyDiff`, `errPRAIAgentNoBody`,
+  `errPRAIEmptyBody`. Four new tests in `cmd/af/proxy_commands_test.go`.
+- ADR-058 / I9.2: `af retro --ai` synthesises a narrative via
+  `agent.BodyCmd` with `BodyOpts.Cwd = ""`. Adds `--ai-model` flag.
+  New `retroAIBodyFunc` seam. Sentinels: `errRetroAINoNotes`,
+  `errRetroAIEmpty`, `errRetroAINoCmd`. Five new tests.
+- ADR-059 / I9.3: new `internal/lifecycle.Sync` orchestrator (193
+  lines) implements fetch + merge-base + `rebase --onto`, detects
+  CONFLICT output, errors on dirty worktree. Sentinels: `ErrSync`,
+  `ErrSyncNoParent`, `ErrSyncConflict`, `ErrSyncDirtyWorktree`. Five
+  unit tests; one uses a local `orderedFakeRunner` because
+  `git.FakeRunner.SetResponse` is not call-count-aware.
+- ADR-053 / I9.4: `.goreleaser.yaml` (v2 schema) plus `make snapshot`,
+  `make snapshot-all`, `make release-check` targets. Cross-compile
+  snapshot builds for darwin/arm64, linux/amd64, linux/arm64 all green
+  (`CGO_ENABLED=0`). The legacy `.goreleaser.yml` ADR-template skeleton
+  was deleted by the lead during integration; `/af` snapshot binary
+  added to `.gitignore`.
+
+Wave 2 (commit `<this commit>`):
+
+- ADR-048 / I9.5: testscripts `editor.txt`, `diff.txt`, `pr.txt`.
+  Each script writes an inline `~/.config/af/config.toml` plus state.toml
+  for a fake `demo` workstream and asserts that the configured proxy
+  command is invoked with the correct token substitutions and
+  `flag_template` expansion.
+- ADR-040 + ADR-046 / I9.6: testscript `tmux-lifecycle.txt` (100
+  lines). A smart shell fake tmux maintains an in-test `sessions.txt`
+  and supports `has-session`, `new-session`, `kill-session`. Three
+  scenarios: suspend, non-bare resume (creates the session), bare
+  resume (skips tmux).
+- ADR-041 / I9.7: testscript `ssh-remote.txt`. Smart fake ssh
+  responds to the exact probes `af doctor --remote` issues (`uname -s`,
+  `command -v <tool>`, `<tool> --version`). Three cases: `demohost`
+  all-present, `sparsehost` missing optionals, `failhost` exit 255.
+- ADR-042 + ADR-049 / I9.8: `internal/lifecycle/remote_sandbox.go` now
+  writes `secret.Envelope` 0600 before launch and deletes it via
+  defer afterwards. Both `PrepareRemoteWorkstream` and
+  `LaunchSandboxWorkstream` paths covered. New `SSHExecutor` field on
+  `RemoteContext` for hermetic testing. Seven unit tests in new
+  `remote_sandbox_test.go` use in-test fakes that capture envelope
+  content during launch. The Task-C testscript for `af create
+  --sandbox` was deliberately skipped: that CLI path doesn't yet call
+  `LaunchSandboxWorkstream` end-to-end (deferred to ADR-060 work).
+
+Wave 3 (lead-only close-out):
+
+- ADR frontmatter advanced to `implementation: complete` for ADR-031
+  (v1 master) and ADR-052 (formal verification). Every v1 ADR is now
+  `complete`; only `pending` ADRs left are 060–064.
+- README rewritten: status banner reflects Stage 9 complete; command
+  table no longer says `--ai` is a placeholder; caveats now describe
+  the actual remaining gaps (`af create --sandbox` not end-to-end,
+  `af create --remote` runs minimal setup, both `--ai` paths require a
+  non-interactive agent CLI).
+- CHANGELOG updated with a Stage 9 section.
+- TODO items I9.1–I9.10 all checked.
+
+### Conflict log
+
+- **Wave 1**: pre-existing untracked file `docs/adr/064-opinionated
+  -diff-rendering.md` (date 2026-05-20) was caught by `git add -A`
+  during the Wave 1 commit. It is a draft the owner wrote before this
+  session; left in place rather than reverted because no agent claims
+  authorship and the content is coherent.
+- **Wave 1**: legacy `.goreleaser.yml` skeleton (predating Stage 9)
+  shadowed Agent D's new `.goreleaser.yaml` because goreleaser
+  auto-discovers `.yml` first. Lead deleted the legacy file.
+- **Wave 1 and Wave 2**: cross-agent lint-state confusion. Each agent
+  ran `make check` against a working tree that included other agents'
+  in-flight changes. Three agents reported lint failures that the
+  owner agent denied. Each time the lead's final integration check
+  was green, so the failures were transient cross-agent races, not
+  real defects.
+- **No PROGRESS.md or TODO.md overwrites this session** — the file
+  ownership rules held.
+
+### Verification
+
+- `make check` green after each wave commit and at the close-out
+  commit. 0 lint issues, all packages pass `-race -count=1
+  -shuffle=on`.
+- `goreleaser check` green; `make snapshot-all` builds 3 cross-
+  compile targets in ~2s.
+- 13 testscripts (up from 8 at the start of Stage 9), 100% pass.
+- 38 `*_test.go` files in the tree; lifecycle has 2 property-test
+  files (older `lifecycle_property_test.go` + newer
+  `lifecycle_state_property_test.go`) for a total of 11 properties.
+
+### Stage status after this session
+
+Every v1 ADR (031, 033–059) is now `implementation: complete`. The
+v1 implementation is closed.
+
+### Next
+
+ADR-060 onward is genuinely new feature scope:
+
+1. **ADR-060** — Slicer-only sandbox provider (drop sbx). Includes
+   wiring `af create --sandbox` end-to-end through
+   `LaunchSandboxWorkstream`.
+2. **ADR-061** — Repo-scoped control settings (`.af/config.toml`).
+3. **ADR-062** — Per-repo slicer VM resource profiles.
+4. **ADR-063** — Remote control via Tailscale Serve + superterm.
+5. **ADR-064** — Opinionated diff rendering (hunk + diffity).

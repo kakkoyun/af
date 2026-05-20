@@ -6,10 +6,14 @@ dedicated worktree, a tmux session, and launches a primary agent (pi, claude, or
 codex) — all tied together under a single durable state file. When the task is
 done, everything is cleaned up with one command.
 
-> **Status — v1 (single-user).** Stages 0–7 are implemented and `make check`
-> is green. Remote (`--remote`) and sandbox (`--sandbox`) create flags are wired
-> to scaffolded helpers but not battle-tested against real SSH hosts / slicer /
-> sbx. `af pr --ai` body generation is a placeholder stub. See [Caveats](#caveats).
+> **Status — v1 (single-user).** Stages 0–9 are implemented; every v1 ADR
+> (031–059) is marked `implementation: complete`. `make check` is green. The
+> proxy commands (`af editor`, `af diff`, `af pr`, `af retro`), suspend/resume
+> lifecycle, stack-aware `af sync`, and goreleaser snapshot builds are all
+> exercised by integration testscripts. Remote / sandbox launches go through
+> `secret.Envelope` for ephemeral env-file transport. See [Caveats](#caveats)
+> for the remaining single-user assumptions and the post-v1 backlog
+> (ADR-060–064).
 
 ## Installation
 
@@ -109,7 +113,7 @@ af [--verbose|-v] [--config PATH] [--session NAME] <command>
 | Command                                                                       | Description                                                                       |
 | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | `af note [session] --append TEXT`                                             | Append a structured note event to the workstream ledger.                          |
-| `af retro [--since DURATION] [--tag TAG] [--search QUERY] [--limit N] [--ai]` | Mine archived workstream notes. `--ai` narrative synthesis is a placeholder stub. |
+| `af retro [--since DURATION] [--tag TAG] [--search QUERY] [--limit N] [--ai] [--ai-model MODEL]` | Mine archived workstream notes; `--ai` synthesises a narrative via the primary agent's `BodyCmd`. |
 
 ### Proxy commands
 
@@ -120,7 +124,7 @@ These commands run the user-configured executables from `[diff]`, `[pr]`, and
 | Command                                                                   | Description                                                              |
 | ------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
 | `af diff [session] [--base REF]`                                          | Run the configured diff command in the workstream worktree.              |
-| `af pr [session] [--title T] [--draft] [--web] [--ai] [--ai-model MODEL]` | Run the PR-create command. `--ai` body generation is a placeholder stub. |
+| `af pr [session] [--title T] [--draft] [--web] [--ai] [--ai-model MODEL]` | Run the PR-create command; `--ai` builds the body from the worktree diff via `agent.BodyCmd` (rejects `--ai` + `--web`). |
 | `af editor [session] [--terminal                                          | -t] [--visual]`                                                          | Open the configured editor at the workstream worktree path. |
 
 ### Secrets
@@ -178,18 +182,20 @@ Key sections:
 **Single-user.** `af` is a personal tool. There is no auth layer, no multi-user
 session sharing, and no remote API.
 
-**Remote and sandbox are scaffolded.** `af create --remote HOST` calls
-`lifecycle.PrepareRemoteWorkstream` which runs a few SSH commands to set up a
-directory; it is not a full remote-worktree workflow. `af create --sandbox PROVIDER`
-prints a deferred-launch notice. Full wired integration is planned for a future
-session.
+**`af create --sandbox` not yet end-to-end.** `lifecycle.LaunchSandboxWorkstream`
+is implemented and unit-tested (including envelope write/delete), but
+`af create --sandbox PROVIDER` currently prints a deferred-launch notice rather
+than invoking the orchestrator. Wiring the CLI to the orchestrator is tracked
+under ADR-060 (slicer-only cleanup).
 
-**`af pr --ai` is a stub.** The body generation prints a placeholder string
-instead of invoking the agent's `BodyCmd`. Full wiring is planned once the
-agent-launch path from `af create` is stable.
+**`af create --remote` runs minimal SSH setup.** `PrepareRemoteWorkstream`
+performs a small set of commands (mkdir + git clone) over SSH. It is not yet
+batched against a real remote tmux/agent boot — that landed will be wired when
+ADR-063 (Tailscale + superterm) lands.
 
-**`af sync`** (stack sync) records metadata but does not yet perform the
-rebase/fast-forward operation.
+**`af pr --ai` and `af retro --ai` require a non-interactive agent.** The
+primary agent must support body-generation via stdin (pi `--print`, claude
+non-interactive). The empty-diff / empty-output errors surface clearly.
 
 ## Building
 

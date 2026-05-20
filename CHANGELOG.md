@@ -15,6 +15,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Stage 9 — close out in-progress ADRs (Session 26)
+
+- `af pr --ai` now invokes `agent.BodyCmd` with the worktree diff and a
+  body-generation prompt; the agent's stdout becomes the PR body.
+  Rejects `--ai` with `--web`. Errors on empty diff or empty agent
+  output (ADR-057).
+- `af retro --ai` now synthesises a narrative via `agent.BodyCmd`
+  with `BodyOpts.Cwd = ""`. Adds `--ai-model` flag for model override.
+  Errors when no notes match or agent output is empty (ADR-058).
+- `af sync` real rebase algorithm: detects dirty worktree, fetches
+  parent ref, computes merge-base, runs `git rebase --onto parent
+  base branch`, surfaces CONFLICT as `lifecycle.ErrSyncConflict`. New
+  `internal/lifecycle.Sync` orchestrator (ADR-059).
+- `.goreleaser.yaml` (v2 schema) plus `make snapshot` / `snapshot-all`
+  / `release-check` Makefile targets. Cross-compile snapshots build
+  for darwin/arm64, linux/amd64, linux/arm64. Legacy `.goreleaser.yml`
+  skeleton deleted (ADR-053).
+- `internal/lifecycle/remote_sandbox.go` now wires `secret.Envelope`
+  into both `PrepareRemoteWorkstream` and `LaunchSandboxWorkstream`:
+  envelope is written 0600 before launch and deleted via defer after
+  (ADR-042 + ADR-049).
+- Testscript integration coverage for proxy commands (`editor.txt`,
+  `diff.txt`, `pr.txt`), tmux lifecycle (`tmux-lifecycle.txt` with a
+  smart-fake state machine), SSH remote (`ssh-remote.txt` with three
+  cases), bringing the testscript count from 8 to 13 (ADR-040, 041,
+  046, 048).
+- 11 in-progress ADRs advanced to `implementation: complete`: 031
+  (v1 master), 040 (tmux), 041 (SSH), 042 (sandbox), 046 (suspend/
+  resume), 048 (proxy commands), 049 (secret), 052 (formal
+  verification), 053 (build/distribution), 057 (pr --ai), 058 (retro
+  --ai), 059 (stack-aware branches). The only `pending` ADRs left
+  are 060–064 — deliberately scoped as post-v1 work.
+
 #### Documentation pass (v0 → v1)
 
 - v0 (Rust era) docs archived under `docs/v0/` (PROGRESS, TODO, CHANGELOG, SPEC, PLAN, CONVENTIONS, 30 ADRs, mdBook scaffold, planning, reference).

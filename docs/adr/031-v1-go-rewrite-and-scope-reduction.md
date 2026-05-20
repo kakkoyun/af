@@ -2,9 +2,9 @@
 adr: 031
 title: "v1: Migration to Go + Scope Reduction"
 status: proposed
-implementation: in-progress
+implementation: complete
 date: 2026-05-06
-last_modified: 2026-05-09
+last_modified: 2026-05-22
 supersedes: []
 superseded_by: null
 related: ["032", "033", "034", "043", "049", "053"]
