@@ -14,7 +14,8 @@ func newVersionCmd() *cobra.Command {
 		Short: "Print build version information",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if _, err := fmt.Fprintln(cmd.OutOrStdout(), version.String()); err != nil {
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), version.String())
+			if err != nil {
 				return fmt.Errorf("write version: %w", err)
 			}
 			return nil

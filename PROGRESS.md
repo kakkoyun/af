@@ -261,3 +261,48 @@ github.com/kakkoyun/af cmd/af internal` produced no output.
 
 Continue with `TODO.md` item I0.3: add `.golangci.yml`, `Makefile`,
 format/lint/test/check targets, and local snapshot build targets.
+
+---
+
+## 2026-05-20 — Session 5: build tooling baseline
+
+### Goal
+
+Complete I0.3 by adding the pinned build, format, lint, test, check, and
+snapshot tooling from ADR-050 and ADR-053.
+
+### Done
+
+- Captured the red baseline first: `make check` failed because no
+  `check` rule existed.
+- Added `Makefile` targets: `fmt`, `fmt-check`, `lint`, `test`,
+  `test-property`, `check`, `build`, `install`, `release-snapshot`,
+  `snapshot`, and `clean`.
+- Added `.golangci.yml` using golangci-lint v2's `default: all`
+  pedantic baseline with explicit, documented disables.
+- Added `.goreleaser.yml` for local snapshot cross-compiles across
+  `linux/{amd64,arm64}` and `darwin/{amd64,arm64}` with version ldflags.
+- Added `.gitignore` entries for Go build artifacts (`bin/`, `dist/`,
+  coverage output).
+- Fixed lint findings surfaced by the new pedantic config in the
+  existing scaffold tests and command wiring.
+- Updated `TODO.md`, `CHANGELOG.md`, `README.md`, ADR-050, and ADR-053.
+
+### Verification
+
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes (`go test -race -count=1 -shuffle=on ./...`).
+- `make check` passes.
+- `make build` passes.
+- `make release-snapshot` produced local cross-compile artifacts under
+  `dist/`.
+- `make clean` removes `bin/` and `dist/`.
+- Final verification log: `/tmp/af-i0-3-verify-final.log`.
+
+### Next
+
+Continue with `TODO.md` item I0.4: add the `testscript` harness,
+`cmd/af/testdata/script/`, fake external-command hooks, package
+`testutil` helpers, and baseline smoke scripts for `af version` /
+`af --help`.

@@ -15,17 +15,19 @@ var errNilOutput = errors.New("output writer is nil")
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
 
-	if err := run(ctx, os.Args, os.Stdout, os.Stderr); err != nil {
-		if _, writeErr := fmt.Fprintln(os.Stderr, err); writeErr != nil {
+	err := run(ctx, os.Args, os.Stdout, os.Stderr)
+	cancel()
+	if err != nil {
+		_, writeErr := fmt.Fprintln(os.Stderr, err)
+		if writeErr != nil {
 			os.Exit(1)
 		}
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) error {
+func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if stdout == nil || stderr == nil {
 		return errNilOutput
 	}
@@ -35,7 +37,8 @@ func run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer)
 	cmd.SetErr(stderr)
 	cmd.SetArgs(commandArgs(args))
 
-	if err := cmd.ExecuteContext(ctx); err != nil {
+	err := cmd.ExecuteContext(ctx)
+	if err != nil {
 		return fmt.Errorf("execute af: %w", err)
 	}
 

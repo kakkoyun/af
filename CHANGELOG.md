@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the minimal cobra root command with persistent `--verbose`,
   `--config`, and `--session` flags plus `af version` backed by
   `internal/version` build metadata.
+- Added pinned Go build tooling: `Makefile`, `.golangci.yml`,
+  `.goreleaser.yml`, gofumpt/goimports format checks, pedantic
+  `golangci-lint`, race-test `make test`, `make check`, and local
+  snapshot build targets.
 
 ### Removed
 

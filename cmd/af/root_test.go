@@ -45,7 +45,7 @@ func TestRootPersistentFlagsParse(t *testing.T) {
 }
 
 func TestVersionCommandWrapsWriteError(t *testing.T) {
-	want := errors.New("write failed")
+	want := errNilOutput
 	cmd := newVersionCmd()
 	cmd.SetOut(failingWriter{err: want})
 	cmd.SetErr(io.Discard)
@@ -57,7 +57,7 @@ func TestVersionCommandWrapsWriteError(t *testing.T) {
 }
 
 func TestRootHelpWrapsWriteError(t *testing.T) {
-	want := errors.New("write failed")
+	want := errNilOutput
 	cmd := newRootCmd()
 	cmd.SetOut(failingWriter{err: want})
 	cmd.SetErr(io.Discard)
@@ -71,12 +71,12 @@ func TestRootHelpWrapsWriteError(t *testing.T) {
 func executeCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, string, error) {
 	t.Helper()
 
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.SetOut(&stdout)
-	cmd.SetErr(&stderr)
+	var stdoutBuffer bytes.Buffer
+	var stderrBuffer bytes.Buffer
+	cmd.SetOut(&stdoutBuffer)
+	cmd.SetErr(&stderrBuffer)
 	cmd.SetArgs(args)
 
 	err := cmd.ExecuteContext(t.Context())
-	return stdout.String(), stderr.String(), err
+	return stdoutBuffer.String(), stderrBuffer.String(), err
 }

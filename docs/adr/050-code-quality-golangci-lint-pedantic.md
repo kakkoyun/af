@@ -2,9 +2,9 @@
 adr: 050
 title: "Code Quality — golangci-lint Pedantic"
 status: proposed
-implementation: pending
+implementation: complete
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-20
 supersedes: []
 superseded_by: null
 related: ["031", "034", "051", "053"]
@@ -41,62 +41,60 @@ run:
   tests: true
 
 linters:
-  enable-all: true
+  default: all
   disable:
-    # Justified disables — each has a reason in the body comment.
-    - exhaustruct        # too noisy: Go literals don't always init every field
-    - depguard           # we use a per-import allowlist instead (see ADR-031)
-    - varnamelen         # often disagrees with idiomatic Go (i, j, _, ok)
-    - lll                # gofumpt enforces line wrapping where it matters
-    - wsl                # whitespace linter conflicts with gofumpt
-    - wsl_v5             # ditto
-    - tagliatelle        # struct tag naming policed via revive
-    - nlreturn           # too pedantic for our taste
-    - testpackage        # we mix _test and same-package tests deliberately
-    - paralleltest       # paralleltest is good practice but not enforced
-
-linters-settings:
-  gocritic:
-    enabled-tags: [diagnostic, style, performance, opinionated, experimental]
-    disabled-checks:
-      - hugeParam        # 80-byte threshold is too tight for our argv slices
-
-  govet:
-    enable-all: true
-
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-
-  revive:
-    rules:
-      - name: var-naming
-      - name: exported
-      - name: unused-parameter
-      - name: package-comments
-      - name: unused-receiver
-
-  staticcheck:
-    checks: ["all"]
-
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  exclude-use-default: false
-  exclude-rules:
-    # Tests can be looser on a few rules.
-    - path: _test\.go
-      linters:
-        - dupl
-        - funlen
-        - gocyclo
-        - gocognit
-        - goconst
-        - errcheck
+    # Justified disables — each has a reason in this file.
+    # Dependency policy is enforced by ADR review, not import allowlists.
+    - depguard
+    # Too noisy: Go literals do not always initialize every field.
+    - exhaustruct
+    # gofumpt handles wrapping where Go syntax benefits from it.
+    - lll
+    # Too pedantic for short, guard-heavy Go functions.
+    - nlreturn
+    # Useful practice, but not mandatory for every test.
+    - paralleltest
+    # Struct tag naming will be handled by focused tests where relevant.
+    - tagliatelle
+    # Same-package tests are deliberate for unexported seams.
+    - testpackage
+    # Often disagrees with idiomatic Go names like i, ok, and w.
+    - varnamelen
+    # Conflicts with gofumpt's formatting model.
+    - wsl
+    # Conflicts with gofumpt's formatting model.
+    - wsl_v5
+  settings:
+    errcheck:
+      check-blank: true
+      check-type-assertions: true
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+        - opinionated
+        - experimental
+      disabled-checks:
+        # 80-byte threshold is too tight for ordinary option structs.
+        - hugeParam
+        # Conflicts with nonamedreturns; explicit return values are clearer.
+        - unnamedResult
+    govet:
+      enable-all: true
+    revive:
+      rules:
+        - name: var-naming
+        - name: exported
+        - name: unused-parameter
+        - name: package-comments
+        - name: unused-receiver
+    staticcheck:
+      checks:
+        - all
 ```
 
 The exact allow-list will evolve at impl time as new linters fire on

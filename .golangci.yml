@@ -1,0 +1,61 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: all
+  disable:
+    # Justified disables — each has a reason here per ADR-050.
+    # Dependency policy is enforced by ADR review, not import allowlists.
+    - depguard
+    # Too noisy: Go literals do not always initialize every field.
+    - exhaustruct
+    # gofumpt handles wrapping where Go syntax benefits from it.
+    - lll
+    # Too pedantic for short, guard-heavy Go functions.
+    - nlreturn
+    # Useful practice, but not mandatory for every test.
+    - paralleltest
+    # Struct tag naming will be handled by focused tests where relevant.
+    - tagliatelle
+    # Same-package tests are deliberate for unexported seams.
+    - testpackage
+    # Often disagrees with idiomatic Go names like i, ok, and w.
+    - varnamelen
+    # Conflicts with gofumpt's formatting model.
+    - wsl
+    # Conflicts with gofumpt's formatting model.
+    - wsl_v5
+  settings:
+    errcheck:
+      check-blank: true
+      check-type-assertions: true
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+        - opinionated
+        - experimental
+      disabled-checks:
+        # 80-byte threshold is too tight for ordinary option structs.
+        - hugeParam
+        # Conflicts with nonamedreturns; explicit return values are clearer.
+        - unnamedResult
+    govet:
+      enable-all: true
+    revive:
+      rules:
+        - name: var-naming
+        - name: exported
+        - name: unused-parameter
+        - name: package-comments
+        - name: unused-receiver
+    staticcheck:
+      checks:
+        - all

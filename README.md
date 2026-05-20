@@ -119,7 +119,7 @@ af version
 | [`AGENTS.md`](AGENTS.md)                     | Working agreement for AI agents touching this repo           |
 | [`CLAUDE.md`](CLAUDE.md)                     | Project constitution (rules that survive context compaction) |
 
-## Installation (planned)
+## Installation (scaffold)
 
 ```bash
 go install github.com/kakkoyun/af@latest
@@ -128,7 +128,9 @@ git clone https://github.com/kakkoyun/af && cd af && make install
 ```
 
 Only `af --help` and `af version` are useful today. The remaining command
-surface is still planned and will land in TODO order.
+surface is still planned and will land in TODO order. For local checks,
+run `make check`; for cross-compile sanity checks, run
+`make release-snapshot`.
 
 ## License
 

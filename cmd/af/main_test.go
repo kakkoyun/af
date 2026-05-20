@@ -44,9 +44,9 @@ func TestRunReturnsContextError(t *testing.T) {
 
 func TestRunRequiresOutputWriters(t *testing.T) {
 	tests := []struct {
-		name   string
 		stdout io.Writer
 		stderr io.Writer
+		name   string
 	}{
 		{name: "nil stdout", stdout: nil, stderr: io.Discard},
 		{name: "nil stderr", stdout: io.Discard, stderr: nil},
@@ -73,7 +73,7 @@ func TestRunReturnsCommandError(t *testing.T) {
 	}
 }
 
-func withBuildInfo(t *testing.T, v string, commit string, date string) {
+func withBuildInfo(t *testing.T, v, commit, date string) {
 	t.Helper()
 
 	oldVersion := version.Version

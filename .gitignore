@@ -1,11 +1,13 @@
-# Rust / Cargo
+# Go build artifacts
+/bin/
+/dist/
+/coverage.out
+
+# Legacy Rust / Cargo artifacts
 /target/
 debug/
 **/*.rs.bk
 *.pdb
-
-# Cargo lock is committed for binaries (recommended by Cargo)
-# Cargo.lock
 
 # IDE
 .idea/
@@ -23,6 +25,7 @@ debug/
 *.profdata
 lcov.info
 tarpaulin-report.html
+coverage.html
 
 # Autoresearch (pi agent)
 autoresearch.jsonl

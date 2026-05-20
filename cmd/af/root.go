@@ -7,9 +7,9 @@ import (
 )
 
 type rootOptions struct {
-	verbose     bool
 	configPath  string
 	sessionName string
+	verbose     bool
 }
 
 func newRootCmd() *cobra.Command {
@@ -24,13 +24,15 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if _, err := fmt.Fprint(cmd.OutOrStdout(), cmd.UsageString()); err != nil {
+			_, err := fmt.Fprint(cmd.OutOrStdout(), cmd.UsageString())
+			if err != nil {
 				return fmt.Errorf("show help: %w", err)
 			}
 			return nil
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			if err := cmd.Context().Err(); err != nil {
+			err := cmd.Context().Err()
+			if err != nil {
 				return fmt.Errorf("prepare af command: %w", err)
 			}
 			return nil

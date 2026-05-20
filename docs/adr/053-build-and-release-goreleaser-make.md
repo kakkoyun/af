@@ -4,7 +4,7 @@ title: "Build & Distribution — goreleaser + Make"
 status: proposed
 implementation: in-progress
 date: 2026-05-06
-last_modified: 2026-05-09
+last_modified: 2026-05-20
 supersedes: []
 superseded_by: null
 related: ["031", "034", "050", "051"]
@@ -44,15 +44,17 @@ versions ensure reproducibility.
 ```makefile
 GOLANGCI_LINT_VERSION = 2.3.0
 GOFUMPT_VERSION       = 0.7.0
+GOIMPORTS_VERSION     = 0.38.0
 GORELEASER_VERSION    = 2.5.0
 
-GO          ?= go
-GOLANGCI    ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_LINT_VERSION)
-GOFUMPT     ?= go run mvdan.cc/gofumpt@v$(GOFUMPT_VERSION)
-GORELEASER  ?= go run github.com/goreleaser/goreleaser/v2@v$(GORELEASER_VERSION)
+GO         ?= go
+GOLANGCI   ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_LINT_VERSION)
+GOFUMPT    ?= $(GO) run mvdan.cc/gofumpt@v$(GOFUMPT_VERSION)
+GOIMPORTS  ?= $(GO) run golang.org/x/tools/cmd/goimports@v$(GOIMPORTS_VERSION)
+GORELEASER ?= $(GO) run github.com/goreleaser/goreleaser/v2@v$(GORELEASER_VERSION)
 
 .PHONY: all build test test-property lint fmt fmt-check check install \
-        release-snapshot clean
+        release-snapshot snapshot clean
 
 all: check
 
@@ -70,11 +72,11 @@ lint:
 
 fmt:
 	$(GOFUMPT) -w .
-	$(GO) tool goimports -w -local github.com/kakkoyun/af .
+	$(GOIMPORTS) -w -local github.com/kakkoyun/af .
 
 fmt-check:
-	@out=$$($(GOFUMPT) -l .); if [ -n "$$out" ]; then echo "gofumpt:" "$$out"; exit 1; fi
-	@out=$$($(GO) tool goimports -l -local github.com/kakkoyun/af .); if [ -n "$$out" ]; then echo "goimports:" "$$out"; exit 1; fi
+	@out="$$($(GOFUMPT) -l .)"; if [ -n "$$out" ]; then printf '%s\n%s\n' "gofumpt:" "$$out"; exit 1; fi
+	@out="$$($(GOIMPORTS) -l -local github.com/kakkoyun/af .)"; if [ -n "$$out" ]; then printf '%s\n%s\n' "goimports:" "$$out"; exit 1; fi
 
 check: fmt-check lint test
 
@@ -83,6 +85,8 @@ install:
 
 release-snapshot:
 	$(GORELEASER) release --snapshot --clean
+
+snapshot: release-snapshot
 
 clean:
 	rm -rf bin/ dist/
