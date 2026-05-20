@@ -34,3 +34,6 @@ autoresearch.checks.sh
 
 # OS
 Thumbs.db
+
+# goreleaser snapshot artifacts
+/af

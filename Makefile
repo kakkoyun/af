@@ -1,3 +1,4 @@
+# shellcheck disable=SC2283,SC2276,SC2157 # Make syntax, not shell
 GOLANGCI_LINT_VERSION = 2.3.0
 GOFUMPT_VERSION       = 0.7.0
 GOIMPORTS_VERSION     = 0.38.0
@@ -40,9 +41,19 @@ install:
 	$(GO) install ./cmd/af
 
 release-snapshot:
-	$(GORELEASER) release --snapshot --clean
+	$(GORELEASER) release --snapshot --clean --config .goreleaser.yaml
 
 snapshot: release-snapshot
+
+.PHONY: snapshot-all
+snapshot-all: ## Build snapshots for ALL configured targets via system goreleaser
+	@command -v goreleaser >/dev/null 2>&1 || { echo "goreleaser not installed; run: brew install goreleaser"; exit 1; }
+	goreleaser build --snapshot --clean --config .goreleaser.yaml
+
+.PHONY: release-check
+release-check: ## Validate .goreleaser.yaml
+	@command -v goreleaser >/dev/null 2>&1 || { echo "goreleaser not installed; run: brew install goreleaser"; exit 1; }
+	goreleaser check --config .goreleaser.yaml
 
 clean:
 	rm -rf bin/ dist/

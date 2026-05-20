@@ -296,17 +296,17 @@ ADR to `implementation: complete`.
 
 Wave 1 — deferred placeholders + release tooling (parallel agents):
 
-- [ ] I9.1: ADR-057 — wire `af pr --ai` to `agent.BodyCmd(BodyOpts{Cwd,
+- [x] I9.1: ADR-057 — wire `af pr --ai` to `agent.BodyCmd(BodyOpts{Cwd,
       Model})`; build the prompt from the worktree diff; handle
       empty-diff and empty-body errors; reject `--ai` with `--web`.
-- [ ] I9.2: ADR-058 — wire `af retro --ai` to `agent.BodyCmd` with
+- [x] I9.2: ADR-058 — wire `af retro --ai` to `agent.BodyCmd` with
       `BodyOpts.Cwd = ""`; synthesise narrative from the collected
       notes; revert ADR-058 frontmatter to `in-progress` first, then
       advance to `complete` once shipped.
-- [ ] I9.3: ADR-059 — implement `af sync` real rebase algorithm:
+- [x] I9.3: ADR-059 — implement `af sync` real rebase algorithm:
       `git fetch`, `git rebase --onto parent-base parent-head head`,
       detect/report conflicts.
-- [ ] I9.4: ADR-053 — add `.goreleaser.yaml` and `make snapshot`
+- [x] I9.4: ADR-053 — add `.goreleaser.yaml` and `make snapshot`
       target; verify cross-compile snapshot builds (darwin/arm64,
       linux/amd64, linux/arm64) with the installed goreleaser 2.15.4.
 

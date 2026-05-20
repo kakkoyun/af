@@ -7,12 +7,15 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kakkoyun/af/internal/git"
+	"github.com/kakkoyun/af/internal/lifecycle"
 	"github.com/kakkoyun/af/internal/session"
 )
 
 var (
 	errStackNoState        = errors.New("workstream state not found")
 	errStackParentRequired = errors.New("--parent required")
+	errSyncNoParent        = errors.New("sync requires Stack.ParentSession to be set (use af stack <name> --parent <other>)")
 )
 
 func newStackCmd(_ *rootOptions) *cobra.Command {
@@ -51,7 +54,8 @@ func newUnstackCmd(_ *rootOptions) *cobra.Command {
 func newSyncCmd(_ *rootOptions) *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync [session]",
-		Short: "Sync this workstream's branch onto its stack parent (placeholder)",
+		Short: "Rebase this workstream's branch onto its stack parent",
+		Long:  "sync fetches the parent branch and rebases the current workstream branch onto it per ADR-059. On conflict git is left mid-rebase; resolve the conflict, run 'git rebase --continue', then re-run 'af sync'.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := ""
@@ -109,11 +113,51 @@ func runSync(cmd *cobra.Command, name string) error {
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "sync: stack parent for %s is %q (sync logic deferred to ADR-059 implementation)\n", state.Session.Name, state.Stack.ParentSession)
+	if state.Stack.ParentSession == "" {
+		return fmt.Errorf("sync: %w", errSyncNoParent)
+	}
+
+	parentState, _, err := loadStackState(state.Stack.ParentSession)
+	if err != nil {
+		return fmt.Errorf("sync: read parent state: %w", err)
+	}
+
+	result, err := lifecycle.Sync(
+		cmd.Context(),
+		lifecycle.SyncDeps{Git: git.NewExecRunner()},
+		lifecycle.SyncOptions{
+			SessionName: state.Session.Name,
+			Worktree:    state.Worktree.Path,
+			Branch:      state.Worktree.Branch,
+			ParentRef:   parentState.Worktree.Branch,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("sync: %w", err)
+	}
+
+	if result.Rebased {
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "sync: rebased %s onto %s (%s..%s)\n",
+			result.Branch, result.ParentRef, shortSHA(result.BaseBefore), shortSHA(result.BaseAfter))
+	} else {
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "sync: %s already up to date with %s\n",
+			result.Branch, result.ParentRef)
+	}
 	if err != nil {
 		return fmt.Errorf("sync write: %w", err)
 	}
 	return nil
+}
+
+const shortSHALen = 7
+
+// shortSHA returns the first 7 characters of a SHA for display, or the
+// full string if it is shorter.
+func shortSHA(s string) string {
+	if len(s) > shortSHALen {
+		return s[:shortSHALen]
+	}
+	return s
 }
 
 func loadStackState(name string) (session.State, string, error) {
