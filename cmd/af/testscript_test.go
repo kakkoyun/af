@@ -20,11 +20,19 @@ func TestScripts(t *testing.T) {
 			fakeBinDir := filepath.Join(env.WorkDir, "fakebin")
 
 			testutil.BuildBinary(t, t.Context(), ".", filepath.Join(binDir, "af"))
-			testutil.MustMkdirAll(t, fakeBinDir)
+			writeExternalFakes(t, fakeBinDir)
 
 			env.Setenv("AF_TEST_FAKEBIN", fakeBinDir)
-			env.Setenv("PATH", testutil.PrependPath(binDir, os.Getenv("PATH")))
+			env.Setenv("PATH", testutil.PrependPath(binDir, testutil.PrependPath(fakeBinDir, os.Getenv("PATH"))))
 			return nil
 		},
 	})
+}
+
+func writeExternalFakes(t *testing.T, dir string) {
+	t.Helper()
+
+	for _, name := range []string{"tmux", "ssh", "slicer", "sbx", "pi", "claude", "codex"} {
+		testutil.WriteExecutable(t, dir, name, "echo fake "+name)
+	}
 }

@@ -65,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mapping, probe command construction, and fake executor.
 - Added `internal/sandbox` provider interfaces, slicer/sbx command
   builders, recording runner, and fake sandbox.
+- Added testscript fake-command PATH wiring for tmux, ssh, slicer, sbx,
+  pi, claude, and codex.
 
 ### Removed
 

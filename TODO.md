@@ -173,7 +173,7 @@ This stage creates every seam before commands depend on real tools.
       remote path mapping, and fake remote executor.
 - [x] I2.4: ADR-042 — implement sandbox provider interfaces, fake
       sandbox, and slicer/sbx command construction.
-- [ ] I2.5: ADR-051 — wire all command-facing code to fakes in tests;
+- [x] I2.5: ADR-051 — wire all command-facing code to fakes in tests;
       no unit or testscript path may require real tmux, ssh, slicer, sbx, or
       agent CLIs.
 

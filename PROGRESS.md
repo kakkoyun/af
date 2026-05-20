@@ -880,3 +880,40 @@ command builders, and fake sandbox before command integration.
 Continue with `TODO.md` item I2.5: wire command-facing code to fakes in
 tests so no unit or testscript path requires real tmux, ssh, slicer,
 sbx, or agent CLIs.
+
+---
+
+## 2026-05-20 — Session 20: testscript fake PATH wiring
+
+### Goal
+
+Complete I2.5 by ensuring command-facing tests shadow external CLIs with
+fakes rather than requiring real tmux, ssh, slicer, sbx, or agent binaries.
+
+### Done
+
+- Wrote `fake-path.txt` first and confirmed it failed by invoking the
+  real local `tmux` because the testscript fake-bin directory was only
+  exported as `AF_TEST_FAKEBIN`, not prepended to `PATH`.
+- Updated the testscript setup to write fake `tmux`, `ssh`, `slicer`,
+  `sbx`, `pi`, `claude`, and `codex` executables per scenario.
+- Prepended the fake-bin directory after the built `af` binary directory
+  and before the host `PATH`.
+- Added a regression script that executes each fake binary and asserts
+  the fake output.
+- Marked `TODO.md` I2.5 complete.
+
+### Verification
+
+- `go test ./cmd/af -run TestScripts/fake-path` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i2-5-verify.log`.
+
+### Next
+
+Continue with Stage 3, starting `TODO.md` item I3.1: implement
+`af config init` and `af config show`.

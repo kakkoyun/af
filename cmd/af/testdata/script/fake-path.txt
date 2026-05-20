@@ -1,0 +1,15 @@
+# The testscript harness must shadow external CLIs with fakes.
+exec tmux
+stdout '^fake tmux$'
+exec ssh
+stdout '^fake ssh$'
+exec slicer
+stdout '^fake slicer$'
+exec sbx
+stdout '^fake sbx$'
+exec pi
+stdout '^fake pi$'
+exec claude
+stdout '^fake claude$'
+exec codex
+stdout '^fake codex$'
