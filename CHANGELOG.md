@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added testscript fake-command PATH wiring for tmux, ssh, slicer, sbx,
   pi, claude, and codex.
 - Added `af completions <bash|zsh|fish|powershell>`: emits the shell-specific completion script to stdout using cobra's built-in generators (`GenBashCompletion`, `GenZshCompletion`, `GenFishCompletion`, `GenPowerShellCompletionWithDesc`).
+- Added `af doctor` (local) and `af doctor --remote <host>` per ADR-044. Probes git, tmux, the agent trio (pi/claude/codex, OR-group), gh, fzf, slicer, sbx, delta, and any `[doctor].extra_tools` entries against the local PATH or an SSH remote. Renders install hints per platform (macOS/Arch/Debian/Other) detected via `/etc/os-release`. Exits 1 when any TierMust requirement is missing. Backed by `internal/doctor` with `SystemLookup`, `RemoteLookup`, and OS-release parsing fakes.
 - Added `af config init` and `af config show`: `init` scaffolds the
   annotated user config at `$HOME/.config/af/config.toml` (or the path
   given via `--config`) and refuses to overwrite an existing file;

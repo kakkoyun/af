@@ -1005,3 +1005,30 @@ Complete I3.2 by adding `af completions <bash|zsh|fish|powershell>` via cobra's 
 ### Next
 
 Continue with `TODO.md` item I3.3: implement local `af doctor` (ADR-044) using the existing interface seams.
+
+## 2026-05-21 — Session 23: af doctor (local + remote)
+
+### Goal
+
+Complete I3.3 and I3.4 by adding `af doctor` (local) and `af doctor --remote <host>` per ADR-044, plus the supporting `internal/doctor` package.
+
+### Done
+
+- New `internal/doctor` package: Tier enum (Must/Should/Nice), Probe struct with OR-group support for the agent trio, Lookup interface (`LookPath(ctx,name)`, `Version(ctx,binary)`), Run aggregator, Render emitter with per-platform install hints.
+- `internal/doctor/system.go`: SystemLookup over `os/exec`, ParseOSRelease, DetectPlatform with Darwin shortcut and Arch/Debian classification via /etc/os-release.
+- `internal/doctor/remote.go`: RemoteCommander seam (satisfied by `internal/remote.SSH`), RemoteLookup using `command -v` and `<bin> --version || true`, RemoteOSRelease via `cat /etc/os-release`, DetectRemotePlatform.
+- `cmd/af/doctor.go`: `af doctor [--remote host] [--verbose]` wired into root; loads layered config to pick up `[doctor].extra_tools` and `[remote].ssh_options`; renders the report; exits 1 on missing TierMust tools.
+- testscript scenario `doctor.txt` exercises the local path through the fake-PATH shadowing (git/tmux/pi all fakes).
+- testscript fakebin extended to include `git` so doctor scenarios are hermetic.
+- Resolved a long lint pass (~14 issues across govet/cyclop/err113/errcheck/nilerr/funlen/perfsprint/nolintlint/revive/contextcheck) without regressions.
+- Updated TODO (I3.3, I3.4 ✓), CHANGELOG, and ADR-044 (`implementation: in-progress`, `last_modified: 2026-05-21`).
+
+### Verification
+
+- `go test -race -count=1 -shuffle=on ./...` passes.
+- `make check` passes (0 lint issues).
+- `go doc ./internal/doctor` lists Probe, Lookup, Run, Render, SystemLookup, RemoteLookup, DetectPlatform, DetectRemotePlatform.
+
+### Next
+
+Continue with `TODO.md` item I3.5: implement `af setup` (ADR-045 + ADR-049) — state directory creation, config init, global gitignore update, completion install, secrets directory, Obsidian vault hint.

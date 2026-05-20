@@ -1,4 +1,6 @@
 # The testscript harness must shadow external CLIs with fakes.
+exec git
+stdout '^fake git$'
 exec tmux
 stdout '^fake tmux$'
 exec ssh

@@ -1,0 +1,10 @@
+# af doctor reports each required tool when the testscript fakebin
+# shadows git/tmux/pi/claude/codex.
+
+env HOME=$WORK/home
+exec af doctor
+stdout 'Local environment:'
+stdout '✓ git'
+stdout '✓ tmux'
+stdout '✓ pi'
+stdout 'all required tools present'

@@ -2,9 +2,9 @@
 adr: 044
 title: "af doctor + Install Hints (local & --remote)"
 status: proposed
-implementation: pending
+implementation: in-progress
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-05-21
 supersedes: []
 superseded_by: null
 related: ["031", "041", "042", "043", "045"]

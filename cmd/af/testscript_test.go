@@ -32,7 +32,7 @@ func TestScripts(t *testing.T) {
 func writeExternalFakes(t *testing.T, dir string) {
 	t.Helper()
 
-	for _, name := range []string{"tmux", "ssh", "slicer", "sbx", "pi", "claude", "codex"} {
+	for _, name := range []string{"git", "tmux", "ssh", "slicer", "sbx", "pi", "claude", "codex"} {
 		testutil.WriteExecutable(t, dir, name, "echo fake "+name)
 	}
 }
