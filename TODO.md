@@ -187,7 +187,7 @@ These commands validate the scaffold without creating workstreams.
       probes and install-hint rendering.
 - [x] I3.4: ADR-041 + ADR-044 — implement `af doctor --remote <host>`
       with fake-backed SSH probes.
-- [ ] I3.5: ADR-045 + ADR-049 — implement `af setup`: state directory
+- [x] I3.5: ADR-045 + ADR-049 — implement `af setup`: state directory
       creation, config init, global gitignore update, completion install,
       secrets directory creation, and Obsidian vault hint.
 - [ ] I3.6: ADR-049 — implement `af auth set|get|status|clear|list`
