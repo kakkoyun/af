@@ -1,0 +1,256 @@
+package sandbox
+
+import (
+	"context"
+	"fmt"
+	"os/exec"
+	"sort"
+	"strings"
+)
+
+const sbxWorkdir = "/workstream"
+
+// LaunchOpts configures a sandbox launch.
+type LaunchOpts struct {
+	Workstream string
+	Worktree   string
+	AgentArgv  []string
+}
+
+// Handle identifies a running sandbox.
+type Handle struct {
+	ID        string
+	AttachCmd []string
+}
+
+// Sandbox manages one sandbox provider.
+type Sandbox interface {
+	Name() string
+	IsAvailable(ctx context.Context) bool
+	Launch(ctx context.Context, opts LaunchOpts) (*Handle, error)
+	Attach(ctx context.Context, handle *Handle) error
+	IsHealthy(ctx context.Context, handle *Handle) (bool, error)
+	Teardown(ctx context.Context, handle *Handle) error
+	List(ctx context.Context) ([]Handle, error)
+}
+
+// Command is one external command invocation.
+type Command struct {
+	Name string
+	Dir  string
+	Args []string
+}
+
+// Runner executes sandbox CLI commands.
+type Runner interface {
+	Run(ctx context.Context, command Command) ([]byte, error)
+}
+
+// ExecRunner runs commands through os/exec.
+type ExecRunner struct{}
+
+// Run executes command and returns combined stdout/stderr.
+func (ExecRunner) Run(ctx context.Context, command Command) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, command.Name, command.Args...) //nolint:gosec // Provider argv is constructed by typed methods, not shell input.
+	cmd.Dir = command.Dir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return output, fmt.Errorf("run %s %s: %w", command.Name, strings.Join(command.Args, " "), err)
+	}
+
+	return output, nil
+}
+
+// KnownProviders returns sandbox provider names in fallback order.
+func KnownProviders() []string {
+	return []string{"slicer", "sbx"}
+}
+
+// Provider is a CLI-backed sandbox provider.
+type Provider struct {
+	runner Runner
+	name   string
+	binary string
+	kind   providerKind
+}
+
+type providerKind int
+
+const (
+	providerSlicer providerKind = iota
+	providerSbx
+)
+
+// NewSlicer returns the slicer sandbox provider.
+func NewSlicer() Provider {
+	return NewSlicerWithRunner(ExecRunner{})
+}
+
+// NewSlicerWithRunner returns the slicer sandbox provider using runner.
+func NewSlicerWithRunner(runner Runner) Provider {
+	return newProvider("slicer", providerSlicer, runner)
+}
+
+// NewSbx returns the sbx sandbox provider.
+func NewSbx() Provider {
+	return NewSbxWithRunner(ExecRunner{})
+}
+
+// NewSbxWithRunner returns the sbx sandbox provider using runner.
+func NewSbxWithRunner(runner Runner) Provider {
+	return newProvider("sbx", providerSbx, runner)
+}
+
+func newProvider(binary string, kind providerKind, runner Runner) Provider {
+	if runner == nil {
+		runner = ExecRunner{}
+	}
+
+	return Provider{name: binary, binary: binary, kind: kind, runner: runner}
+}
+
+// Name returns the provider name.
+func (provider Provider) Name() string {
+	return provider.name
+}
+
+// IsAvailable reports whether the provider binary is on PATH.
+func (provider Provider) IsAvailable(ctx context.Context) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	_, err := exec.LookPath(provider.binary)
+
+	return err == nil
+}
+
+// Launch starts a sandbox and returns its handle.
+func (provider Provider) Launch(ctx context.Context, opts LaunchOpts) (*Handle, error) {
+	args := provider.launchArgs(opts)
+	output, err := provider.run(ctx, args...)
+	if err != nil {
+		return nil, fmt.Errorf("launch %s sandbox %s: %w", provider.name, opts.Workstream, err)
+	}
+	id := strings.TrimSpace(string(output))
+	if id == "" {
+		id = opts.Workstream
+	}
+
+	return &Handle{ID: id, AttachCmd: provider.attachCommand(id)}, nil
+}
+
+// Attach attaches to a running sandbox.
+func (provider Provider) Attach(ctx context.Context, handle *Handle) error {
+	_, err := provider.run(ctx, provider.attachArgs(handle.ID)...)
+	if err != nil {
+		return fmt.Errorf("attach %s sandbox %s: %w", provider.name, handle.ID, err)
+	}
+
+	return nil
+}
+
+// IsHealthy reports whether a sandbox appears alive.
+func (provider Provider) IsHealthy(ctx context.Context, handle *Handle) (bool, error) {
+	_, err := provider.run(ctx, provider.healthArgs(handle.ID)...)
+	if err != nil {
+		return false, fmt.Errorf("check %s sandbox %s: %w", provider.name, handle.ID, err)
+	}
+
+	return true, nil
+}
+
+// Teardown removes a sandbox.
+func (provider Provider) Teardown(ctx context.Context, handle *Handle) error {
+	_, err := provider.run(ctx, provider.teardownArgs(handle.ID)...)
+	if err != nil {
+		return fmt.Errorf("teardown %s sandbox %s: %w", provider.name, handle.ID, err)
+	}
+
+	return nil
+}
+
+// List returns running sandboxes known by the provider.
+func (provider Provider) List(ctx context.Context) ([]Handle, error) {
+	output, err := provider.run(ctx, provider.listArgs()...)
+	if err != nil {
+		return nil, fmt.Errorf("list %s sandboxes: %w", provider.name, err)
+	}
+	ids := strings.Fields(string(output))
+	handles := make([]Handle, 0, len(ids))
+	for _, id := range ids {
+		handles = append(handles, Handle{ID: id, AttachCmd: provider.attachCommand(id)})
+	}
+	sort.Slice(handles, func(i, j int) bool { return handles[i].ID < handles[j].ID })
+
+	return handles, nil
+}
+
+func (provider Provider) launchArgs(opts LaunchOpts) []string {
+	switch provider.kind {
+	case providerSlicer:
+		args := []string{"vm", "run", "--name", opts.Workstream, "--mount", opts.Worktree, "--"}
+		return append(args, opts.AgentArgv...)
+	case providerSbx:
+		args := []string{"run", "--name", opts.Workstream, "--workdir", sbxWorkdir, "--mount", opts.Worktree + ":" + sbxWorkdir, "--"}
+		return append(args, opts.AgentArgv...)
+	default:
+		return nil
+	}
+}
+
+func (provider Provider) attachCommand(id string) []string {
+	return append([]string{provider.binary}, provider.attachArgs(id)...)
+}
+
+func (provider Provider) attachArgs(id string) []string {
+	switch provider.kind {
+	case providerSlicer:
+		return []string{"vm", "shell", id}
+	case providerSbx:
+		return []string{"attach", id}
+	default:
+		return nil
+	}
+}
+
+func (provider Provider) healthArgs(id string) []string {
+	switch provider.kind {
+	case providerSlicer:
+		return []string{"vm", "status", id}
+	case providerSbx:
+		return []string{"inspect", id}
+	default:
+		return nil
+	}
+}
+
+func (provider Provider) teardownArgs(id string) []string {
+	switch provider.kind {
+	case providerSlicer:
+		return []string{"vm", "delete", id}
+	case providerSbx:
+		return []string{"rm", id}
+	default:
+		return nil
+	}
+}
+
+func (provider Provider) listArgs() []string {
+	switch provider.kind {
+	case providerSlicer:
+		return []string{"vm", "list"}
+	case providerSbx:
+		return []string{"list"}
+	default:
+		return nil
+	}
+}
+
+func (provider Provider) run(ctx context.Context, args ...string) ([]byte, error) {
+	output, err := provider.runner.Run(ctx, Command{Name: provider.binary, Args: args})
+	if err != nil {
+		return output, fmt.Errorf("%s %s: %w", provider.binary, strings.Join(args, " "), err)
+	}
+
+	return output, nil
+}

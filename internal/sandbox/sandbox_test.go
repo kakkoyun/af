@@ -1,0 +1,100 @@
+package sandbox_test
+
+import (
+	"context"
+	"reflect"
+	"testing"
+
+	"github.com/kakkoyun/af/internal/sandbox"
+)
+
+func TestKnownProviders_AreSlicerThenSbx(t *testing.T) {
+	got := sandbox.KnownProviders()
+	want := []string{"slicer", "sbx"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("KnownProviders() = %#v, want %#v", got, want)
+	}
+}
+
+func TestSlicer_LaunchBuildsCommandAndHandle(t *testing.T) {
+	ctx := context.Background()
+	runner := sandbox.NewRecordingRunner()
+	runner.QueueOutput("vm-session\n")
+	provider := sandbox.NewSlicerWithRunner(runner)
+
+	handle, err := provider.Launch(ctx, sandbox.LaunchOpts{Workstream: "session", Worktree: "/repo", AgentArgv: []string{"pi"}})
+	if err != nil {
+		t.Fatalf("Launch() error = %v", err)
+	}
+	if handle.ID != "vm-session" {
+		t.Fatalf("handle ID = %q, want vm-session", handle.ID)
+	}
+	if !reflect.DeepEqual(handle.AttachCmd, []string{"slicer", "vm", "shell", "vm-session"}) {
+		t.Fatalf("AttachCmd = %#v", handle.AttachCmd)
+	}
+
+	want := []sandbox.Command{{Name: "slicer", Args: []string{"vm", "run", "--name", "session", "--mount", "/repo", "--", "pi"}}}
+	if got := runner.Commands(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("commands = %#v, want %#v", got, want)
+	}
+}
+
+func TestSbx_LaunchBuildsCommandAndHandle(t *testing.T) {
+	ctx := context.Background()
+	runner := sandbox.NewRecordingRunner()
+	runner.QueueOutput("container-id\n")
+	provider := sandbox.NewSbxWithRunner(runner)
+
+	handle, err := provider.Launch(ctx, sandbox.LaunchOpts{Workstream: "session", Worktree: "/repo", AgentArgv: []string{"claude", "--continue"}})
+	if err != nil {
+		t.Fatalf("Launch() error = %v", err)
+	}
+	if handle.ID != "container-id" {
+		t.Fatalf("handle ID = %q, want container-id", handle.ID)
+	}
+	if !reflect.DeepEqual(handle.AttachCmd, []string{"sbx", "attach", "container-id"}) {
+		t.Fatalf("AttachCmd = %#v", handle.AttachCmd)
+	}
+
+	want := []sandbox.Command{{Name: "sbx", Args: []string{"run", "--name", "session", "--workdir", "/workstream", "--mount", "/repo:/workstream", "--", "claude", "--continue"}}}
+	if got := runner.Commands(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("commands = %#v, want %#v", got, want)
+	}
+}
+
+func TestFakeSandbox_LaunchHealthTeardownAndList(t *testing.T) {
+	ctx := context.Background()
+	fake := sandbox.NewFake("slicer")
+
+	handle, err := fake.Launch(ctx, sandbox.LaunchOpts{Workstream: "session", Worktree: "/repo", AgentArgv: []string{"pi"}})
+	if err != nil {
+		t.Fatalf("Launch() error = %v", err)
+	}
+	healthy, err := fake.IsHealthy(ctx, handle)
+	if err != nil {
+		t.Fatalf("IsHealthy() error = %v", err)
+	}
+	if !healthy {
+		t.Fatal("IsHealthy() = false, want true")
+	}
+
+	handles, err := fake.List(ctx)
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(handles) != 1 || handles[0].ID != handle.ID {
+		t.Fatalf("List() = %#v, want launched handle", handles)
+	}
+
+	err = fake.Teardown(ctx, handle)
+	if err != nil {
+		t.Fatalf("Teardown() error = %v", err)
+	}
+	healthy, err = fake.IsHealthy(ctx, handle)
+	if err != nil {
+		t.Fatalf("IsHealthy(after teardown) error = %v", err)
+	}
+	if healthy {
+		t.Fatal("IsHealthy(after teardown) = true, want false")
+	}
+}

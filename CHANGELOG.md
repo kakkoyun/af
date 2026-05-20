@@ -63,6 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recording runner, and fake multiplexer for tests.
 - Added `internal/remote` SSH command construction, remote clone path
   mapping, probe command construction, and fake executor.
+- Added `internal/sandbox` provider interfaces, slicer/sbx command
+  builders, recording runner, and fake sandbox.
 
 ### Removed
 

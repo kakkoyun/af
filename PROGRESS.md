@@ -839,3 +839,44 @@ path mapping, and fake executor before command integration.
 
 Continue with `TODO.md` item I2.4: implement sandbox provider
 interfaces, fake sandbox, and slicer/sbx command construction.
+
+---
+
+## 2026-05-20 — Session 19: sandbox provider seams
+
+### Goal
+
+Complete I2.4 by adding the sandbox provider abstraction, slicer/sbx
+command builders, and fake sandbox before command integration.
+
+### Done
+
+- Wrote tests first for known-provider order, slicer launch command
+  construction, sbx launch command construction, and fake sandbox
+  launch/health/list/teardown behavior.
+- Added `Sandbox`, `LaunchOpts`, `Handle`, `Command`, `Runner`, and
+  `ExecRunner` in `internal/sandbox`.
+- Added slicer and sbx provider implementations with launch, attach,
+  health, teardown, list, availability, and attach-command construction.
+- Added `RecordingRunner` so tests assert argv without touching real
+  slicer/sbx binaries.
+- Added `Fake` sandbox provider for future command tests.
+- Kept CLI command integration for later stages.
+- Marked `TODO.md` I2.4 complete and advanced ADR-042 implementation
+  state.
+
+### Verification
+
+- `go test ./internal/sandbox` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i2-4-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I2.5: wire command-facing code to fakes in
+tests so no unit or testscript path requires real tmux, ssh, slicer,
+sbx, or agent CLIs.
