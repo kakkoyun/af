@@ -636,3 +636,42 @@ operations.
 Continue with `TODO.md` item I1.6: implement secret redaction handler
 and the keyring interface with fakes; keep envelope transport disabled
 until remote / sandbox stages.
+
+---
+
+## 2026-05-20 — Session 14: secret redaction and keyring fake
+
+### Goal
+
+Complete I1.6 by adding the local secret-management seams needed by
+future auth and launch code, without enabling envelope transport yet.
+
+### Done
+
+- Wrote tests first for built-in / configured `slog` key redaction,
+  nested group redaction, and fake keyring set/get/delete/list behavior.
+- Added `NewRedactingHandler`, wrapping any `slog.Handler` and redacting
+  built-in keys (`api_key`, `token`, `password`, `bearer`, `secret`,
+  `auth`) plus config-provided extensions.
+- Added a `Keyring` interface and `MemoryKeyring` fake for deterministic
+  command and provider tests.
+- Kept ephemeral envelope transport intentionally unimplemented until
+  the remote / sandbox stages.
+- Marked `TODO.md` I1.6 complete and advanced ADR-049 implementation
+  state.
+
+### Verification
+
+- `go test ./internal/secret` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i1-6-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I1.7: implement Obsidian frontmatter
+parse/emit helpers and note path resolution, fake-backed and without
+command integration.

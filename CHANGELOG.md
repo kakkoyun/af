@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parsing, and current-workstream discovery helpers.
 - Added `internal/git` worktree planning helpers for stable primary and
   sub-worktree paths, discovery symlinks, and safe cleanup plans.
+- Added `internal/secret` redacting `slog` handler plus fake-backed
+  keyring interface for future `af auth` and launch-secret work.
 
 ### Removed
 

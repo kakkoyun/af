@@ -154,7 +154,7 @@ These packages are mostly pure or fake-backed. They unblock all commands.
 - [x] I1.5: ADR-038 — implement local worktree path planning,
       `.af/state.toml` symlink handling, sub-worktree path planning, and git
       cleanup planning.
-- [ ] I1.6: ADR-049 — implement secret redaction handler and the keyring
+- [x] I1.6: ADR-049 — implement secret redaction handler and the keyring
       interface with fakes; keep envelope transport disabled until remote /
       sandbox stages.
 - [ ] I1.7: ADR-047 — implement Obsidian frontmatter parse/emit helpers
