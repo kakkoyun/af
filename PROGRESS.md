@@ -389,3 +389,40 @@ naming invariants without making formal verification a release gate.
 Continue with `TODO.md` item I0.6: run baseline verification now that
 Stage 0 scaffold checks are in place, then update `PROGRESS.md` with the
 first green baseline.
+
+---
+
+## 2026-05-20 — Session 8: Stage 0 green baseline
+
+### Goal
+
+Complete I0.6 by proving the scaffold, static checks, testscript smoke
+harness, property tests, and snapshot build tooling all pass together.
+
+### Done
+
+- Ran the full Stage 0 baseline after completing I0.1 through I0.5.
+- Confirmed `make check` passes on the scaffold.
+- Confirmed `make test-property` passes separately for the deeper
+  property-test target.
+- Confirmed `make release-snapshot` produces local snapshot artifacts and
+  `make clean` removes generated `bin/` / `dist/` outputs.
+- Marked Implementation Stage 0 complete in `TODO.md`.
+
+### Verification
+
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make test-property` passes.
+- `make check` passes.
+- `make build` passes.
+- `make release-snapshot` passes.
+- `make clean` passes.
+- Baseline log: `/tmp/af-i0-6-baseline.log`.
+
+### Next
+
+Begin Implementation Stage 1 with `TODO.md` item I1.1: implement layered
+TOML config loading, schema defaults, global-only sections, `~`
+expansion, proxy command config shapes, and config tests.

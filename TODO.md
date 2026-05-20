@@ -132,7 +132,7 @@ No product feature work until this stage is green.
 - [x] I0.5: ADR-052 — add the property-test scaffold for lifecycle and
       naming invariants without enabling formal verification as a release
       gate.
-- [ ] I0.6: Baseline verification — `make check` passes on the scaffold;
+- [x] I0.6: Baseline verification — `make check` passes on the scaffold;
       update `PROGRESS.md` with the first green baseline.
 
 ### Implementation Stage 1 — Pure foundations and durable state
