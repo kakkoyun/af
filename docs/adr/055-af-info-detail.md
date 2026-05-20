@@ -2,9 +2,9 @@
 adr: 055
 title: "af info — Workstream Detail View"
 status: proposed
-implementation: pending
+implementation: complete
 date: 2026-05-08
-last_modified: 2026-05-08
+last_modified: 2026-05-21
 supersedes: []
 superseded_by: null
 related: ["031", "035", "037", "038", "039", "054"]

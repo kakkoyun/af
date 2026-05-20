@@ -2,7 +2,7 @@
 adr: 044
 title: "af doctor + Install Hints (local & --remote)"
 status: proposed
-implementation: in-progress
+implementation: complete
 date: 2026-05-06
 last_modified: 2026-05-21
 supersedes: []

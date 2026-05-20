@@ -4,7 +4,7 @@ title: "tmux-only Multiplexer"
 status: proposed
 implementation: in-progress
 date: 2026-05-06
-last_modified: 2026-05-20
+last_modified: 2026-05-21
 supersedes: []
 superseded_by: null
 related: ["031", "039", "046"]

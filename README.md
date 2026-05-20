@@ -1,137 +1,219 @@
 # af
 
-**af** (agentic-flow / automatic-flow / as-fuck) — a single-user CLI for
-stitching together the AI coding agents, terminal multiplexer, sandbox,
-and remote machines that I actually use.
+**af** manages isolated AI-agent workstreams across git worktrees, tmux sessions,
+sandboxes, and SSH remotes. Give it a task name, and it creates a branch, a
+dedicated worktree, a tmux session, and launches a primary agent (pi, claude, or
+codex) — all tied together under a single durable state file. When the task is
+done, everything is cleaned up with one command.
 
-> **Status — v1 scaffold.** This repository is mid-rewrite. The Go
-> scaffold lives under `cmd/af/` and `internal/...`; root help and
-> `af version` are implemented, while product workstream commands are not
-> yet. The Rust v0 source/tooling has been removed so the rewrite stays
-> focused. See [`docs/v0/README.md`](docs/v0/README.md) and git history
-> for the v0 archive.
+> **Status — v1 (single-user).** Stages 0–7 are implemented and `make check`
+> is green. Remote (`--remote`) and sandbox (`--sandbox`) create flags are wired
+> to scaffolded helpers but not battle-tested against real SSH hosts / slicer /
+> sbx. `af pr --ai` body generation is a placeholder stub. See [Caveats](#caveats).
 
-## What it does
-
-I work on a repo. I want pi (or claude, or codex) to focus on one task
-without touching my main checkout. I want the worktree, the branch, and
-the agent session tied together. When I'm done, I want everything cleaned
-up. When I want to step away, I want to suspend the workstream — tear down
-the VM, kill the tmux server processes, free resources — and pick it back
-up later as if nothing happened.
-
-`af` does that.
-
-## v1 goals (not yet implemented)
-
-- **Single binary**, written in Go, cross-compiled for `linux/{amd64,arm64}` and `darwin/{amd64,arm64}`.
-- **Stdlib-first** dependency policy. Five runtime deps total: cobra, BurntSushi/toml, google/uuid, gopkg.in/yaml.v3, zalando/go-keyring.
-- **Pedantic** lint (all `golangci-lint` linters on).
-- **Atomic commits**.
-- **No release** — single-user; install via `go install` or `make install`.
-
-## v1 scope (planned)
-
-| Capability      | Detail                                                                                                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Multiplexer     | tmux only                                                                                                                                                                                               |
-| Agents          | pi (default), claude, codex                                                                                                                                                                             |
-| Remote          | SSH host (alias from `~/.ssh/config`, `user@host`, or IP); no provider plugin layer                                                                                                                     |
-| Sandbox         | slicer (Firecracker) and sbx (Docker AI Sandboxes)                                                                                                                                                      |
-| Worktree layout | Stable `~/Workspace/.worktrees/<repo>/<branch>/`; sibling sub-worktrees for subagents                                                                                                                   |
-| State           | TOML state file + JSONL ledger per workstream, global at `~/.local/share/af/v1/sessions/`; per-repo discovery symlink at `<repo>/.af/state.toml`                                                        |
-| Obsidian        | One markdown note per workstream, versioned frontmatter, optional Obsidian Bases aggregator                                                                                                             |
-| Secrets         | macOS Keychain / Linux Secret Service via `zalando/go-keyring`; **ephemeral envelope** file for transport (tmpfs when `/run/user/$UID` exists, persistent-disk fallback otherwise — never SSH `SetEnv`) |
-
-## Planned commands
-
-ADR-035 is the authoritative CLI contract; the table below is the
-user-facing summary kept consistent with it. Currently implemented:
-`af --help` and `af version`.
-
-```
-# Lifecycle
-af create [task]            # worktree + tmux + primary agent (pi by default)
-af done [session]           # tear down a workstream
-af suspend [session]        # tear down tmux/VM/remote to free resources; preserve identity
-af resume [session]         # re-attach (warm) or rehydrate (cold)
-af session-branch           # ad-hoc agent on the current branch (no worktree)
-
-# Multi-agent
-af agent add [--slot N] --agent P    # add another agent in a new pane (sub-worktree if non-primary)
-af agent stop SLOT [--remove-worktree]
-af agent list
-
-# Inspection
-af list                     # one-line per workstream, grouped by repo
-af status                   # multi-line dashboard with per-slot status
-af info [session]           # detail view + ledger tail
-
-# Reaping
-af clean                    # reap merged/closed workstreams (replaces v0/early-v1 'gc')
-
-# Stacking
-af stack [session] [--parent P]
-af unstack [session]
-af sync [session]           # rebase/ff onto parent's current head
-
-# Environment
-af setup [--force] [--shell S] [--skip-completions] [--skip-gitignore]
-                            # one-shot user-scope setup (gitignore, completions, config init)
-af doctor [--remote <host>] # probe deps; print install commands; never auto-install
-af config show / init
-af completions <shell>
-
-# Notes & retro
-af note [session] [--append TEXT]   # open the Obsidian note (or append a log line)
-af retro [--since D] [--tag T]...   # mine archived notes for patterns
-
-# Proxy commands (config-driven)
-af editor                   # open worktree in $EDITOR / VS Code / Zed
-af diff [session]           # git diff <base>...HEAD in the worktree
-af pr  [session] [--ai]     # gh pr create; --ai authors the body via the configured agent
-
-# Secrets
-af auth set/get/status/clear/list   # zalando/go-keyring backed
-
-# Meta
-af version
-```
-
-## v0 → v1 boundary
-
-- **v0** (Rust source, Cargo files, `justfile`, and Rust tool configs) has been removed from the working tree at the start of implementation.
-- **v1** (Go) lives under `cmd/af/` and `internal/...`. Documentation is under `docs/`.
-- All v0 design history is at [`docs/v0/`](docs/v0/) (30 ADRs, full SPEC, full PLAN, eleven-session PROGRESS log); deleted source remains available through git history.
-
-## Documentation
-
-| Resource                                     | Description                                                  |
-| -------------------------------------------- | ------------------------------------------------------------ |
-| [`CHANGELOG.md`](CHANGELOG.md)               | Keep-a-Changelog format; `[Unreleased]` for v1               |
-| [`PROGRESS.md`](PROGRESS.md)                 | Narrative log per work session                               |
-| [`TODO.md`](TODO.md)                         | Doc-pass and post-doc-pass checklist                         |
-| [`docs/SPEC.md`](docs/SPEC.md)               | v1 specification _(written in stage C of the doc pass)_      |
-| [`docs/PLAN.md`](docs/PLAN.md)               | Lightweight pointer to ADR groupings _(stage C)_             |
-| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Go style, commit format, file ownership _(stage C)_          |
-| [`docs/adr/`](docs/adr/)                     | v1 ADRs 031–059 _(stage D, append-only)_                     |
-| [`docs/v0/`](docs/v0/)                       | Frozen v0 (Rust era) archive                                 |
-| [`AGENTS.md`](AGENTS.md)                     | Working agreement for AI agents touching this repo           |
-| [`CLAUDE.md`](CLAUDE.md)                     | Project constitution (rules that survive context compaction) |
-
-## Installation (scaffold)
+## Installation
 
 ```bash
 go install github.com/kakkoyun/af@latest
-# or
-git clone https://github.com/kakkoyun/af && cd af && make install
 ```
 
-Only `af --help` and `af version` are useful today. The remaining command
-surface is still planned and will land in TODO order. For local checks,
-run `make check`; for cross-compile sanity checks, run
-`make release-snapshot`.
+Or build from source:
+
+```bash
+git clone https://github.com/kakkoyun/af
+cd af
+make install   # installs to $GOPATH/bin
+```
+
+Requires Go 1.22+. Binaries are not published; this is a single-user tool.
+
+## Quickstart
+
+```bash
+# One-time setup: state dirs, config, gitignore entry, shell completions
+af setup
+
+# Probe that required tools (git, tmux, pi/claude/codex) are present
+af doctor
+
+# Create a workstream called "fix-auth" on a new branch from upstream/main
+af create fix-auth
+
+# See all active workstreams
+af list
+
+# Detailed view of one workstream
+af info fix-auth
+
+# Complete and archive the workstream
+af done fix-auth
+```
+
+## Commands
+
+Global flags available on every command:
+
+```
+af [--verbose|-v] [--config PATH] [--session NAME] <command>
+```
+
+### Lifecycle
+
+| Command                                                                                                              | Description                                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `af create [name] [--from BRANCH] [--current] [--agent NAME] [--bare] [--remote HOST] [--sandbox PROVIDER] [--yolo]` | Create a workstream: new branch, git worktree, `state.toml`, ledger, optional Obsidian note, tmux session, primary-agent launch. |
+| `af done [session] [--force]`                                                                                        | Tear down and archive a workstream. `--force` marks it abandoned rather than completed.                                          |
+| `af suspend [session]`                                                                                               | Record suspension in state; tmux stays alive.                                                                                    |
+| `af resume [session] [--bare]`                                                                                       | Resume a suspended workstream; respawns the tmux session if it died.                                                             |
+| `af session-branch`                                                                                                  | Create an ad-hoc workstream branch in the current checkout without a separate worktree.                                          |
+
+### Multi-agent
+
+| Command                                                      | Description                                                                                  |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `af agent add --slot NAME --agent PROVIDER [--session NAME]` | Add an agent slot; creates a sibling sub-worktree on a sibling branch for non-primary slots. |
+| `af agent stop SLOT [--remove-worktree] [--session NAME]`    | Mark a slot stopped; optionally remove its sub-worktree and branch.                          |
+| `af agent list [--session NAME]`                             | List agent slots and their status.                                                           |
+
+### Inspection
+
+| Command                                       | Description                                                         |
+| --------------------------------------------- | ------------------------------------------------------------------- |
+| `af list`                                     | One-line summary per workstream.                                    |
+| `af status [--json] [--all] [--filter STATE]` | Dashboard view; `--all` includes completed and abandoned.           |
+| `af info [session] [--json] [--ledger N]`     | Detailed state view; `--ledger N` appends the last N ledger events. |
+
+### Reaping
+
+| Command                                                                     | Description                                                                        |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `af clean [--dry-run] [--include-abandoned] [--max-age DURATION] [--force]` | Remove state dirs for terminal workstreams. `--max-age` accepts `7d`, `2w`, `24h`. |
+
+### Stacking
+
+| Command                              | Description                                                                                           |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `af stack [session] --parent PARENT` | Link this workstream as a child in the stack model ([ADR-059](docs/adr/059-stack-aware-branches.md)). |
+| `af unstack [session]`               | Remove the stack parent link.                                                                         |
+| `af sync [session]`                  | Rebase/fast-forward onto parent's current head (stub — full implementation pending).                  |
+
+### Environment / setup
+
+| Command                                                                      | Description                                                                                                |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `af setup [--force] [--shell SHELL] [--skip-completions] [--skip-gitignore]` | One-shot user-scope setup: state dirs, config file, global gitignore entry, shell completions. Idempotent. |
+| `af doctor [--remote HOST] [--verbose]`                                      | Probe required tools locally or on an SSH host; print install hints. Never auto-installs.                  |
+
+### Notes / Obsidian
+
+| Command                                                                       | Description                                                                       |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `af note [session] --append TEXT`                                             | Append a structured note event to the workstream ledger.                          |
+| `af retro [--since DURATION] [--tag TAG] [--search QUERY] [--limit N] [--ai]` | Mine archived workstream notes. `--ai` narrative synthesis is a placeholder stub. |
+
+### Proxy commands
+
+These commands run the user-configured executables from `[diff]`, `[pr]`, and
+`[editor]` in `~/.config/af/config.toml` with token substitution
+(`{base}`, `{head}`, `{worktree}`, `{title}`, `{body}`).
+
+| Command                                                                   | Description                                                              |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `af diff [session] [--base REF]`                                          | Run the configured diff command in the workstream worktree.              |
+| `af pr [session] [--title T] [--draft] [--web] [--ai] [--ai-model MODEL]` | Run the PR-create command. `--ai` body generation is a placeholder stub. |
+| `af editor [session] [--terminal                                          | -t] [--visual]`                                                          | Open the configured editor at the workstream worktree path. |
+
+### Secrets
+
+Backed by `zalando/go-keyring` (macOS Keychain / Linux Secret Service).
+
+| Command             | Description                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| `af auth set KEY`   | Store a credential (prompts with echo-off on TTY, reads stdin otherwise).                  |
+| `af auth get KEY`   | Print a credential (plain on TTY, redacted as `[REDACTED:abcd...]` otherwise).             |
+| `af auth status`    | Show the curated trio (`anthropic_api_key`, `openai_api_key`, `github_token`) plus extras. |
+| `af auth clear KEY` | Remove a credential from the keyring.                                                      |
+| `af auth list`      | List all stored key names (no values).                                                     |
+
+### Config + completions
+
+| Command                                        | Description                                                                              |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `af config init`                               | Write the annotated config template to `~/.config/af/config.toml`. Refuses to overwrite. |
+| `af config show`                               | Print the effective merged configuration as canonical TOML.                              |
+| `af completions <bash\|zsh\|fish\|powershell>` | Emit a shell completion script to stdout.                                                |
+
+### Meta
+
+```bash
+af version
+```
+
+## Configuration
+
+`af` uses a three-layer TOML configuration per [ADR-036](docs/adr/036-configuration-toml-layered.md):
+
+1. Compiled defaults (agent `pi`, multiplexer `tmux`, worktree root `~/Workspace/.worktrees`).
+2. User config — `~/.config/af/config.toml`. Created by `af config init` or `af setup`.
+3. Repo config — `<repo>/.af/config.toml` (optional per-project overrides; no `[obsidian.vaults]`).
+
+```bash
+# Scaffold the user config with all sections and comments:
+af config init
+
+# Inspect the effective merged config:
+af config show
+```
+
+Key sections:
+
+- `[general]` — default agent, multiplexer, max sessions, worktree root.
+- `[branch]` — branch prefix and `prefix_on_fork_only` gate.
+- `[diff]` / `[pr]` / `[editor]` — proxy command shapes (argv or shell mode).
+- `[obsidian]` — vault paths, notes folder, template path.
+- `[secret]` — keyring service name and extra redact keys.
+
+## Caveats
+
+**Single-user.** `af` is a personal tool. There is no auth layer, no multi-user
+session sharing, and no remote API.
+
+**Remote and sandbox are scaffolded.** `af create --remote HOST` calls
+`lifecycle.PrepareRemoteWorkstream` which runs a few SSH commands to set up a
+directory; it is not a full remote-worktree workflow. `af create --sandbox PROVIDER`
+prints a deferred-launch notice. Full wired integration is planned for a future
+session.
+
+**`af pr --ai` is a stub.** The body generation prints a placeholder string
+instead of invoking the agent's `BodyCmd`. Full wiring is planned once the
+agent-launch path from `af create` is stable.
+
+**`af sync`** (stack sync) records metadata but does not yet perform the
+rebase/fast-forward operation.
+
+## Building
+
+```bash
+make build          # ./bin/af
+make check          # lint + race test
+make release-snapshot  # cross-compile snapshot via goreleaser
+```
+
+## Documentation
+
+| Resource                                     | Description                                                                |
+| -------------------------------------------- | -------------------------------------------------------------------------- |
+| [`CHANGELOG.md`](CHANGELOG.md)               | Full feature history (`[Unreleased]` for v1)                               |
+| [`PROGRESS.md`](PROGRESS.md)                 | Narrative session log                                                      |
+| [`TODO.md`](TODO.md)                         | Implementation checklist (Stages 0–8)                                      |
+| [`docs/SPEC.md`](docs/SPEC.md)               | v1 specification                                                           |
+| [`docs/PLAN.md`](docs/PLAN.md)               | Implementation plan (pointer to ADR groups)                                |
+| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Go style, commit format, file ownership                                    |
+| [`docs/adr/INDEX.md`](docs/adr/INDEX.md)     | ADR index (031–059)                                                        |
+| [`docs/v0/`](docs/v0/)                       | Frozen Rust-era archive (30 ADRs, SPEC, PLAN, eleven-session PROGRESS log) |
+| [`AGENTS.md`](AGENTS.md)                     | Working agreement for AI agents                                            |
+| [`CLAUDE.md`](CLAUDE.md)                     | Project constitution                                                       |
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — Copyright (c) 2026 Kemal Akkoyun

@@ -2,7 +2,7 @@
 adr: 035
 title: "CLI Framework — cobra + pflag"
 status: proposed
-implementation: in-progress
+implementation: complete
 date: 2026-05-06
 last_modified: 2026-05-21
 supersedes: []

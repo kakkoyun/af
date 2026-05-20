@@ -274,12 +274,12 @@ Obsidian notes, agent `BodyCmd`, and local/stack base resolution.
 
 This stage should not add broad new feature surface.
 
-- [ ] I8.1: ADR-052 — add lifecycle state-machine property tests and
+- [x] I8.1: ADR-052 — add lifecycle state-machine property tests and
       document any invariants worth carrying into optional TLA+.
-- [ ] I8.2: ADR-050 + ADR-051 + ADR-053 — run full quality pass:
+- [x] I8.2: ADR-050 + ADR-051 + ADR-053 — run full quality pass:
       coverage review, `make check`, cross-compile snapshot, and manual
       smoke plan for real tmux/ssh/sandbox paths.
-- [ ] I8.3: Update README, CHANGELOG, Godoc, ADR implementation
+- [x] I8.3: Update README, CHANGELOG, Godoc, ADR implementation
       frontmatter, TODO, and PROGRESS for all completed v1 behaviour.
 - [x] I8.4: Remove the Rust v0 source tree (`src/`, `tests/`,
       `Cargo.toml`, `Cargo.lock`, `justfile`, Rust tool configs). Completed

@@ -2,9 +2,9 @@
 adr: 057
 title: "af pr --ai — Agent-Authored PR Body"
 status: proposed
-implementation: pending
+implementation: in-progress
 date: 2026-05-08
-last_modified: 2026-05-08
+last_modified: 2026-05-21
 supersedes: []
 superseded_by: null
 related: ["031", "035", "037", "043", "047", "048", "058"]

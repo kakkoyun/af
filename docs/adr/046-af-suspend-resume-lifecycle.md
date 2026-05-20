@@ -2,9 +2,9 @@
 adr: 046
 title: "af suspend / af resume Lifecycle"
 status: proposed
-implementation: pending
+implementation: in-progress
 date: 2026-05-06
-last_modified: 2026-05-08
+last_modified: 2026-05-21
 supersedes: []
 superseded_by: null
 related: ["031", "037", "039", "041", "042", "043", "056"]

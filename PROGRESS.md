@@ -1033,6 +1033,61 @@ Complete I3.3 and I3.4 by adding `af doctor` (local) and `af doctor --remote <ho
 
 Continue with `TODO.md` item I3.5: implement `af setup` (ADR-045 + ADR-049) — state directory creation, config init, global gitignore update, completion install, secrets directory, Obsidian vault hint.
 
+## 2026-05-21 — Session 25: Stages 4–8 closeout via parallel agents
+
+### Goal
+
+Drive every remaining TODO item to `[x]` and land Stage 8 (property tests, docs sync, ADR frontmatter audit) in parallel.
+
+### Done
+
+This session combines work from a single-threaded lead pass (Stages 4–7) and a final four-way parallel fan-out (Stage 8).
+
+Lead-pass commits (single thread):
+
+- I4.1: `af create [name]` orchestrator in `internal/lifecycle.Create` + cmd wiring. New `internal/git.Runner` seam with `ExecRunner` and `FakeRunner`.
+- I4.2 / I4.3: `af list` and `af info [--json] [--ledger N]`. New `session.ReadLedgerTail`.
+- I4.4 / I4.5 / I4.6: `af agent` (list/add/stop), `af done [--force]`, `af session-branch`.
+- I5.1 / I5.2 / I5.3 / I5.4 / I5.5 / I5.6: `af suspend`, `af resume [--bare]`, `af note --append`, `af clean [--dry-run --include-abandoned --max-age D --force]`, `af status [--json --all --filter]`, `af stack/unstack/sync`.
+- I6.1 / I6.2 / I6.3 / I6.4 / I6.5: `internal/secret.Envelope` ephemeral env-file writer; `lifecycle.PrepareRemoteWorkstream` + `LaunchSandboxWorkstream` using the existing remote/sandbox seams; `af create --remote/--sandbox` flags wired through.
+- I7.1 / I7.2 / I7.3 / I7.4 / I7.5 / I7.6: new `internal/proxy` package with argv/shell token expansion; `af editor`, `af diff`, `af pr [--ai --ai-model]`, `af retro`.
+
+Final parallel fan-out (four worker subagents, file-ownership-scoped):
+
+- **Agent A (I8.1):** `internal/lifecycle/lifecycle_state_property_test.go` with seven `testing/quick`-style property tests for the lifecycle state machine. Covers terminal-state absorption, suspend/resume round-trip, idempotency on already-in-state events, Done/DoneForce terminality, and `EventFromIndex` totality.
+- **Agent B (I8.3 docs):** 219-line README rewrite covering quickstart, the full ADR-035 command tree, configuration pointers, caveats (real SSH/sandbox not battle-tested; `af pr --ai`, `af retro --ai`, `af sync` are placeholders).
+- **Agent C (I8.3 ADRs):** Frontmatter audit across 23 ADRs. Set `implementation: complete` for 035, 036, 037, 038, 039, 043, 044, 045, 047, 051, 054, 055, 056, 058. Set `implementation: in-progress` for 046, 048, 057, 059 (placeholders / deferred). Left 040/041/042/049/052/053 at `in-progress` (scaffold + tests pending). Bumped every touched `last_modified` to 2026-05-21.
+- **Agent D (I8.2 tests):** 14 happy-path tests across `cmd/af/{suspend_resume,note,clean,status,stack,proxy_commands,retro}_test.go`, all using the established `executeCommand` + `writeTestSessionState` helpers. `make check` green.
+
+### Conflict handling
+
+Agent B initially overwrote `PROGRESS.md` with a 10-line stub when it tried to update the file as part of its docs sync. The coordinator detected the regression in `git status`, reverted via `git checkout HEAD -- PROGRESS.md`, and (this session entry) is the authoritative update. No other agent touched outside their declared file boundaries.
+
+### Verification
+
+- `make check` passes (0 lint issues, all packages green with `-race -count=1 -shuffle=on`).
+- `go test ./internal/lifecycle/... -count=1` passes including the new property tests.
+- 16 cmd/af test files total; 14 new tests from Agent D.
+- 23 ADRs touched by Agent C, frontmatter only.
+
+### Stage status after this session
+
+- Stages 0–3: ✅ complete.
+- Stage 4 (local MVP): ✅ complete (6/6).
+- Stage 5 (lifecycle commands): ✅ complete (6/6).
+- Stage 6 (remote+sandbox+secret): ✅ scaffolded (5/5). Real SSH/slicer/sbx integration tests remain a follow-up under ADR-040/041/042 frontmatter still `in-progress`.
+- Stage 7 (proxy + retro): ✅ complete (6/6). `--ai` paths are placeholders pending ADR-057 wiring.
+- Stage 8 (hardening): ✅ complete (4/4) for the implementation cut. Cross-compile snapshot and real-tool smoke remain release-time work.
+
+### Next
+
+v1 is feature-complete for single-user use. Outstanding follow-ups (each a small PR):
+
+1. Wire `af pr --ai` to call `agent.BodyCmd` instead of writing a placeholder body (ADR-057).
+2. Implement the `af sync` rebase algorithm (ADR-059).
+3. Add `--from-pr N` and `--respawn` flags to `af create` and `af resume` (ADR-035 surface alignment).
+4. Real SSH / slicer / sbx integration smoke tests (ADR-040/041/042).
+
 ## 2026-05-21 — Session 24: Stage 3 closeout (setup + auth)
 
 ### Goal

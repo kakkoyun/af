@@ -2,9 +2,9 @@
 adr: 058
 title: "af retro — Mine Archived Workstream Notes"
 status: proposed
-implementation: in-progress
+implementation: complete
 date: 2026-05-08
-last_modified: 2026-05-20
+last_modified: 2026-05-21
 supersedes: []
 superseded_by: null
 related: ["031", "035", "037", "047", "057"]

@@ -2,9 +2,9 @@
 adr: 048
 title: "Minimal Proxy Commands (editor, diff, pr)"
 status: proposed
-implementation: pending
+implementation: in-progress
 date: 2026-05-06
-last_modified: 2026-05-08
+last_modified: 2026-05-21
 supersedes: []
 superseded_by: null
 related: ["031", "036", "037", "047", "057", "059"]

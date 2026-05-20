@@ -2,9 +2,9 @@
 adr: 037
 title: "Session Metadata Schema (state.toml + ledger.jsonl)"
 status: proposed
-implementation: in-progress
+implementation: complete
 date: 2026-05-06
-last_modified: 2026-05-20
+last_modified: 2026-05-21
 supersedes: []
 superseded_by: null
 related: ["031", "036", "038", "039", "046", "054", "056", "059"]
