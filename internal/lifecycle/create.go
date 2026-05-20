@@ -1,0 +1,361 @@
+package lifecycle
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/kakkoyun/af/internal/agent"
+	"github.com/kakkoyun/af/internal/git"
+	"github.com/kakkoyun/af/internal/mux"
+	"github.com/kakkoyun/af/internal/obsidian"
+	"github.com/kakkoyun/af/internal/session"
+	"github.com/kakkoyun/af/internal/version"
+	"github.com/kakkoyun/af/internal/workstream"
+)
+
+const (
+	stateFilePerm    = 0o600
+	stateDirPerm     = 0o750
+	noteFilePerm     = 0o600
+	executionLocal   = "local"
+	primaryAgentSlot = "primary"
+)
+
+// ErrCreate aborts when create cannot satisfy a precondition.
+var ErrCreate = errors.New("create workstream failed")
+
+// CreateOptions configures a local workstream creation.
+type CreateOptions struct {
+	// Clock + IO.
+	Now time.Time
+	// Required identity inputs.
+	Name         string // optional; auto-generated when empty
+	FromBranch   string // base branch (e.g. upstream/main)
+	GitRoot      string // absolute path to the source git repo
+	RepoSlug     string // logical repo identifier (e.g. github.com/kakkoyun/af)
+	WorktreeRoot string // expanded ~/Workspace/.worktrees
+	StateDir     string // ~/.local/share/af/v1/sessions
+	NotesDir     string // optional; if non-empty, write an Obsidian note
+	// Identity rules.
+	BranchPrefix string
+	// Behaviour switches.
+	AgentName        string // resolved agent provider name (pi/claude/codex)
+	PrefixOnForkOnly bool
+	HasUpstream      bool
+	Bare             bool // skip agent launch
+}
+
+// CreateResult records the artefacts produced by a successful Create.
+type CreateResult struct {
+	SessionID    string
+	SessionName  string
+	Branch       string
+	WorktreePath string
+	StatePath    string
+	LedgerPath   string
+	NotePath     string
+	TmuxSession  string
+}
+
+// CreateDeps wires the orchestrator to its external collaborators.
+type CreateDeps struct {
+	Git     git.Runner
+	Mux     mux.Multiplexer
+	Agent   agent.Agent
+	Notes   obsidian.Store // optional; nil disables note creation
+	NowFunc func() time.Time
+}
+
+// Create executes the local-workstream create pipeline per ADR-038 +
+// ADR-039. Steps are idempotent where possible: state.toml writes use
+// the package's atomic helper, ledger appends are append-only, and the
+// `.af/state.toml` discovery symlink is reconciled.
+func Create(ctx context.Context, deps CreateDeps, opts CreateOptions) (CreateResult, error) {
+	err := validateCreateInputs(deps, opts)
+	if err != nil {
+		return CreateResult{}, err
+	}
+
+	resolved := resolveCreateNames(opts)
+
+	plan, err := git.PlanPrimaryWorktree(git.WorktreeOptions{
+		Root:   resolved.worktreeRoot,
+		Repo:   resolved.repoSlug,
+		Branch: resolved.branch,
+	})
+	if err != nil {
+		return CreateResult{}, fmt.Errorf("plan worktree: %w", err)
+	}
+
+	err = ensureGitWorktree(ctx, deps.Git, opts.GitRoot, plan, opts.FromBranch)
+	if err != nil {
+		return CreateResult{}, err
+	}
+
+	statePath, ledgerPath, err := writeInitialState(opts, resolved, plan)
+	if err != nil {
+		return CreateResult{}, err
+	}
+
+	err = git.EnsureStateSymlink(plan.Path, statePath)
+	if err != nil {
+		return CreateResult{}, fmt.Errorf("symlink .af/state.toml: %w", err)
+	}
+
+	notePath, err := writeWorkstreamNote(ctx, deps.Notes, resolved, plan, opts)
+	if err != nil {
+		return CreateResult{}, err
+	}
+
+	tmuxName, err := launchTmuxAndAgent(ctx, deps, resolved, plan, opts)
+	if err != nil {
+		return CreateResult{}, err
+	}
+
+	return CreateResult{
+		SessionID:    resolved.sessionID,
+		SessionName:  resolved.name,
+		Branch:       resolved.branch,
+		WorktreePath: plan.Path,
+		StatePath:    statePath,
+		LedgerPath:   ledgerPath,
+		NotePath:     notePath,
+		TmuxSession:  tmuxName,
+	}, nil
+}
+
+type resolvedNames struct { //nolint:govet // Field grouping prioritises readability over packing.
+	name         string
+	branch       string
+	sessionID    string
+	worktreeRoot string
+	repoSlug     string
+	tmuxSession  string
+	now          time.Time
+}
+
+func resolveCreateNames(opts CreateOptions) resolvedNames {
+	now := opts.Now
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	name := opts.Name
+	if name == "" {
+		name = workstream.AutoSessionName(opts.RepoSlug, now)
+	}
+	branch := workstream.BranchName(workstream.BranchOptions{
+		Name:              name,
+		Prefix:            opts.BranchPrefix,
+		PrefixOnForkOnly:  opts.PrefixOnForkOnly,
+		HasUpstreamRemote: opts.HasUpstream,
+	})
+	id := workstream.SessionID(opts.RepoSlug, branch, primaryAgentSlot, now).String()
+	tmux := "af-" + workstream.Sanitize(name)
+	return resolvedNames{
+		name:         name,
+		branch:       branch,
+		sessionID:    id,
+		worktreeRoot: opts.WorktreeRoot,
+		repoSlug:     opts.RepoSlug,
+		tmuxSession:  tmux,
+		now:          now,
+	}
+}
+
+func validateCreateInputs(deps CreateDeps, opts CreateOptions) error {
+	err := validateCreateOpts(opts)
+	if err != nil {
+		return err
+	}
+	return validateCreateDeps(deps, opts)
+}
+
+func validateCreateOpts(opts CreateOptions) error {
+	switch {
+	case opts.GitRoot == "":
+		return fmt.Errorf("%w: empty git root", ErrCreate)
+	case opts.RepoSlug == "":
+		return fmt.Errorf("%w: empty repo slug", ErrCreate)
+	case opts.WorktreeRoot == "":
+		return fmt.Errorf("%w: empty worktree root", ErrCreate)
+	case opts.StateDir == "":
+		return fmt.Errorf("%w: empty state dir", ErrCreate)
+	case opts.FromBranch == "":
+		return fmt.Errorf("%w: empty from-branch", ErrCreate)
+	}
+	return nil
+}
+
+func validateCreateDeps(deps CreateDeps, opts CreateOptions) error {
+	if deps.Git == nil {
+		return fmt.Errorf("%w: nil git runner", ErrCreate)
+	}
+	if !opts.Bare && deps.Mux == nil {
+		return fmt.Errorf("%w: nil mux for non-bare create", ErrCreate)
+	}
+	if !opts.Bare && deps.Agent == nil {
+		return fmt.Errorf("%w: nil agent for non-bare create", ErrCreate)
+	}
+	return nil
+}
+
+func ensureGitWorktree(ctx context.Context, runner git.Runner, gitRoot string, plan git.WorktreePlan, fromBranch string) error {
+	err := os.MkdirAll(filepath.Dir(plan.Path), stateDirPerm)
+	if err != nil {
+		return fmt.Errorf("create worktree parent: %w", err)
+	}
+	_, err = runner.Run(ctx, gitRoot, "worktree", "add", "-b", plan.Branch, plan.Path, fromBranch)
+	if err != nil {
+		return fmt.Errorf("git worktree add: %w", err)
+	}
+	return nil
+}
+
+func writeInitialState(opts CreateOptions, resolved resolvedNames, plan git.WorktreePlan) (string, string, error) {
+	sessionDir := filepath.Join(opts.StateDir, resolved.name)
+	err := os.MkdirAll(sessionDir, stateDirPerm)
+	if err != nil {
+		return "", "", fmt.Errorf("create session dir: %w", err)
+	}
+	statePath := filepath.Join(sessionDir, "state.toml")
+	ledgerPath := filepath.Join(sessionDir, "ledger.jsonl")
+
+	state := session.State{
+		SchemaVersion: 1,
+		Session: session.Info{
+			ID:        resolved.sessionID,
+			Name:      resolved.name,
+			Status:    string(Active),
+			CreatedAt: resolved.now,
+		},
+		Worktree: session.WorktreeState{
+			Path:       plan.Path,
+			Branch:     plan.Branch,
+			BaseBranch: opts.FromBranch,
+			GitRoot:    opts.GitRoot,
+			RepoSlug:   resolved.repoSlug,
+		},
+		Execution: session.ExecutionState{
+			Mode:        executionLocal,
+			Multiplexer: "tmux",
+			TmuxSession: resolved.tmuxSession,
+		},
+		Versions: session.VersionsState{
+			AF:            version.Version,
+			AgentVersions: map[string]string{},
+		},
+		Agents: []session.AgentState{{
+			Slot:       primaryAgentSlot,
+			Provider:   opts.AgentName,
+			Status:     string(Active),
+			CreatedAt:  resolved.now,
+			SessionIDs: []string{},
+		}},
+	}
+
+	err = session.WriteState(statePath, state)
+	if err != nil {
+		return "", "", fmt.Errorf("write state.toml: %w", err)
+	}
+
+	event := session.Event{
+		Timestamp: resolved.now,
+		Type:      "created",
+		Fields: map[string]any{
+			"session_id": resolved.sessionID,
+			"branch":     plan.Branch,
+			"agent":      opts.AgentName,
+		},
+	}
+	err = session.AppendEvent(ledgerPath, event)
+	if err != nil {
+		return "", "", fmt.Errorf("append create event: %w", err)
+	}
+	return statePath, ledgerPath, nil
+}
+
+func writeWorkstreamNote(ctx context.Context, store obsidian.Store, resolved resolvedNames, plan git.WorktreePlan, opts CreateOptions) (string, error) {
+	if store == nil || opts.NotesDir == "" {
+		return "", nil
+	}
+	notePath := filepath.Join(opts.NotesDir, resolved.name+".md")
+	note := obsidian.Note{
+		Frontmatter: obsidian.Frontmatter{
+			Schema:     1,
+			Session:    resolved.name,
+			Repo:       resolved.repoSlug,
+			Status:     string(Active),
+			Branch:     plan.Branch,
+			BaseBranch: opts.FromBranch,
+			StartedAt:  resolved.now,
+			Agents: []obsidian.Agent{{
+				Slot:     primaryAgentSlot,
+				Provider: opts.AgentName,
+				Status:   string(Active),
+			}},
+		},
+		Body: workstreamNoteBody(resolved, plan, opts.AgentName),
+	}
+	err := store.Write(ctx, notePath, note)
+	if err != nil {
+		return "", fmt.Errorf("write obsidian note: %w", err)
+	}
+	return notePath, nil
+}
+
+func workstreamNoteBody(resolved resolvedNames, plan git.WorktreePlan, agentName string) string {
+	var b strings.Builder
+	b.WriteString("# ")
+	b.WriteString(resolved.name)
+	b.WriteString("\n\n")
+	b.WriteString("- Branch: `")
+	b.WriteString(plan.Branch)
+	b.WriteString("`\n")
+	b.WriteString("- Worktree: `")
+	b.WriteString(plan.Path)
+	b.WriteString("`\n")
+	if agentName != "" {
+		b.WriteString("- Primary agent: `")
+		b.WriteString(agentName)
+		b.WriteString("`\n")
+	}
+	b.WriteString("\n## Notes\n\n")
+	return b.String()
+}
+
+func launchTmuxAndAgent(ctx context.Context, deps CreateDeps, resolved resolvedNames, plan git.WorktreePlan, opts CreateOptions) (string, error) {
+	if opts.Bare || deps.Mux == nil {
+		return "", nil
+	}
+	err := deps.Mux.CreateSession(ctx, resolved.tmuxSession, plan.Path)
+	if err != nil {
+		return "", fmt.Errorf("tmux create-session: %w", err)
+	}
+
+	if deps.Agent == nil {
+		return resolved.tmuxSession, nil
+	}
+	launchArgv := deps.Agent.LaunchCmd(agent.LaunchOpts{
+		Cwd:       plan.Path,
+		SessionID: resolved.sessionID,
+	})
+	if len(launchArgv) == 0 {
+		return resolved.tmuxSession, nil
+	}
+	err = deps.Mux.SendKeys(ctx, resolved.tmuxSession, "", strings.Join(launchArgv, " ")+"\n")
+	if err != nil {
+		return "", fmt.Errorf("tmux send-keys agent launch: %w", err)
+	}
+	return resolved.tmuxSession, nil
+}
+
+// Suppress unused imports during early skeletons; remove once all paths covered.
+var (
+	_ = stateFilePerm
+	_ = noteFilePerm
+)

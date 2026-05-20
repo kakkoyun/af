@@ -198,7 +198,7 @@ These commands validate the scaffold without creating workstreams.
 First feature slice: local-only, no remote, no sandbox, one primary
 agent. This proves config, state, git, mux, and agent seams together.
 
-- [ ] I4.1: ADR-038 + ADR-039 — implement local `af create [name]`
+- [x] I4.1: ADR-038 + ADR-039 — implement local `af create [name]`
       with branch/worktree creation, state/ledger creation, note creation,
       tmux session creation, and primary-agent launch.
 - [ ] I4.2: ADR-037 + ADR-035 — implement `af list` as a read-only view
