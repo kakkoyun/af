@@ -1032,3 +1032,28 @@ Complete I3.3 and I3.4 by adding `af doctor` (local) and `af doctor --remote <ho
 ### Next
 
 Continue with `TODO.md` item I3.5: implement `af setup` (ADR-045 + ADR-049) — state directory creation, config init, global gitignore update, completion install, secrets directory, Obsidian vault hint.
+
+## 2026-05-21 — Session 24: Stage 3 closeout (setup + auth)
+
+### Goal
+
+Finish Stage 3 by adding `af setup` (I3.5, ADR-045) and `af auth` (I3.6, ADR-049).
+
+### Done
+
+- `internal/setup` performs the seven idempotent ADR-045 steps (state dir tree, default config via `config.WriteUserConfig` from I3.1, global gitignore with optional `core.excludesfile` honouring, shell detection, bash/zsh/fish completion install, Obsidian vault hint, summary). Injected `GitConfigurer` and shell-generator funcs make every step hermetic in tests.
+- `cmd/af/setup.go` wires cobra flags `--force`, `--shell`, `--skip-completions`, `--skip-gitignore`. Real git access goes through `os/exec`; tests use a fake.
+- `internal/secret.SystemKeyring` wraps `zalando/go-keyring` and maintains an in-keyring index account so `List` works on top of the OS keyring API that has no native enumeration.
+- `cmd/af/auth.go` adds `set`, `get`, `status`, `clear`, `list`. `set` reads via `term.ReadPassword` on a TTY (falls back to stdin); `get` prints plain on a TTY but emits `[REDACTED:abcd...]` on a non-TTY writer. Status lists the curated trio (anthropic/openai/github) plus any extras under "Other keyring entries:".
+- `newAuthContextOverride` exposes a test seam so command-level integration tests can substitute a `MemoryKeyring` plus deterministic secret reader.
+- Added dependencies: `github.com/zalando/go-keyring`, `golang.org/x/term`.
+- TODO I3.5 ✓, I3.6 ✓, CHANGELOG entries, ADR-045 + ADR-049 frontmatter updated.
+
+### Verification
+
+- `make check` passes (0 lint issues).
+- `go test -race -count=1 -shuffle=on ./...` passes.
+
+### Next
+
+Move into Stage 4 with `TODO.md` item I4.1: implement local `af create [name]` — the first feature slice that proves config, state, git, mux, and agent seams compose.
