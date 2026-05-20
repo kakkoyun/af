@@ -237,16 +237,16 @@ These build on the local MVP and should remain fake-backed in tests.
 Do this after the local lifecycle is solid; it composes the same state
 and command paths with remote/sandbox execution.
 
-- [ ] I6.1: ADR-049 — implement ephemeral envelope creation,
+- [x] I6.1: ADR-049 — implement ephemeral envelope creation,
       source-and-delete wrappers, lazy stale-envelope sweep, and tests for
       redaction/no-secret-in-state invariants.
-- [ ] I6.2: ADR-041 — implement `af create --remote`, remote clone/path
+- [x] I6.2: ADR-041 — implement `af create --remote`, remote clone/path
       setup, remote tmux launch, `af resume` attach, and remote teardown.
-- [ ] I6.3: ADR-042 — implement `af create --sandbox`, sandbox launch,
+- [x] I6.3: ADR-042 — implement `af create --sandbox`, sandbox launch,
       health check, teardown, and `--respawn`.
-- [ ] I6.4: ADR-041 + ADR-042 + ADR-049 — compose
+- [x] I6.4: ADR-041 + ADR-042 + ADR-049 — compose
       `--remote --sandbox` with remote-side envelope transport and teardown.
-- [ ] I6.5: ADR-046 — extend suspend/resume/done/clean tests across
+- [x] I6.5: ADR-046 — extend suspend/resume/done/clean tests across
       local, remote, sandbox, and remote+sandbox modes using fakes.
 
 ### Implementation Stage 7 — Proxy commands, PR AI, and retrospectives

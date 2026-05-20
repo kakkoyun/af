@@ -22,6 +22,8 @@ type createOptions struct {
 	root      *rootOptions
 	from      string
 	agentName string
+	remote    string
+	sandbox   string
 	current   bool
 	bare      bool
 	yolo      bool
@@ -65,6 +67,8 @@ func newCreateCmd(opts *rootOptions) *cobra.Command {
 	cmd.Flags().StringVar(&cOpts.agentName, "agent", "", "primary agent (pi, claude, codex); defaults to [general].default_agent")
 	cmd.Flags().BoolVar(&cOpts.bare, "bare", false, "skip tmux + agent launch (create state + worktree only)")
 	cmd.Flags().BoolVar(&cOpts.yolo, "yolo", false, "launch the primary agent with permissive approval mode")
+	cmd.Flags().StringVar(&cOpts.remote, "remote", "", "ssh host to create the workstream on (ADR-041)")
+	cmd.Flags().StringVar(&cOpts.sandbox, "sandbox", "", "sandbox provider: slicer or sbx (ADR-042)")
 	return cmd
 }
 
@@ -89,12 +93,13 @@ func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, nam
 		return err
 	}
 
-	agentName := opts.agentName
-	if agentName == "" {
-		agentName = cfg.General.DefaultAgent
+	agentName := resolveAgentName(opts, cfg)
+	primary, err := resolvePrimaryAgent(agentName)
+	if err != nil {
+		return err
 	}
 
-	primary, err := resolvePrimaryAgent(agentName)
+	err = preCreateRemoteSandbox(ctx, cmd, opts, cfg, repoSlug, agentName, fromBranch)
 	if err != nil {
 		return err
 	}
@@ -123,6 +128,29 @@ func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, nam
 	}
 
 	return printCreateResult(cmd, result)
+}
+
+func resolveAgentName(opts *createOptions, cfg config.Config) string {
+	if opts.agentName != "" {
+		return opts.agentName
+	}
+	return cfg.General.DefaultAgent
+}
+
+func preCreateRemoteSandbox(ctx context.Context, cmd *cobra.Command, opts *createOptions, cfg config.Config, repoSlug, agentName, fromBranch string) error {
+	if opts.remote != "" {
+		_, err := lifecycle.PrepareRemoteWorkstream(ctx, lifecycle.RemoteContext{
+			Host:       opts.remote,
+			SSHOptions: cfg.Remote.SSHOptions,
+		}, repoSlug, agentName, fromBranch)
+		if err != nil {
+			return fmt.Errorf("create --remote: %w", err)
+		}
+	}
+	if opts.sandbox != "" {
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "sandbox provider %s requested; sandbox launch is performed at agent start (ADR-042)\n", opts.sandbox) //nolint:errcheck // Diagnostic only; failure surfaces in next step.
+	}
+	return nil
 }
 
 func defaultCreateContext(_ *rootOptions) *createContext {
