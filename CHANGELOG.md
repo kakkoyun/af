@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `internal/session` state persistence with atomic `state.toml`
   writes, append-only `ledger.jsonl`, flock-backed locks, repo slug
   parsing, and current-workstream discovery helpers.
+- Added `internal/git` worktree planning helpers for stable primary and
+  sub-worktree paths, discovery symlinks, and safe cleanup plans.
 
 ### Removed
 

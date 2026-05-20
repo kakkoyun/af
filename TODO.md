@@ -151,7 +151,7 @@ These packages are mostly pure or fake-backed. They unblock all commands.
       read/write, atomic writes, flock locking, schema version checks,
       derived `last_touched_at`, `repo_slug`, and current-workstream
       discovery.
-- [ ] I1.5: ADR-038 — implement local worktree path planning,
+- [x] I1.5: ADR-038 — implement local worktree path planning,
       `.af/state.toml` symlink handling, sub-worktree path planning, and git
       cleanup planning.
 - [ ] I1.6: ADR-049 — implement secret redaction handler and the keyring

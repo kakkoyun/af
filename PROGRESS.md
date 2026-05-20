@@ -597,3 +597,42 @@ Complete I1.4 by implementing the first durable session-state layer:
 Continue with `TODO.md` item I1.5: implement local worktree path
 planning, `.af/state.toml` symlink handling, sub-worktree path planning,
 and git cleanup planning.
+
+---
+
+## 2026-05-20 — Session 13: worktree planning helpers
+
+### Goal
+
+Complete I1.5 by implementing pure worktree layout, discovery symlink,
+and cleanup-planning helpers before command code executes real git
+operations.
+
+### Done
+
+- Wrote tests first for stable primary worktree paths, sibling
+  sub-worktree paths / branches, idempotent `.af/state.toml` symlink
+  creation, conflicting symlink detection, and safe cleanup plans.
+- Added `internal/git` worktree planning types and helpers for primary
+  and subagent worktrees.
+- Added idempotent state discovery symlink creation with conflict errors
+  for existing links or files pointing elsewhere.
+- Added dry cleanup planning that removes all worktrees but only marks
+  merged (or forced) sub-branches for deletion.
+- Marked `TODO.md` I1.5 complete.
+
+### Verification
+
+- `go test ./internal/git` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i1-5-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I1.6: implement secret redaction handler
+and the keyring interface with fakes; keep envelope transport disabled
+until remote / sandbox stages.
