@@ -129,7 +129,7 @@ No product feature work until this stage is green.
       `cmd/af/testdata/script/`, fake external-command hooks, package
       `testutil` helpers, and baseline smoke scripts for `af version` /
       `af --help`.
-- [ ] I0.5: ADR-052 — add the property-test scaffold for lifecycle and
+- [x] I0.5: ADR-052 — add the property-test scaffold for lifecycle and
       naming invariants without enabling formal verification as a release
       gate.
 - [ ] I0.6: Baseline verification — `make check` passes on the scaffold;

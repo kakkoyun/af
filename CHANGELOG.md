@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the initial `testscript` harness, `internal/testutil` helpers,
   fake-command PATH hooks, and smoke scripts for `af version` and
   `af --help`.
+- Added property-test scaffolds for lifecycle transitions and workstream
+  naming invariants using stdlib `testing/quick`.
 
 ### Removed
 

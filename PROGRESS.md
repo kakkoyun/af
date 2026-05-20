@@ -349,3 +349,43 @@ implemented so far.
 Continue with `TODO.md` item I0.5: add the property-test scaffold for
 lifecycle and naming invariants without enabling formal verification as a
 release gate.
+
+---
+
+## 2026-05-20 — Session 7: property-test scaffold
+
+### Goal
+
+Complete I0.5 by adding property-test scaffolding for lifecycle and
+naming invariants without making formal verification a release gate.
+
+### Done
+
+- Wrote the property tests first and confirmed `go test ./internal/...`
+  failed because `internal/lifecycle` and workstream naming helpers did
+  not exist yet.
+- Added `internal/lifecycle` with pure state/event transition helpers for
+  `active`, `suspended`, `completed`, and `abandoned` workstreams.
+- Added lifecycle property tests for terminal-state stickiness,
+  terminal states never returning to active, and suspend/resume
+  round-trips.
+- Added `internal/workstream` naming helpers for `Sanitize` and
+  `ApplyPrefix`.
+- Added naming property tests for sanitize idempotency and prefix
+  idempotency.
+- Updated `TODO.md`, `CHANGELOG.md`, and ADR-052.
+
+### Verification
+
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make test-property` passes.
+- `make check` passes.
+- Final verification log: `/tmp/af-i0-5-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I0.6: run baseline verification now that
+Stage 0 scaffold checks are in place, then update `PROGRESS.md` with the
+first green baseline.
