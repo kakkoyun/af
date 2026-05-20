@@ -67,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   builders, recording runner, and fake sandbox.
 - Added testscript fake-command PATH wiring for tmux, ssh, slicer, sbx,
   pi, claude, and codex.
+- Added `af completions <bash|zsh|fish|powershell>`: emits the shell-specific completion script to stdout using cobra's built-in generators (`GenBashCompletion`, `GenZshCompletion`, `GenFishCompletion`, `GenPowerShellCompletionWithDesc`).
 - Added `af config init` and `af config show`: `init` scaffolds the
   annotated user config at `$HOME/.config/af/config.toml` (or the path
   given via `--config`) and refuses to overwrite an existing file;

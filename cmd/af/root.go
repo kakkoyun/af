@@ -49,6 +49,7 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 
 	cmd.AddCommand(newVersionCmd())
 	cmd.AddCommand(newConfigCmd(opts))
+	cmd.AddCommand(newCompletionsCmd())
 
 	return cmd
 }

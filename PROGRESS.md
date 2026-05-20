@@ -983,3 +983,25 @@ TOML).
 
 Continue with `TODO.md` item I3.2: implement `af completions <shell>`
 (ADR-035 + ADR-045) using cobra's built-in completion generators.
+
+## 2026-05-21 — Session 22: af completions
+
+### Goal
+
+Complete I3.2 by adding `af completions <bash|zsh|fish|powershell>` via cobra's built-in generators.
+
+### Done
+
+- Wrote failing tests first: `cmd/af/completions_test.go` (bash, zsh, fish, powershell scripts; unknown-shell error; missing-arg error) and `testdata/script/completions.txt`.
+- Implemented `cmd/af/completions.go` with `newCompletionsCmd` dispatching to `root.GenBashCompletion`, `GenZshCompletion`, `GenFishCompletion(_, true)`, and `GenPowerShellCompletionWithDesc`. Static sentinel `errUnsupportedShell` wraps the unknown-shell case for err113 conformance.
+- Wired into root command tree.
+- Updated TODO, CHANGELOG, ADR-035 last_modified.
+
+### Verification
+
+- `go test -race -count=1 -shuffle=on ./...` passes.
+- `make check` passes (0 lint issues).
+
+### Next
+
+Continue with `TODO.md` item I3.3: implement local `af doctor` (ADR-044) using the existing interface seams.

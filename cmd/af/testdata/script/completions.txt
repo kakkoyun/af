@@ -1,0 +1,19 @@
+# af completions <shell> emits a valid completion script per shell.
+
+exec af completions bash
+stdout 'bash completion'
+
+exec af completions zsh
+stdout '#compdef'
+
+exec af completions fish
+stdout 'complete -c af'
+
+exec af completions powershell
+stdout 'Register-ArgumentCompleter'
+
+! exec af completions tcsh
+stderr 'tcsh'
+
+! exec af completions
+stderr 'arg'
