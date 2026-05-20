@@ -470,3 +470,40 @@ any command depends on configuration.
 
 Continue with `TODO.md` item I1.2: implement the shared duration grammar
 for `d`/`w` plus stdlib duration units with table and property tests.
+
+---
+
+## 2026-05-20 — Session 10: shared duration grammar
+
+### Goal
+
+Complete I1.2 by implementing the shared duration parser used by future
+`af clean --max-age` and `af retro --since` flags.
+
+### Done
+
+- Wrote table tests first for valid day/week shorthand, mixed forms,
+  stdlib-compatible units, and invalid inputs.
+- Added property tests proving `Nd` / `Nw` expand to exact 24-hour days
+  and 168-hour weeks, and that stdlib units match `time.ParseDuration`.
+- Added `internal/duration` with `Parse`, integer token scanning, `d` /
+  `w` conversion, overflow checks, and contextual errors.
+- Marked `TODO.md` I1.2 complete and advanced ADR-056 / ADR-058
+  implementation state for the shared grammar slice.
+
+### Verification
+
+- `go test ./internal/duration` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make test-property` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i1-2-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I1.3: implement naming, branch-prefix
+rules, session-name sanitization, sub-branch naming, and UUID/session-ID
+derivation.

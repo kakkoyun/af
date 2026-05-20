@@ -142,7 +142,7 @@ These packages are mostly pure or fake-backed. They unblock all commands.
 - [x] I1.1: ADR-036 — implement layered TOML config loading, schema
       defaults, global-only sections, `~` expansion, proxy command config
       shapes, and config tests.
-- [ ] I1.2: ADR-056 + ADR-058 — implement the shared duration grammar
+- [x] I1.2: ADR-056 + ADR-058 — implement the shared duration grammar
       (`d`/`w` plus stdlib duration units) with table and property tests.
 - [ ] I1.3: ADR-038 + ADR-039 — implement naming, branch-prefix rules,
       session-name sanitization, sub-branch naming, and UUID/session-ID

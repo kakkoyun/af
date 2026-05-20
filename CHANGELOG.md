@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the `internal/config` layered TOML loader with compiled defaults,
   user/repo merges, global-only section handling, `~` path expansion, and
   proxy command shape validation.
+- Added the shared `internal/duration` grammar for `d` / `w` shorthand
+  plus stdlib duration units, with table and property tests.
 
 ### Removed
 
