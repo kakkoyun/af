@@ -675,3 +675,45 @@ future auth and launch code, without enabling envelope transport yet.
 Continue with `TODO.md` item I1.7: implement Obsidian frontmatter
 parse/emit helpers and note path resolution, fake-backed and without
 command integration.
+
+---
+
+## 2026-05-20 — Session 15: Obsidian note primitives
+
+### Goal
+
+Complete I1.7 by implementing the pure/fake Obsidian note helpers that
+future `af note` and lifecycle commands will use.
+
+### Done
+
+- Wrote tests first for versioned frontmatter parsing, frontmatter
+  emission, opaque markdown body preservation, configured vault/folder
+  path resolution, and fake note-store read/write behavior.
+- Added `internal/obsidian` note types for `af_schema: 1`, agent slots,
+  PR metadata, tags, and lifecycle timestamps.
+- Added `ParseNote` and `EmitNote` using `gopkg.in/yaml.v3` while
+  preserving the markdown body as an opaque string.
+- Added `ResolveNotePath` for `[obsidian.vaults]`, `notes_vault`, and
+  `notes_folder` routing.
+- Added `Store` and `MemoryStore` as fake-backed persistence seams.
+- Kept command integration, Obsidian URI opening, and lifecycle note
+  updates for later stages.
+- Marked `TODO.md` I1.7 complete and advanced ADR-047 implementation
+  state.
+
+### Verification
+
+- `go test ./internal/obsidian` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i1-7-verify.log`.
+
+### Next
+
+Continue with Stage 2, starting `TODO.md` item I2.1: implement the
+agent interface, provider registry, fake provider, and provider
+availability checks.

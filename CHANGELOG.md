@@ -55,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sub-worktree paths, discovery symlinks, and safe cleanup plans.
 - Added `internal/secret` redacting `slog` handler plus fake-backed
   keyring interface for future `af auth` and launch-secret work.
+- Added `internal/obsidian` frontmatter parse/emit helpers, note path
+  resolution, and an in-memory note store for future note commands.
 
 ### Removed
 

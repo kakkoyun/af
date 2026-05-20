@@ -157,7 +157,7 @@ These packages are mostly pure or fake-backed. They unblock all commands.
 - [x] I1.6: ADR-049 — implement secret redaction handler and the keyring
       interface with fakes; keep envelope transport disabled until remote /
       sandbox stages.
-- [ ] I1.7: ADR-047 — implement Obsidian frontmatter parse/emit helpers
+- [x] I1.7: ADR-047 — implement Obsidian frontmatter parse/emit helpers
       and note path resolution, fake-backed and without command integration.
 
 ### Implementation Stage 2 — External system interfaces and fakes

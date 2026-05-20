@@ -2,9 +2,9 @@
 adr: 047
 title: "Obsidian Integration — Notes + Bases"
 status: proposed
-implementation: pending
+implementation: in-progress
 date: 2026-05-06
-last_modified: 2026-05-08
+last_modified: 2026-05-20
 supersedes: []
 superseded_by: null
 related: ["031", "036", "037", "045", "048", "054", "058"]
