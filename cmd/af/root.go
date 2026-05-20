@@ -56,6 +56,9 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 	cmd.AddCommand(newCreateCmd(opts))
 	cmd.AddCommand(newListCmd(opts))
 	cmd.AddCommand(newInfoCmd(opts))
+	cmd.AddCommand(newAgentCmd(opts))
+	cmd.AddCommand(newDoneCmd(opts))
+	cmd.AddCommand(newSessionBranchCmd(opts))
 
 	return cmd
 }

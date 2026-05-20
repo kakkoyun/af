@@ -205,12 +205,12 @@ agent. This proves config, state, git, mux, and agent seams together.
       over active/suspended local workstreams.
 - [x] I4.3: ADR-055 — implement `af info [session] [--json] [--ledger N]`
       using state + ledger tail only.
-- [ ] I4.4: ADR-039 — implement `af agent list`, then `af agent add`,
+- [x] I4.4: ADR-039 — implement `af agent list`, then `af agent add`,
       then `af agent stop`, including sub-worktree creation/removal.
-- [ ] I4.5: ADR-038 + ADR-046 — implement local `af done [session]`
+- [x] I4.5: ADR-038 + ADR-046 — implement local `af done [session]`
       and `af done --force` with worktree/sub-worktree cleanup, archive move,
       ledger events, and Obsidian status updates.
-- [ ] I4.6: ADR-035 — implement `af session-branch` for ad-hoc work in
+- [x] I4.6: ADR-035 — implement `af session-branch` for ad-hoc work in
       the current checkout.
 
 ### Implementation Stage 5 — Lifecycle, notes, cleanup, and stacking
