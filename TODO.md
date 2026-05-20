@@ -201,9 +201,9 @@ agent. This proves config, state, git, mux, and agent seams together.
 - [x] I4.1: ADR-038 + ADR-039 — implement local `af create [name]`
       with branch/worktree creation, state/ledger creation, note creation,
       tmux session creation, and primary-agent launch.
-- [ ] I4.2: ADR-037 + ADR-035 — implement `af list` as a read-only view
+- [x] I4.2: ADR-037 + ADR-035 — implement `af list` as a read-only view
       over active/suspended local workstreams.
-- [ ] I4.3: ADR-055 — implement `af info [session] [--json] [--ledger N]`
+- [x] I4.3: ADR-055 — implement `af info [session] [--json] [--ledger N]`
       using state + ledger tail only.
 - [ ] I4.4: ADR-039 — implement `af agent list`, then `af agent add`,
       then `af agent stop`, including sub-worktree creation/removal.

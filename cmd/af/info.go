@@ -1,0 +1,179 @@
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+
+	"github.com/spf13/cobra"
+
+	"github.com/kakkoyun/af/internal/session"
+)
+
+type infoOptions struct {
+	root     *rootOptions
+	jsonMode bool
+	ledgerN  int
+}
+
+var errInfoMissingSession = errors.New("workstream not found")
+
+func newInfoCmd(opts *rootOptions) *cobra.Command {
+	iOpts := &infoOptions{root: opts}
+	cmd := &cobra.Command{
+		Use:   "info [session]",
+		Short: "Print detailed state for one workstream",
+		Long:  "info reads state.toml for the named workstream (or the workstream detected from cwd) and prints a summary. With --json the summary is emitted as JSON; with --ledger N the last N ledger events are appended.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := ""
+			if len(args) == 1 {
+				name = args[0]
+			}
+			return runInfo(cmd, iOpts, name)
+		},
+	}
+	cmd.Flags().BoolVar(&iOpts.jsonMode, "json", false, "emit the info payload as JSON")
+	cmd.Flags().IntVar(&iOpts.ledgerN, "ledger", 0, "include the last N ledger events")
+	return cmd
+}
+
+func runInfo(cmd *cobra.Command, opts *infoOptions, name string) error {
+	stateDir, err := defaultSessionsDir()
+	if err != nil {
+		return fmt.Errorf("info: %w", err)
+	}
+
+	statePath, err := locateInfoState(stateDir, name, opts.root)
+	if err != nil {
+		return err
+	}
+
+	state, err := session.ReadState(statePath)
+	if err != nil {
+		return fmt.Errorf("info: read state %s: %w", statePath, err)
+	}
+
+	ledgerPath := filepath.Join(filepath.Dir(statePath), "ledger.jsonl")
+	var events []session.Event
+	if opts.ledgerN > 0 {
+		events, err = session.ReadLedgerTail(ledgerPath, opts.ledgerN)
+		if err != nil {
+			return fmt.Errorf("info: read ledger: %w", err)
+		}
+	}
+
+	if opts.jsonMode {
+		return writeInfoJSON(cmd, state, events)
+	}
+	return writeInfoText(cmd, state, events)
+}
+
+func locateInfoState(stateDir, name string, root *rootOptions) (string, error) {
+	if name != "" {
+		return filepath.Join(stateDir, name, "state.toml"), nil
+	}
+	_ = root
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("info: getwd: %w", err)
+	}
+	discovered, err := session.DiscoverStatePath(session.DiscoverOptions{
+		Cwd:         cwd,
+		SessionsDir: stateDir,
+	})
+	if err != nil {
+		return "", fmt.Errorf("info: discover session: %w", err)
+	}
+	if discovered == "" {
+		return "", fmt.Errorf("info: %w", errInfoMissingSession)
+	}
+	return discovered, nil
+}
+
+func writeInfoJSON(cmd *cobra.Command, state session.State, events []session.Event) error {
+	payload := map[string]any{
+		"session":  state.Session,
+		"worktree": state.Worktree,
+		"agents":   state.Agents,
+		"events":   events,
+	}
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return fmt.Errorf("info json: %w", err)
+	}
+	_, err = fmt.Fprintln(cmd.OutOrStdout(), string(data))
+	if err != nil {
+		return fmt.Errorf("info json write: %w", err)
+	}
+	return nil
+}
+
+func writeInfoText(cmd *cobra.Command, state session.State, events []session.Event) error {
+	w := cmd.OutOrStdout()
+	err := writeInfoCore(w, state)
+	if err != nil {
+		return err
+	}
+	err = writeInfoAgents(w, state.Agents)
+	if err != nil {
+		return err
+	}
+	return writeInfoEvents(w, events)
+}
+
+func writeInfoCore(w io.Writer, state session.State) error {
+	lines := []string{
+		"Session:   " + state.Session.Name,
+		"Status:    " + state.Session.Status,
+		"Branch:    " + state.Worktree.Branch,
+		"Base:      " + state.Worktree.BaseBranch,
+		"Worktree:  " + state.Worktree.Path,
+		"Repo:      " + state.Worktree.RepoSlug,
+		"Created:   " + state.Session.CreatedAt.Format("2006-01-02 15:04:05 MST"),
+	}
+	for _, line := range lines {
+		_, err := fmt.Fprintln(w, line)
+		if err != nil {
+			return fmt.Errorf("info write: %w", err)
+		}
+	}
+	return nil
+}
+
+func writeInfoAgents(w io.Writer, agents []session.AgentState) error {
+	if len(agents) == 0 {
+		return nil
+	}
+	_, err := fmt.Fprintln(w, "Agents:")
+	if err != nil {
+		return fmt.Errorf("info write agents header: %w", err)
+	}
+	for i := range agents {
+		_, err = fmt.Fprintf(w, "  - slot=%s provider=%s status=%s\n", agents[i].Slot, agents[i].Provider, agents[i].Status)
+		if err != nil {
+			return fmt.Errorf("info write agent: %w", err)
+		}
+	}
+	return nil
+}
+
+func writeInfoEvents(w io.Writer, events []session.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+	_, err := fmt.Fprintln(w, "\nRecent events:")
+	if err != nil {
+		return fmt.Errorf("info write events header: %w", err)
+	}
+	for i := range events {
+		_, err = fmt.Fprintf(w, "  %s %s\n", events[i].Timestamp.Format("2006-01-02 15:04:05"), events[i].Type)
+		if err != nil {
+			return fmt.Errorf("info write event: %w", err)
+		}
+	}
+	return nil
+}
