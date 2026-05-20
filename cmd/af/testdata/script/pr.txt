@@ -1,0 +1,42 @@
+# af pr invokes the configured [pr].cmd proxy with token substitution for base,
+# head, and title. The [pr.flag_template] entries append typed flags so callers
+# can drive --body and --draft through the proxy argv.
+
+env HOME=$WORK/home
+mkdir $HOME/.config/af
+mkdir $HOME/.local/share/af/v1/sessions/demo
+cp config.toml $HOME/.config/af/config.toml
+cp state.toml $HOME/.local/share/af/v1/sessions/demo/state.toml
+
+# Base command tokens are substituted and the body flag_template is appended.
+exec af pr demo --title T --body B
+stdout 'PR base=main head=feat/demo title=T'
+stdout '--body B'
+
+# --draft triggers the draft flag_template entry.
+exec af pr demo --title T --draft
+stdout 'PR base=main head=feat/demo title=T'
+stdout '--draft'
+
+-- state.toml --
+schema_version = 1
+
+[session]
+name = "demo"
+status = "active"
+created_at = 2026-05-22T10:00:00Z
+
+[worktree]
+path = "/tmp"
+branch = "feat/demo"
+base_branch = "main"
+
+-- config.toml --
+schema_version = 1
+
+[pr]
+cmd = ["echo", "PR", "base={base}", "head={head}", "title={title}"]
+
+[pr.flag_template]
+body = ["--body", "{body}"]
+draft = ["--draft"]

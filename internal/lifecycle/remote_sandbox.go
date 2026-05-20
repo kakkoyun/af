@@ -25,27 +25,51 @@ type RemoteContext struct { //nolint:govet // Field grouping prioritises readabi
 	// created (typically ~/Workspace/.worktrees). Empty means "the
 	// remote's $HOME/Workspace/.worktrees".
 	RemoteRoot string
+	// Envelope is an optional ephemeral env-file written locally before the
+	// SSH commands run and deleted on return (best-effort). The SCP
+	// transport that delivers the envelope to the remote host is deferred to
+	// the runtime layer per ADR-041.
+	Envelope secret.Envelope
+	// SSHExecutor overrides the SSH executor used for remote commands.
+	// Nil means the default os/exec-backed executor. This field exists
+	// solely as a test seam.
+	SSHExecutor remote.Executor
 }
 
 // SandboxContext bundles sandbox-mode inputs for Create.
 type SandboxContext struct {
 	Provider sandbox.Sandbox
 	// Envelope holds the temporary secret file written before launch and
-	// deleted after the agent process has sourced it.
+	// deleted after the agent process has sourced it. Place the path inside
+	// the worktree root so the sandbox provider can mount and source it.
 	Envelope secret.Envelope
 }
 
 // PrepareRemoteWorkstream creates the remote worktree directory and
 // clones the repo onto it. It returns the absolute remote worktree path.
 //
-// This is the minimum needed to satisfy ADR-041 §"Remote create": the
-// SSH host runs `git clone --bare ... && git worktree add ...`.
-// Token mapping (cwd <-> remote path) is deferred to the runtime.
+// If RemoteContext.Envelope.Path is non-empty, the envelope file is
+// written locally before the SSH commands execute and deleted on return
+// (best-effort). The SCP transport responsible for copying the envelope
+// to the remote host is deferred to the runtime layer per ADR-041.
+// Token mapping (cwd <-> remote path) is also deferred to the runtime.
 func PrepareRemoteWorkstream(ctx context.Context, rc RemoteContext, repoSlug, branch, fromBranch string) (string, error) {
 	if rc.Host == "" {
 		return "", fmt.Errorf("%w: empty host", ErrRemoteSetup)
 	}
-	ssh := remote.NewSSH(rc.Host, rc.SSHOptions)
+	if rc.Envelope.Path != "" {
+		defer func() { _ = rc.Envelope.Delete() }() //nolint:errcheck // teardown best-effort
+		err := rc.Envelope.Write()
+		if err != nil {
+			return "", fmt.Errorf("remote envelope write: %w", err)
+		}
+	}
+	var ssh remote.SSH
+	if rc.SSHExecutor != nil {
+		ssh = remote.NewSSHWithExecutor(rc.Host, rc.SSHOptions, rc.SSHExecutor)
+	} else {
+		ssh = remote.NewSSH(rc.Host, rc.SSHOptions)
+	}
 	root := rc.RemoteRoot
 	if root == "" {
 		root = "$HOME/Workspace/.worktrees"
@@ -65,11 +89,23 @@ func PrepareRemoteWorkstream(ctx context.Context, rc RemoteContext, repoSlug, br
 	return remotePath, nil
 }
 
-// LaunchSandboxWorkstream calls sandbox.Sandbox.Launch with the supplied
-// LaunchOpts and returns the handle. Failures wrap ErrSandboxSetup.
+// LaunchSandboxWorkstream writes the Envelope (if Path is non-empty),
+// calls sandbox.Sandbox.Launch with the supplied LaunchOpts, then
+// deletes the Envelope on return (best-effort). Failures from Launch
+// wrap ErrSandboxSetup.
+//
+// Place Envelope.Path inside the worktree root so the provider can
+// mount and source it as part of its agent-start sequence.
 func LaunchSandboxWorkstream(ctx context.Context, sc SandboxContext, opts sandbox.LaunchOpts) (*sandbox.Handle, error) {
 	if sc.Provider == nil {
 		return nil, fmt.Errorf("%w: nil provider", ErrSandboxSetup)
+	}
+	if sc.Envelope.Path != "" {
+		defer func() { _ = sc.Envelope.Delete() }() //nolint:errcheck // teardown best-effort
+		err := sc.Envelope.Write()
+		if err != nil {
+			return nil, fmt.Errorf("sandbox envelope write: %w", err)
+		}
 	}
 	handle, err := sc.Provider.Launch(ctx, opts)
 	if err != nil {

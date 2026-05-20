@@ -1,0 +1,174 @@
+# ssh-remote.txt
+#
+# Exercises af doctor --remote through a smart fake-ssh binary that
+# responds to the exact SSH argv issued by af (ADR-041).  Verifies that
+# internal/remote.SSH is correctly wired end-to-end into the af command
+# tree without requiring a real SSH server.
+#
+# The default config emits -o ServerAliveInterval=60 before the host, so
+# the fake must strip leading -o <value> pairs before reading the host.
+#
+# Three scenarios:
+#   demohost   – all tools present; doctor exits 0.
+#   sparsehost – required tools present, optional tools absent; doctor exits 0.
+#   failhost   – ssh returns 255; all probes fail; doctor exits 1.
+
+env HOME=$WORK/home
+
+# ── Smart fake ssh ────────────────────────────────────────────────────
+# smfake/ssh is written from the txtar archive below.
+# chmod makes it executable; prepending $WORK/smfake to PATH overrides
+# the global stub at $WORK/fakebin/ssh for all subsequent exec calls.
+chmod 0755 smfake/ssh
+env PATH=$WORK/smfake:$PATH
+
+# ── Case 1: all tools present on demohost ─────────────────────────────
+exec af doctor --remote demohost
+stdout 'Remote environment \(demohost\):'
+stdout '✓ git'
+stdout '✓ tmux'
+stdout '✓ pi'
+stdout '✓ claude'
+stdout '✓ codex'
+stdout 'Status: all required tools present'
+
+# ── Case 2: optional tools absent on sparsehost ───────────────────────
+# Required tools (TierMust) are present, so exit is still 0.
+# Optional tools (TierShould/TierNice) are absent and shown with ⚠.
+exec af doctor --remote sparsehost
+stdout '✓ git'
+stdout '✓ tmux'
+stdout '⚠.*slicer.*not in PATH'
+stdout '⚠.*sbx.*not in PATH'
+stdout '⚠.*delta.*not in PATH'
+stdout 'Status: all required tools present'
+
+# ── Case 3: ssh connection failure on failhost ────────────────────────
+# Every SSH probe fails (exit 255), so all TierMust tools appear missing
+# and af doctor exits non-zero.
+! exec af doctor --remote failhost
+stdout 'missing required tool'
+
+-- smfake/ssh --
+#!/bin/sh
+# Smart fake ssh for af doctor --remote integration tests (ADR-041).
+#
+# The default af config passes:  ssh -o ServerAliveInterval=60 <host> <cmd>
+# Strip all leading "-o <value>" pairs to reach the host argument.
+
+while [ "$1" = '-o' ]; do
+  shift 2
+done
+host="$1"
+cmd="$2"
+
+# Simulate a network failure for failhost.
+case "$host" in
+  failhost)
+    echo 'fake-ssh: connect to host failhost port 22: Connection refused' >&2
+    exit 255
+    ;;
+esac
+
+# ── Platform detection probes ─────────────────────────────────────────
+# DetectRemotePlatform calls: uname -s, then cat /etc/os-release.
+case "$cmd" in
+  'uname -s')
+    echo 'Linux'
+    exit 0
+    ;;
+  'cat /etc/os-release 2>/dev/null || true')
+    printf 'ID=ubuntu\nID_LIKE=debian\n'
+    exit 0
+    ;;
+esac
+
+# ── Tool probes ───────────────────────────────────────────────────────
+# RemoteLookup.LookPath:  command -v <tool> 2>/dev/null || true
+# RemoteLookup.Version:   <tool> --version 2>&1 || true  (only if found)
+case "$cmd" in
+  # ---- TierMust: git ----
+  *'command -v git'*)
+    echo '/usr/bin/git'
+    ;;
+  'git --version 2>&1 || true')
+    echo 'git version 2.50.0'
+    ;;
+
+  # ---- TierMust: tmux ----
+  *'command -v tmux'*)
+    echo '/usr/bin/tmux'
+    ;;
+  'tmux --version 2>&1 || true')
+    echo 'tmux 3.5'
+    ;;
+
+  # ---- TierMust agent group: pi / claude / codex ----
+  *'command -v pi'*)
+    echo '/usr/local/bin/pi'
+    ;;
+  'pi --version 2>&1 || true')
+    echo 'pi 1.0.0'
+    ;;
+  *'command -v claude'*)
+    echo '/usr/local/bin/claude'
+    ;;
+  'claude --version 2>&1 || true')
+    echo 'claude 0.2.0'
+    ;;
+  *'command -v codex'*)
+    echo '/usr/local/bin/codex'
+    ;;
+  'codex --version 2>&1 || true')
+    echo 'codex 0.1.0'
+    ;;
+
+  # ---- TierShould: gh, fzf (absent on sparsehost) ----
+  *'command -v gh'*)
+    case "$host" in
+      sparsehost) ;;
+      *) echo '/usr/bin/gh' ;;
+    esac
+    ;;
+  'gh --version 2>&1 || true')
+    echo 'gh version 2.92.0 (2026-04-28)'
+    ;;
+  *'command -v fzf'*)
+    case "$host" in
+      sparsehost) ;;
+      *) echo '/usr/bin/fzf' ;;
+    esac
+    ;;
+  'fzf --version 2>&1 || true')
+    echo '0.44.0 (HEAD)'
+    ;;
+
+  # ---- TierNice: slicer, sbx, delta (absent on sparsehost) ----
+  *'command -v slicer'*)
+    case "$host" in
+      sparsehost) ;;
+      *) echo '/usr/local/bin/slicer' ;;
+    esac
+    ;;
+  'slicer --version 2>&1 || true')
+    echo 'slicer 0.1.0'
+    ;;
+  *'command -v sbx'*)
+    case "$host" in
+      sparsehost) ;;
+      *) echo '/usr/local/bin/sbx' ;;
+    esac
+    ;;
+  'sbx --version 2>&1 || true')
+    echo 'sbx 0.1.0'
+    ;;
+  *'command -v delta'*)
+    case "$host" in
+      sparsehost) ;;
+      *) echo '/usr/local/bin/delta' ;;
+    esac
+    ;;
+  'delta --version 2>&1 || true')
+    echo 'delta 0.16.0'
+    ;;
+esac

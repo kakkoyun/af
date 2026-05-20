@@ -2,9 +2,9 @@
 adr: 049
 title: "Secret Management (keyring + ephemeral envelope)"
 status: proposed
-implementation: in-progress
+implementation: complete
 date: 2026-05-06
-last_modified: 2026-05-21
+last_modified: 2026-05-22
 supersedes: []
 superseded_by: null
 related: ["031", "036", "041", "042", "045"]

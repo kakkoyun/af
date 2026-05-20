@@ -1,0 +1,137 @@
+# tmux-lifecycle: verify that af suspend/resume drives the tmux seam correctly.
+#
+# Uses a state-bearing fake tmux (at $WORK/mytmux/tmux) that maintains a
+# session list in $WORK/tmux-sessions.txt. A session "exists" iff its name
+# appears in that file. The fake handles has-session, new-session, kill-session,
+# and set-option; all other sub-commands echo their args and exit 0.
+#
+# Three scenarios are exercised:
+#   1. suspend — state.toml transitions to suspended; tmux is NOT contacted.
+#   2. resume (non-bare) — has-session returns miss → new-session is called.
+#   3. resume --bare — tmux seam is bypassed entirely.
+
+env HOME=$WORK/home
+
+# Activate the per-test smart fake ahead of the global passthrough fake.
+chmod 755 mytmux/tmux
+env PATH=$WORK/mytmux:$PATH
+
+# ── Scenario 1: suspend ────────────────────────────────────────────────────────
+# State file starts as "active". After suspend it must say "suspended".
+# Crucially, the fake tmux must NOT be consulted (sessions file stays absent).
+
+exec af suspend demo
+stdout 'workstream demo -> suspended'
+
+! exists tmux-sessions.txt
+grep 'status = "suspended"' $HOME/.local/share/af/v1/sessions/demo/state.toml
+
+# ── Scenario 2: non-bare resume ───────────────────────────────────────────────
+# Session "af-demo" is absent from the fake (sessions file doesn't exist yet).
+# ResumeWorkstream must call has-session (miss → exit 1), then new-session,
+# which appends "af-demo" to the file.
+
+exec af resume demo
+stdout 'workstream demo -> active'
+
+exists tmux-sessions.txt
+grep 'af-demo' tmux-sessions.txt
+grep 'status = "active"' $HOME/.local/share/af/v1/sessions/demo/state.toml
+
+# ── Scenario 3: bare resume skips the tmux seam ───────────────────────────────
+# Suspend again, delete the sessions file to give a clean baseline, then
+# resume with --bare. The file must remain absent: bare mode never calls tmux.
+
+exec af suspend demo
+stdout 'workstream demo -> suspended'
+
+rm tmux-sessions.txt
+
+exec af resume demo --bare
+stdout 'workstream demo -> active'
+
+! exists tmux-sessions.txt
+
+# ── Initial file content ───────────────────────────────────────────────────────
+
+-- home/.local/share/af/v1/sessions/demo/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-000000000001"
+name = "demo"
+status = "active"
+created_at = 2026-05-22T10:00:00Z
+
+[worktree]
+path = "/tmp/worktree-demo"
+branch = "feat/demo"
+base_branch = "main"
+
+[execution]
+tmux_session = "af-demo"
+
+-- mytmux/tmux --
+#!/bin/sh
+# State-bearing fake tmux for testscript integration tests (ADR-040 + ADR-046).
+#
+# Active session names are stored one-per-line in $WORK/tmux-sessions.txt.
+# Supported sub-commands:
+#   has-session  -t NAME      → exit 0 if NAME in file, exit 1 otherwise
+#   new-session  -d -s NAME -c PATH → append NAME to file, exit 0
+#   kill-session -t NAME      → remove NAME from file, exit 0
+#   set-option   ...          → exit 0 (marks @AF_SESSION; ignored here)
+#   *                         → echo args, exit 0
+SESSIONS="$WORK/tmux-sessions.txt"
+subcmd="$1"
+shift
+
+case "$subcmd" in
+  has-session)
+    name=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -t) shift; name="$1" ;;
+      esac
+      shift
+    done
+    if [ -f "$SESSIONS" ] && grep -qxF "$name" "$SESSIONS"; then
+      exit 0
+    fi
+    exit 1
+    ;;
+  new-session)
+    name=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -s) shift; name="$1" ;;
+        -c) shift ;;
+      esac
+      shift
+    done
+    echo "$name" >> "$SESSIONS"
+    exit 0
+    ;;
+  kill-session)
+    name=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -t) shift; name="$1" ;;
+      esac
+      shift
+    done
+    if [ -f "$SESSIONS" ]; then
+      grep -vxF "$name" "$SESSIONS" > "$SESSIONS.tmp" 2>/dev/null || true
+      mv "$SESSIONS.tmp" "$SESSIONS"
+    fi
+    exit 0
+    ;;
+  set-option)
+    # Called by CreateSession to mark @AF_SESSION=1 — succeed silently.
+    exit 0
+    ;;
+  *)
+    echo "fake tmux $subcmd $*"
+    exit 0
+    ;;
+esac

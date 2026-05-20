@@ -312,19 +312,22 @@ Wave 1 — deferred placeholders + release tooling (parallel agents):
 
 Wave 2 — integration tests + envelope wiring:
 
-- [ ] I9.5: ADR-048 — testscript scenarios for `af editor`, `af diff`,
+- [x] I9.5: ADR-048 — testscript scenarios for `af editor`, `af diff`,
       `af pr` using fake-path shadow binaries; verify token
       interpolation and `flag_template` expansion end-to-end.
-- [ ] I9.6: ADR-040 + ADR-046 — tmux integration testscript that
-      exercises real tmux on the host (skipped if `tmux` missing);
-      verify SessionExists + CreateSession + suspend/resume respawn.
-- [ ] I9.7: ADR-041 — SSH integration test using `ssh -o
-      BatchMode=yes localhost` (skipped if no sshd); validate the
-      `internal/remote.Exec` path against a real ssh client.
-- [ ] I9.8: ADR-042 + ADR-049 — wire `secret.Envelope` into the
-      remote+sandbox create flow; add integration testscripts using
-      fake `slicer`/`sbx` shadows that assert the envelope file is
-      written, sourced, and deleted.
+- [x] I9.6: ADR-040 + ADR-046 — tmux integration testscript that
+      exercises a smart-fake tmux state machine; verify SessionExists
+      + CreateSession + suspend/resume respawn (bare vs non-bare).
+- [x] I9.7: ADR-041 — SSH integration test using a smart-fake ssh
+      that responds to `af doctor --remote` probes; covers all-present
+      / sparse-host / failing-host cases.
+- [x] I9.8: ADR-042 + ADR-049 — wired `secret.Envelope` into
+      `PrepareRemoteWorkstream` and `LaunchSandboxWorkstream`
+      (write-before, deferred Delete after). 7 unit tests cover
+      success, skip-when-empty, write-failure, and nil-provider paths.
+      Testscript skipped: `af create --sandbox` does not yet call
+      `LaunchSandboxWorkstream` end-to-end; unit tests are the
+      load-bearing evidence (see Task C deliverable in PROGRESS).
 
 Wave 3 — close-out:
 

@@ -1,0 +1,54 @@
+# af editor invokes the configured terminal or visual editor with the workstream
+# worktree path as its argument. When no editor is configured the command exits
+# non-zero and reports "no editor configured" on stderr.
+
+env HOME=$WORK/home
+mkdir $HOME/.config/af
+mkdir $HOME/.local/share/af/v1/sessions/demo
+cp config.toml $HOME/.config/af/config.toml
+cp state.toml $HOME/.local/share/af/v1/sessions/demo/state.toml
+
+# --terminal flag invokes [editor].terminal with the worktree path as argument.
+exec af editor demo --terminal
+stdout '/tmp'
+
+# --visual flag invokes [editor].visual with the worktree path.
+exec af editor demo --visual
+stdout '/tmp'
+
+# Without a flag the visual editor is tried first, then terminal; both are
+# "echo" in the test config so the worktree path still appears.
+exec af editor demo
+stdout '/tmp'
+
+# When [editor].terminal is empty the command must fail with a clear message.
+cp noeditor.toml $HOME/.config/af/config.toml
+! exec af editor demo --terminal
+stderr 'no editor configured'
+
+-- state.toml --
+schema_version = 1
+
+[session]
+name = "demo"
+status = "active"
+created_at = 2026-05-22T10:00:00Z
+
+[worktree]
+path = "/tmp"
+branch = "feat/demo"
+base_branch = "main"
+
+-- config.toml --
+schema_version = 1
+
+[editor]
+terminal = "echo"
+visual = "echo"
+
+-- noeditor.toml --
+schema_version = 1
+
+[editor]
+terminal = ""
+visual = ""
