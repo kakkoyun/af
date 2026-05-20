@@ -164,7 +164,7 @@ These packages are mostly pure or fake-backed. They unblock all commands.
 
 This stage creates every seam before commands depend on real tools.
 
-- [ ] I2.1: ADR-043 — implement `internal/agent.Agent`, `BodyCmd`,
+- [x] I2.1: ADR-043 — implement `internal/agent.Agent`, `BodyCmd`,
       provider registry, fake provider, and availability checks for `pi`,
       `claude`, and `codex`.
 - [ ] I2.2: ADR-040 — implement `internal/mux.Multiplexer`, fake mux,

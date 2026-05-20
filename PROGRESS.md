@@ -717,3 +717,46 @@ future `af note` and lifecycle commands will use.
 Continue with Stage 2, starting `TODO.md` item I2.1: implement the
 agent interface, provider registry, fake provider, and provider
 availability checks.
+
+---
+
+## 2026-05-20 — Session 16: agent provider seams
+
+### Goal
+
+Complete I2.1 by adding the provider abstraction and fake-backed seams
+before any command depends on real agent CLIs.
+
+### Done
+
+- Wrote tests first for known-agent fallback order, registry lookup,
+  first-available selection, provider command rendering, `BodyCmd`, and
+  PATH-based executable availability.
+- Added `Agent`, `LaunchOpts`, `ResumeOpts`, `BodyOpts`, and
+  `ApprovalMode` in `internal/agent`.
+- Added pi, claude, and codex provider implementations with launch,
+  resume, non-interactive body-generation, availability, and log-path
+  methods.
+- Added `Registry`, `DefaultRegistry`, known-agent fallback order, and
+  explicit errors for unknown / unavailable agents.
+- Added `Fake` provider for future command tests that must not require
+  real pi/claude/codex binaries.
+- Kept command integration and provider invocation for later stages.
+- Marked `TODO.md` I2.1 complete and advanced ADR-043 implementation
+  state.
+
+### Verification
+
+- `go test ./internal/agent` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i2-1-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I2.2: implement the multiplexer interface,
+fake mux, and tmux command construction without requiring real tmux in
+tests.

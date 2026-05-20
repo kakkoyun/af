@@ -57,6 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keyring interface for future `af auth` and launch-secret work.
 - Added `internal/obsidian` frontmatter parse/emit helpers, note path
   resolution, and an in-memory note store for future note commands.
+- Added `internal/agent` provider interfaces, pi/claude/codex command
+  builders, availability checks, registry fallback, and fake provider.
 
 ### Removed
 
