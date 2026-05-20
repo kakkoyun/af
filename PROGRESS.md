@@ -331,8 +331,7 @@ implemented so far.
   `bin/`, and expose `AF_TEST_FAKEBIN` for future fake external-command
   scenarios.
 - Added smoke scripts for `exec af version` and `exec af --help`.
-- Disabled cobra's default completion command so the planned `af
-  completions <shell>` surface remains controlled by TODO item I3.2.
+- Disabled cobra's default completion command so the planned `af completions <shell>` surface remains controlled by TODO item I3.2.
 - Updated `TODO.md`, `CHANGELOG.md`, and ADR-051.
 
 ### Verification
