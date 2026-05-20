@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded `internal/workstream` naming helpers for double-dash session
   sanitization, branch prefix rules, sub-branch names, auto session names,
   and deterministic UUID session IDs.
+- Added `internal/session` state persistence with atomic `state.toml`
+  writes, append-only `ledger.jsonl`, flock-backed locks, repo slug
+  parsing, and current-workstream discovery helpers.
 
 ### Removed
 

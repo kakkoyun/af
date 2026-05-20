@@ -2,9 +2,9 @@
 adr: 037
 title: "Session Metadata Schema (state.toml + ledger.jsonl)"
 status: proposed
-implementation: pending
+implementation: in-progress
 date: 2026-05-06
-last_modified: 2026-05-08
+last_modified: 2026-05-20
 supersedes: []
 superseded_by: null
 related: ["031", "036", "038", "039", "046", "054", "056", "059"]
@@ -59,7 +59,7 @@ name        = "kakkoyun--issue-42"        # tmux-sanitized
 id          = "<uuid v5>"                 # uuid5(repo, branch, "session")
 created_at  = 2026-05-06T12:00:00Z
 status      = "active"                    # active | suspended | completed | abandoned
-suspended_at = null                       # set when status = "suspended"
+# suspended_at omitted until status = "suspended"
 
 [worktree]
 path        = "/Users/kemal/Workspace/.worktrees/af/kakkoyun--issue-42"
@@ -86,7 +86,7 @@ status        = "running"           # running | stopped | crashed | suspended
 sub_worktree  = ""                  # absolute path to sibling sub-worktree, if any
 sub_branch    = ""                  # branch name of the sub-worktree
 created_at    = 2026-05-06T12:00:00Z
-last_resumed_at = null              # null until first resume
+# last_resumed_at omitted until first resume
 
 [pr]
 number = 0                          # 0 = no PR yet
@@ -96,7 +96,7 @@ state  = ""                         # "" | "open" | "merged" | "closed"
 [stack]
 parent_session = ""                 # workstream name of the parent; "" = no parent (ADR-059)
 parent_branch  = ""                 # resolved branch name of the parent at link time
-linked_at      = null               # timestamp the parent was set
+# linked_at omitted until the parent is set
 
 [versions]
 af = "1.0.0"

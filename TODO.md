@@ -147,7 +147,7 @@ These packages are mostly pure or fake-backed. They unblock all commands.
 - [x] I1.3: ADR-038 + ADR-039 — implement naming, branch-prefix rules,
       session-name sanitization, sub-branch naming, and UUID/session-ID
       derivation.
-- [ ] I1.4: ADR-037 — implement `state.toml` and `ledger.jsonl`
+- [x] I1.4: ADR-037 — implement `state.toml` and `ledger.jsonl`
       read/write, atomic writes, flock locking, schema version checks,
       derived `last_touched_at`, `repo_slug`, and current-workstream
       discovery.

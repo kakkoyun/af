@@ -203,7 +203,7 @@ name         = "kakkoyun--issue-42"
 id           = "<uuid v5>"
 created_at   = 2026-05-06T12:00:00Z
 status       = "active"          # active | suspended | completed | abandoned
-suspended_at = null              # set when status = "suspended"
+# suspended_at omitted until status = "suspended"
 
 [worktree]
 path        = "/Users/kemal/Workspace/.worktrees/af/kakkoyun--issue-42"
@@ -230,7 +230,7 @@ status          = "running"   # running | stopped | crashed | suspended
 sub_worktree    = ""          # absolute path to sibling sub-worktree, if any
 sub_branch      = ""          # branch name of the sub-worktree
 created_at      = 2026-05-06T12:00:00Z
-last_resumed_at = null        # null until first resume
+# last_resumed_at omitted until first resume
 
 [pr]
 number = 0
@@ -240,7 +240,7 @@ state  = ""
 [stack]
 parent_session = ""           # workstream name of the parent; "" = no parent (ADR-059)
 parent_branch  = ""           # resolved branch name of the parent at link time
-linked_at      = null         # timestamp the parent was set
+# linked_at omitted until the parent is set
 
 [versions]
 af             = "1.0.0"

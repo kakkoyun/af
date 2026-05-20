@@ -550,3 +550,50 @@ IDs before state/worktree code depends on them.
 Continue with `TODO.md` item I1.4: implement `state.toml` and
 `ledger.jsonl` read/write, atomic writes, locking, schema checks,
 derived metadata, and current-workstream discovery.
+
+---
+
+## 2026-05-20 — Session 12: state and ledger persistence
+
+### Goal
+
+Complete I1.4 by implementing the first durable session-state layer:
+`state.toml`, `ledger.jsonl`, locks, repo slug parsing, and discovery.
+
+### Done
+
+- Wrote state tests first for atomic state round-trip, newer schema
+  rejection, ledger append / `last_touched_at`, GitHub repo slug
+  parsing, `.af/state.toml` discovery, and lock file lifecycle.
+- Added `internal/session` schema types for the ADR-037 v1 state shape.
+- Implemented `ReadState` with schema-version checks and
+  `ErrSchemaTooNew`.
+- Implemented `WriteState` with `state.toml.tmp`, fsync, rename, and
+  directory fsync.
+- Implemented append-only JSONL ledger writes and `LastTouchedAt` from
+  the latest event timestamp.
+- Implemented flock-backed `LockFile` / `Unlock` helpers using
+  `golang.org/x/sys/unix`.
+- Implemented GitHub remote `repo_slug` parsing and current-workstream
+  discovery by explicit session, upward `.af/state.toml` symlink, or
+  tmux-session fallback.
+- Updated ADR-037 / SPEC examples to use omitted optional timestamps
+  instead of invalid TOML `null` values.
+- Marked `TODO.md` I1.4 complete and advanced ADR-037 implementation
+  state.
+
+### Verification
+
+- `go test ./internal/session` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i1-4-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I1.5: implement local worktree path
+planning, `.af/state.toml` symlink handling, sub-worktree path planning,
+and git cleanup planning.
