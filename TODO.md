@@ -139,7 +139,7 @@ No product feature work until this stage is green.
 
 These packages are mostly pure or fake-backed. They unblock all commands.
 
-- [ ] I1.1: ADR-036 — implement layered TOML config loading, schema
+- [x] I1.1: ADR-036 — implement layered TOML config loading, schema
       defaults, global-only sections, `~` expansion, proxy command config
       shapes, and config tests.
 - [ ] I1.2: ADR-056 + ADR-058 — implement the shared duration grammar

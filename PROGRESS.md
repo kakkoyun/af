@@ -426,3 +426,47 @@ harness, property tests, and snapshot build tooling all pass together.
 Begin Implementation Stage 1 with `TODO.md` item I1.1: implement layered
 TOML config loading, schema defaults, global-only sections, `~`
 expansion, proxy command config shapes, and config tests.
+
+---
+
+## 2026-05-20 — Session 9: layered config loader
+
+### Goal
+
+Complete I1.1 by implementing the ADR-036 configuration loader before
+any command depends on configuration.
+
+### Done
+
+- Wrote config tests first for missing-file defaults, user/repo layering,
+  repo-only global section handling, unsupported schema versions, and
+  invalid proxy command shapes.
+- Added `github.com/BurntSushi/toml` as the TOML runtime dependency.
+- Added `internal/config` schema types and compiled defaults for the v1
+  config surface.
+- Implemented `Load` / `LoadWithOptions` with defaults → user → repo
+  merge order, missing-file tolerance, schema-version checks, and context
+  cancellation checks.
+- Implemented global-only handling for `[obsidian.vaults]` and
+  `[secret]` so repo config cannot override machine-scoped values.
+- Implemented `~` expansion for worktree, PR template, Obsidian template,
+  and Obsidian vault paths.
+- Implemented proxy command config shapes for argv-mode arrays and
+  shell-mode strings, with final merged-shape validation.
+- Marked `TODO.md` I1.1 complete and advanced ADR-036 implementation
+  state.
+
+### Verification
+
+- `go test ./internal/config` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i1-1-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I1.2: implement the shared duration grammar
+for `d`/`w` plus stdlib duration units with table and property tests.

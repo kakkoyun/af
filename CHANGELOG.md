@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `af --help`.
 - Added property-test scaffolds for lifecycle transitions and workstream
   naming invariants using stdlib `testing/quick`.
+- Added the `internal/config` layered TOML loader with compiled defaults,
+  user/repo merges, global-only section handling, `~` path expansion, and
+  proxy command shape validation.
 
 ### Removed
 
