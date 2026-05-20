@@ -169,7 +169,7 @@ This stage creates every seam before commands depend on real tools.
       `claude`, and `codex`.
 - [x] I2.2: ADR-040 — implement `internal/mux.Multiplexer`, fake mux,
       and tmux command construction with tests that do not require real tmux.
-- [ ] I2.3: ADR-041 — implement SSH remote command construction,
+- [x] I2.3: ADR-041 — implement SSH remote command construction,
       remote path mapping, and fake remote executor.
 - [ ] I2.4: ADR-042 — implement sandbox provider interfaces, fake
       sandbox, and slicer/sbx command construction.

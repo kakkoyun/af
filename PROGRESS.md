@@ -800,3 +800,42 @@ and fake implementation before command integration.
 
 Continue with `TODO.md` item I2.3: implement SSH remote command
 construction, remote path mapping, and fake remote executor.
+
+---
+
+## 2026-05-20 — Session 18: SSH remote seam
+
+### Goal
+
+Complete I2.3 by adding the SSH command-construction seam, remote clone
+path mapping, and fake executor before command integration.
+
+### Done
+
+- Wrote tests first for SSH argv construction with configured options,
+  remote clone path mapping, remote probe command construction, and fake
+  executor command capture / queued output.
+- Added `Command`, `Executor`, `ExecExecutor`, and `FakeExecutor` in
+  `internal/remote`.
+- Added `SSH` with opaque host handling and options prepended exactly as
+  ADR-041 specifies.
+- Added `ClonePath` for `~/af-clones/<repo>/<branch>` and
+  `ProbeCommand` for remote tool availability checks.
+- Kept clone/launch/attach command integration for later stages.
+- Marked `TODO.md` I2.3 complete and advanced ADR-041 implementation
+  state.
+
+### Verification
+
+- `go test ./internal/remote` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- `go list ./... | xargs -n 1 go doc` passes.
+- Final verification log: `/tmp/af-i2-3-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I2.4: implement sandbox provider
+interfaces, fake sandbox, and slicer/sbx command construction.
