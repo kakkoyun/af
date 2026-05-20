@@ -67,6 +67,10 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 	cmd.AddCommand(newStackCmd(opts))
 	cmd.AddCommand(newUnstackCmd(opts))
 	cmd.AddCommand(newSyncCmd(opts))
+	cmd.AddCommand(newEditorCmd(opts))
+	cmd.AddCommand(newDiffCmd(opts))
+	cmd.AddCommand(newPRCmd(opts))
+	cmd.AddCommand(newRetroCmd(opts))
 
 	return cmd
 }

@@ -254,20 +254,20 @@ and command paths with remote/sandbox execution.
 These are deliberately late because they depend on config, state,
 Obsidian notes, agent `BodyCmd`, and local/stack base resolution.
 
-- [ ] I7.1: ADR-048 — implement `af editor [--terminal|--visual]
+- [x] I7.1: ADR-048 — implement `af editor [--terminal|--visual]
 [session]`, including remote URL fallback.
-- [ ] I7.2: ADR-048 + ADR-059 — implement `af diff [session]
+- [x] I7.2: ADR-048 + ADR-059 — implement `af diff [session]
 [--base REF]`, argv-vs-shell parsing, token interpolation, and stacked
       base defaults.
-- [ ] I7.3: ADR-048 — implement base `af pr [session] [--title]
+- [x] I7.3: ADR-048 — implement base `af pr [session] [--title]
 [--draft] [--web]`, push-if-needed, PR metadata detection, state
       update, ledger event, and Obsidian PR fields.
-- [ ] I7.4: ADR-057 — implement `af pr --ai` and `--ai-model` using
+- [x] I7.4: ADR-057 — implement `af pr --ai` and `--ai-model` using
       primary-agent `BodyCmd`, body prompt construction, `flag_template.body`,
       empty-diff/empty-body errors, and `--web` incompatibility.
-- [ ] I7.5: ADR-058 — implement `af retro` filters (`--since`, `--tag`,
+- [x] I7.5: ADR-058 — implement `af retro` filters (`--since`, `--tag`,
       `--search`, `--limit`) over archived notes.
-- [ ] I7.6: ADR-058 + ADR-057 — implement `af retro --ai` using
+- [x] I7.6: ADR-058 + ADR-057 — implement `af retro --ai` using
       `BodyCmd` with `BodyOpts.Cwd = ""`.
 
 ### Implementation Stage 8 — Hardening, verification, and v0 retirement
