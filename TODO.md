@@ -125,7 +125,7 @@ No product feature work until this stage is green.
 - [x] I0.3: ADR-050 + ADR-053 — add `.golangci.yml`, `Makefile`,
       `gofumpt`, `goimports`, `make fmt-check`, `make lint`, `make test`,
       `make check`, and local snapshot build targets.
-- [ ] I0.4: ADR-051 — add the test scaffold: `testscript` harness,
+- [x] I0.4: ADR-051 — add the test scaffold: `testscript` harness,
       `cmd/af/testdata/script/`, fake external-command hooks, package
       `testutil` helpers, and baseline smoke scripts for `af version` /
       `af --help`.

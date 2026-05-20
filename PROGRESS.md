@@ -306,3 +306,46 @@ Continue with `TODO.md` item I0.4: add the `testscript` harness,
 `cmd/af/testdata/script/`, fake external-command hooks, package
 `testutil` helpers, and baseline smoke scripts for `af version` /
 `af --help`.
+
+---
+
+## 2026-05-20 — Session 6: testscript smoke scaffold
+
+### Goal
+
+Complete I0.4 by adding the CLI `testscript` scaffold, reusable test
+helpers, fake-command hooks, and baseline smoke scripts for the commands
+implemented so far.
+
+### Done
+
+- Wrote the red test first: `cmd/af/testscript_test.go` and baseline
+  scripts failed before `internal/testutil` and the `testscript`
+  dependency existed.
+- Added `github.com/rogpeppe/go-internal/testscript` as a dev test
+  dependency.
+- Added `internal/testutil` helpers for building the `af` binary in a
+  temp directory, creating fake executable commands, creating test
+  directories, and prepending to `PATH`.
+- Wired the testscript setup to build `af`, prepend a per-scenario
+  `bin/`, and expose `AF_TEST_FAKEBIN` for future fake external-command
+  scenarios.
+- Added smoke scripts for `exec af version` and `exec af --help`.
+- Disabled cobra's default completion command so the planned `af
+  completions <shell>` surface remains controlled by TODO item I3.2.
+- Updated `TODO.md`, `CHANGELOG.md`, and ADR-051.
+
+### Verification
+
+- `go test ./cmd/af` passes.
+- `make fmt-check` passes.
+- `make lint` passes with `0 issues`.
+- `make test` passes.
+- `make check` passes.
+- Final verification log: `/tmp/af-i0-4-verify.log`.
+
+### Next
+
+Continue with `TODO.md` item I0.5: add the property-test scaffold for
+lifecycle and naming invariants without enabling formal verification as a
+release gate.

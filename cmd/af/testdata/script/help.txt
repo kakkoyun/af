@@ -1,0 +1,8 @@
+# af --help exposes the root command and persistent flags.
+exec af --help
+stdout 'isolated AI-agent workstreams'
+stdout 'version'
+stdout '--config'
+stdout '--session'
+stdout '--verbose'
+! stderr .

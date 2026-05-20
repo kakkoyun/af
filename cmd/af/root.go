@@ -18,9 +18,12 @@ func newRootCmd() *cobra.Command {
 
 func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "af",
-		Short:         "Manage isolated AI-agent workstreams",
-		Long:          "af manages isolated AI-agent workstreams across git worktrees, tmux, sandboxes, and remote hosts.",
+		Use:   "af",
+		Short: "Manage isolated AI-agent workstreams",
+		Long:  "af manages isolated AI-agent workstreams across git worktrees, tmux, sandboxes, and remote hosts.",
+		CompletionOptions: cobra.CompletionOptions{
+			DisableDefaultCmd: true,
+		},
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		RunE: func(cmd *cobra.Command, _ []string) error {

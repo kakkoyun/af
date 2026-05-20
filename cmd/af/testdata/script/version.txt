@@ -1,0 +1,4 @@
+# af version prints the default development build metadata.
+exec af version
+stdout '^af dev \(none, unknown\)$'
+! stderr .

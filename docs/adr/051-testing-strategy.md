@@ -2,9 +2,9 @@
 adr: 051
 title: "Testing Strategy"
 status: proposed
-implementation: pending
+implementation: in-progress
 date: 2026-05-06
-last_modified: 2026-05-08
+last_modified: 2026-05-20
 supersedes: []
 superseded_by: null
 related: ["031", "034", "050", "052"]
@@ -88,26 +88,37 @@ Each property test runs N=100 iterations with random inputs from
 flows:
 
 ```
+# version.txt
+exec af version
+stdout '^af dev \\(none, unknown\\)$'
+! stderr .
+```
+
+The initial scaffold covers `af version` and `af --help`. Later command
+scenarios grow from that baseline, for example:
+
+```
 # create.txt
-af setup
-af create --agent pi mytask
-af list
+exec af setup
+exec af create --agent pi mytask
+exec af list
 stdout 'mytask\s+active'
-af suspend mytask
-af list
+exec af suspend mytask
+exec af list
 stdout 'mytask\s+suspended'
-af resume mytask
-af done mytask --force
+exec af resume mytask
+exec af done mytask --force
 ```
 
 The framework runs each scenario in an isolated tempdir with mocked
 external commands. Real `tmux`, `ssh`, `slicer`, `sbx` are **never**
-invoked from testscript; instead, the binary's interface seams
-(`Multiplexer`, `Agent`, `Sandbox`, `Remote`) read an env var like
-`AF_TEST_MUX=fake` at start-up and load in-process fakes. The fakes
-implement the same interfaces; their behaviour is configurable per
-scenario via `script` directives. ADR-040 §"Testing" cross-references
-this arrangement.
+invoked from testscript; instead, the harness prepends a per-scenario
+fake-command directory (`AF_TEST_FAKEBIN`) to `PATH`, and the binary's
+interface seams (`Multiplexer`, `Agent`, `Sandbox`, `Remote`) can read
+env vars like `AF_TEST_MUX=fake` at start-up to load in-process fakes.
+The fakes implement the same interfaces; their behaviour is configurable
+per scenario via `script` directives. ADR-040 §"Testing"
+cross-references this arrangement.
 
 ### What's NOT tested
 
