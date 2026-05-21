@@ -261,3 +261,120 @@ func writeFile(t *testing.T, path, content string) {
 		t.Fatalf("write test file %s: %v", path, err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// ADR-062: [sandbox.slicer.resources] config tests
+// ---------------------------------------------------------------------------
+
+func TestSlicerResources_AcceptsValid(t *testing.T) {
+	home := t.TempDir()
+	userPath := filepath.Join(home, ".config", "af", "config.toml")
+	writeFile(t, userPath, `
+schema_version = 1
+
+[sandbox.slicer.resources]
+name         = "tight"
+vcpu         = 2
+ram_gb       = 4
+storage_size = "25G"
+gpu_count    = 0
+hypervisor   = "firecracker"
+`)
+	cfg, err := config.LoadWithOptions(context.Background(), config.LoadOptions{UserConfigPath: userPath})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	got := cfg.Sandbox.Slicer.Resources
+	if got.Name != "tight" {
+		t.Errorf("Name = %q, want tight", got.Name)
+	}
+	if got.VCPU != 2 {
+		t.Errorf("VCPU = %d, want 2", got.VCPU)
+	}
+	if got.RAMGB != 4 {
+		t.Errorf("RAMGB = %d, want 4", got.RAMGB)
+	}
+	if got.StorageSize != "25G" {
+		t.Errorf("StorageSize = %q, want 25G", got.StorageSize)
+	}
+	if got.GPUCount != 0 {
+		t.Errorf("GPUCount = %d, want 0", got.GPUCount)
+	}
+	if got.Hypervisor != "firecracker" {
+		t.Errorf("Hypervisor = %q, want firecracker", got.Hypervisor)
+	}
+}
+
+func TestSlicerResources_RejectsNegativeVCPU(t *testing.T) {
+	home := t.TempDir()
+	userPath := filepath.Join(home, ".config", "af", "config.toml")
+	writeFile(t, userPath, `
+schema_version = 1
+
+[sandbox.slicer.resources]
+vcpu = -1
+`)
+	_, err := config.LoadWithOptions(context.Background(), config.LoadOptions{UserConfigPath: userPath})
+	if err == nil {
+		t.Fatal("LoadWithOptions() error = nil, want error for negative vcpu")
+	}
+	if !strings.Contains(err.Error(), "vcpu") && !strings.Contains(err.Error(), ">= 0") {
+		t.Fatalf("error %q does not mention vcpu or >= 0", err)
+	}
+}
+
+func TestSlicerResources_RejectsBadStorageSize(t *testing.T) {
+	for _, bad := range []string{"25GB", "abc", "25 G"} {
+		t.Run(bad, func(t *testing.T) {
+			home := t.TempDir()
+			userPath := filepath.Join(home, ".config", "af", "config.toml")
+			writeFile(t, userPath, "schema_version = 1\n\n[sandbox.slicer.resources]\nstorage_size = \""+bad+"\"\n")
+			_, err := config.LoadWithOptions(context.Background(), config.LoadOptions{UserConfigPath: userPath})
+			if err == nil {
+				t.Fatalf("LoadWithOptions() error = nil, want storage_size error for %q", bad)
+			}
+			if !strings.Contains(err.Error(), "storage_size") {
+				t.Fatalf("error %q does not mention storage_size", err)
+			}
+		})
+	}
+}
+
+func TestSlicerResources_RejectsUnknownHypervisor(t *testing.T) {
+	home := t.TempDir()
+	userPath := filepath.Join(home, ".config", "af", "config.toml")
+	writeFile(t, userPath, `
+schema_version = 1
+
+[sandbox.slicer.resources]
+hypervisor = "xhyve"
+`)
+	_, err := config.LoadWithOptions(context.Background(), config.LoadOptions{UserConfigPath: userPath})
+	if err == nil {
+		t.Fatal("LoadWithOptions() error = nil, want error for unknown hypervisor")
+	}
+	if !strings.Contains(err.Error(), "hypervisor") {
+		t.Fatalf("error %q does not mention hypervisor", err)
+	}
+}
+
+func TestSlicerResources_RejectsGroupAndResourcesCombined(t *testing.T) {
+	home := t.TempDir()
+	userPath := filepath.Join(home, ".config", "af", "config.toml")
+	writeFile(t, userPath, `
+schema_version = 1
+
+[sandbox.slicer]
+group = "my-existing-group"
+
+[sandbox.slicer.resources]
+vcpu = 4
+`)
+	_, err := config.LoadWithOptions(context.Background(), config.LoadOptions{UserConfigPath: userPath})
+	if err == nil {
+		t.Fatal("LoadWithOptions() error = nil, want error for group + resources conflict")
+	}
+	if !strings.Contains(err.Error(), "group") && !strings.Contains(err.Error(), "resource") {
+		t.Fatalf("error %q does not mention group/resource conflict", err)
+	}
+}

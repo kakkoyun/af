@@ -65,6 +65,8 @@ type WorktreeState struct {
 }
 
 // ExecutionState stores where and how the workstream is running.
+//
+//nolint:govet // field order preserved for backwards compat; new slicer fields grouped at end
 type ExecutionState struct {
 	Mode            string `toml:"mode"`
 	Multiplexer     string `toml:"multiplexer"`
@@ -74,6 +76,17 @@ type ExecutionState struct {
 	SandboxProvider string `toml:"sandbox_provider"`
 	SandboxID       string `toml:"sandbox_id"`
 	RemoteControl   string `toml:"remote_control,omitempty"`
+	// Slicer resource profile captured at create time (ADR-062).
+	// All fields are omitempty so workstreams created before ADR-062
+	// round-trip cleanly.
+	SandboxResourceProfile     string `toml:"sandbox_resource_profile,omitempty"`
+	SandboxResourceVCPU        int    `toml:"sandbox_resource_vcpu,omitempty"`
+	SandboxResourceRAMGB       int    `toml:"sandbox_resource_ram_gb,omitempty"`
+	SandboxResourceStorageSize string `toml:"sandbox_resource_storage_size,omitempty"`
+	SandboxResourceGPUCount    int    `toml:"sandbox_resource_gpu_count,omitempty"`
+	SandboxResourceImage       string `toml:"sandbox_resource_image,omitempty"`
+	SandboxResourceHypervisor  string `toml:"sandbox_resource_hypervisor,omitempty"`
+	SandboxManagedGroup        string `toml:"sandbox_managed_group,omitempty"`
 }
 
 // AgentState stores one agent slot in a workstream.

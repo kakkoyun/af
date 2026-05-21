@@ -71,6 +71,8 @@ func KnownProviders() []string {
 
 // NewProvider returns the named sandbox provider backed by os/exec.
 // Only "slicer" is accepted; all other names return ErrUnsupportedProvider.
+//
+//nolint:ireturn // factory function intentionally returns the Sandbox interface
 func NewProvider(name string) (Sandbox, error) {
 	switch name {
 	case "slicer":
@@ -82,10 +84,12 @@ func NewProvider(name string) (Sandbox, error) {
 
 // Provider is a CLI-backed sandbox provider.
 type Provider struct {
-	runner Runner
-	name   string
-	binary string
-	kind   providerKind
+	runner    Runner
+	resources SlicerResources
+	name      string
+	binary    string
+	group     string
+	kind      providerKind
 }
 
 type providerKind int
@@ -94,7 +98,19 @@ const (
 	providerSlicer providerKind = iota
 )
 
-// NewSlicer returns the slicer sandbox provider.
+// SlicerOptions configures a slicer provider with an optional resource
+// profile and group name, resolved by sandbox.ResolveLaunchGroup.
+type SlicerOptions struct {
+	// Group is the host group name to use for launches. Empty means use
+	// the slicer daemon default.
+	Group string
+	// Resources is the resolved resource profile. When non-empty, slicer
+	// receives the profile via the --group flag pointing to a managed group
+	// already created (or flagged needCreate) by ResolveLaunchGroup.
+	Resources SlicerResources
+}
+
+// NewSlicer returns the slicer sandbox provider with no group or resource overrides.
 func NewSlicer() Provider {
 	return NewSlicerWithRunner(ExecRunner{})
 }
@@ -102,6 +118,16 @@ func NewSlicer() Provider {
 // NewSlicerWithRunner returns the slicer sandbox provider using runner.
 func NewSlicerWithRunner(runner Runner) Provider {
 	return newProvider("slicer", providerSlicer, runner)
+}
+
+// NewSlicerProvider returns a slicer provider configured with SlicerOptions.
+// Use this when ResolveLaunchGroup has already determined the group name and
+// resource profile.
+func NewSlicerProvider(opts SlicerOptions, runner Runner) Provider {
+	p := newProvider("slicer", providerSlicer, runner)
+	p.group = opts.Group
+	p.resources = opts.Resources
+	return p
 }
 
 func newProvider(binary string, kind providerKind, runner Runner) Provider {
@@ -191,11 +217,19 @@ func (provider Provider) List(ctx context.Context) ([]Handle, error) {
 func (provider Provider) launchArgs(opts LaunchOpts) []string {
 	switch provider.kind {
 	case providerSlicer:
-		args := []string{"vm", "run", "--name", opts.Workstream, "--mount", opts.Worktree, "--"}
-		return append(args, opts.AgentArgv...)
+		return provider.slicerLaunchArgs(opts)
 	default:
 		return nil
 	}
+}
+
+func (provider Provider) slicerLaunchArgs(opts LaunchOpts) []string {
+	args := []string{"vm", "run", "--name", opts.Workstream}
+	if provider.group != "" {
+		args = append(args, "--group", provider.group)
+	}
+	args = append(args, "--mount", opts.Worktree, "--")
+	return append(args, opts.AgentArgv...)
 }
 
 func (provider Provider) attachCommand(id string) []string {

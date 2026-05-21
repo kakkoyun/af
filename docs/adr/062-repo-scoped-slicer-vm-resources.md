@@ -2,9 +2,9 @@
 adr: 062
 title: "Repo-Scoped Slicer VM Resource Profiles"
 status: proposed
-implementation: pending
+implementation: complete
 date: 2026-05-20
-last_modified: 2026-05-20
+last_modified: 2026-05-22
 supersedes: []
 superseded_by: null
 related: ["036", "041", "044", "060", "061"]

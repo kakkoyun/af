@@ -280,3 +280,62 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(content)
 }
+
+func TestState_RoundTrip_PreservesSlicerResources(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.toml")
+
+	original := session.State{
+		SchemaVersion: 1,
+		Session:       session.Info{ID: "test-id", Name: "test"},
+		Execution: session.ExecutionState{
+			Mode:                       "local",
+			SandboxResourceProfile:     "tight",
+			SandboxResourceVCPU:        2,
+			SandboxResourceRAMGB:       4,
+			SandboxResourceStorageSize: "25G",
+			SandboxResourceGPUCount:    1,
+			SandboxResourceImage:       "ubuntu-22-04",
+			SandboxResourceHypervisor:  "firecracker",
+			SandboxManagedGroup:        "af-myrepo-tight",
+		},
+		Versions: session.VersionsState{AgentVersions: map[string]string{}},
+	}
+	err := session.WriteState(path, original)
+	if err != nil {
+		t.Fatalf("WriteState() error = %v", err)
+	}
+	got, err := session.ReadState(path)
+	if err != nil {
+		t.Fatalf("ReadState() error = %v", err)
+	}
+	assertSlicerResources(t, got.Execution)
+}
+
+func assertSlicerResources(t *testing.T, ex session.ExecutionState) {
+	t.Helper()
+	if ex.SandboxResourceProfile != "tight" {
+		t.Errorf("SandboxResourceProfile = %q, want tight", ex.SandboxResourceProfile)
+	}
+	if ex.SandboxResourceVCPU != 2 {
+		t.Errorf("SandboxResourceVCPU = %d, want 2", ex.SandboxResourceVCPU)
+	}
+	if ex.SandboxResourceRAMGB != 4 {
+		t.Errorf("SandboxResourceRAMGB = %d, want 4", ex.SandboxResourceRAMGB)
+	}
+	if ex.SandboxResourceStorageSize != "25G" {
+		t.Errorf("SandboxResourceStorageSize = %q, want 25G", ex.SandboxResourceStorageSize)
+	}
+	if ex.SandboxResourceGPUCount != 1 {
+		t.Errorf("SandboxResourceGPUCount = %d, want 1", ex.SandboxResourceGPUCount)
+	}
+	if ex.SandboxResourceImage != "ubuntu-22-04" {
+		t.Errorf("SandboxResourceImage = %q, want ubuntu-22-04", ex.SandboxResourceImage)
+	}
+	if ex.SandboxResourceHypervisor != "firecracker" {
+		t.Errorf("SandboxResourceHypervisor = %q, want firecracker", ex.SandboxResourceHypervisor)
+	}
+	if ex.SandboxManagedGroup != "af-myrepo-tight" {
+		t.Errorf("SandboxManagedGroup = %q, want af-myrepo-tight", ex.SandboxManagedGroup)
+	}
+}

@@ -51,6 +51,26 @@ type CreateOptions struct { //nolint:govet // Field grouping by semantic domain 
 	// Control holds effective resolved ADR-061 control settings captured from
 	// ResolveControl. Zero value means all defaults.
 	Control ControlContext
+	// SandboxGroup and SandboxResources capture the resolved slicer group and
+	// resource profile (ADR-062). Written to state.toml at create time so
+	// `af resume --respawn` can reproduce the same VM shape.
+	SandboxGroup     string
+	SandboxResources SandboxResourceProfile
+}
+
+// SandboxResourceProfile records the effective slicer VM resource shape
+// resolved at create time per ADR-062.
+//
+//nolint:govet // field order prioritises readability over pointer-size packing
+type SandboxResourceProfile struct {
+	VCPU         int
+	RAMGB        int
+	GPUCount     int
+	ProfileName  string
+	StorageSize  string
+	Image        string
+	Hypervisor   string
+	ManagedGroup string
 }
 
 // CreateResult records the artefacts produced by a successful Create.
@@ -273,6 +293,16 @@ func buildInitialState(opts CreateOptions, resolved resolvedNames, plan git.Work
 			Multiplexer:   "tmux",
 			TmuxSession:   resolved.tmuxSession,
 			RemoteControl: opts.Control.RemoteControl,
+			// ADR-062: capture resolved sandbox resource profile so resume --respawn
+			// reproduces the same VM shape even if the repo config changes later.
+			SandboxResourceProfile:     opts.SandboxResources.ProfileName,
+			SandboxResourceVCPU:        opts.SandboxResources.VCPU,
+			SandboxResourceRAMGB:       opts.SandboxResources.RAMGB,
+			SandboxResourceStorageSize: opts.SandboxResources.StorageSize,
+			SandboxResourceGPUCount:    opts.SandboxResources.GPUCount,
+			SandboxResourceImage:       opts.SandboxResources.Image,
+			SandboxResourceHypervisor:  opts.SandboxResources.Hypervisor,
+			SandboxManagedGroup:        opts.SandboxGroup,
 		},
 		Versions: session.VersionsState{
 			AF:            version.Version,

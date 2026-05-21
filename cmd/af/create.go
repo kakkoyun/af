@@ -130,7 +130,7 @@ func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, nam
 		return fmt.Errorf("create: %w", err)
 	}
 
-	err = launchSandbox(ctx, opts, result, primary)
+	err = launchSandbox(ctx, opts, cfg, result, primary)
 	if err != nil {
 		return err
 	}
@@ -144,14 +144,28 @@ func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, nam
 // The envelope file is placed in the same directory as state.toml so
 // the slicer mount can source it, and is deleted by the deferred
 // lifecycle.LaunchSandboxWorkstream cleanup.
-func launchSandbox(ctx context.Context, opts *createOptions, result lifecycle.CreateResult, primary agent.Agent) error {
+func launchSandbox(ctx context.Context, opts *createOptions, cfg config.Config, result lifecycle.CreateResult, primary agent.Agent) error {
 	if opts.sandbox == "" || opts.bare {
 		return nil
 	}
-	provider, err := sandbox.NewProvider(opts.sandbox)
-	if err != nil {
-		return fmt.Errorf("create --sandbox: %w", err)
+	resources := sandbox.SlicerResources{
+		Name:        cfg.Sandbox.Slicer.Resources.Name,
+		VCPU:        cfg.Sandbox.Slicer.Resources.VCPU,
+		RAMGB:       cfg.Sandbox.Slicer.Resources.RAMGB,
+		StorageSize: cfg.Sandbox.Slicer.Resources.StorageSize,
+		GPUCount:    cfg.Sandbox.Slicer.Resources.GPUCount,
+		Image:       cfg.Sandbox.Slicer.Resources.Image,
+		Hypervisor:  cfg.Sandbox.Slicer.Resources.Hypervisor,
 	}
+	prober := sandbox.ExecGroupProber{Runner: sandbox.ExecRunner{}}
+	group, _, err := sandbox.ResolveLaunchGroup(ctx, prober, result.SessionName, cfg.Sandbox.Slicer.Group, resources)
+	if err != nil {
+		return fmt.Errorf("create --sandbox resolve group: %w", err)
+	}
+	provider := sandbox.NewSlicerProvider(sandbox.SlicerOptions{
+		Group:     group,
+		Resources: resources,
+	}, sandbox.ExecRunner{})
 	agentArgv := primary.LaunchCmd(agent.LaunchOpts{
 		Cwd:       result.WorktreePath,
 		SessionID: result.SessionID,

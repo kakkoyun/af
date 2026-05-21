@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -138,9 +139,24 @@ type SandboxConfig struct {
 	Slicer          SlicerConfig
 }
 
+// SlicerResourcesConfig holds per-repo VM resource requests per ADR-062.
+// All fields are optional; zero values mean "use slicer/group default".
+//
+//nolint:govet // field order prioritises readability over pointer-size packing
+type SlicerResourcesConfig struct {
+	VCPU        int    // 0 = group default
+	RAMGB       int    // 0 = group default
+	GPUCount    int    // 0 = no GPU request
+	Name        string // optional profile name; empty = derived from repo slug
+	StorageSize string // e.g. "25G"; empty = group default
+	Image       string // optional slicer image override
+	Hypervisor  string // empty = slicer default; "firecracker" or "qemu"
+}
+
 // SlicerConfig contains slicer-specific sandbox defaults.
 type SlicerConfig struct {
-	Group string
+	Group     string
+	Resources SlicerResourcesConfig
 }
 
 // ObsidianConfig contains note-writing defaults.
@@ -332,8 +348,15 @@ type remoteLayer struct {
 }
 
 type sandboxLayer struct {
-	DefaultProvider *string
-	SlicerGroup     *string
+	DefaultProvider     *string
+	SlicerGroup         *string
+	SlicerResourceName  *string
+	SlicerResourceVCPU  *int
+	SlicerResourceRAMGB *int
+	SlicerStorageSize   *string
+	SlicerGPUCount      *int
+	SlicerImage         *string
+	SlicerHypervisor    *string
 }
 
 type obsidianLayer struct {
@@ -589,6 +612,17 @@ func parseRemoteSection(table map[string]any, path string, _ bool, _ *slog.Logge
 // a sandbox default_provider that is not "" or "slicer" (ADR-060).
 var errSandboxProviderUnsupported = errors.New("sandbox.default_provider must be empty or \"slicer\"")
 
+var (
+	// errSlicerResourceConflict is returned when both group and resource fields are set.
+	errSlicerResourceConflict = errors.New("sandbox.slicer: cannot set both group and resource fields")
+	// errSlicerHypervisor is returned for unsupported hypervisor values.
+	errSlicerHypervisor = errors.New("sandbox.slicer.resources.hypervisor must be empty, \"firecracker\", or \"qemu\"")
+	// errSlicerStorageSize is returned for malformed storage_size values.
+	errSlicerStorageSize = errors.New("sandbox.slicer.resources.storage_size must match \"<digits>[KMGT]\"")
+	// errSlicerNegative is returned for negative integer resource fields.
+	errSlicerNegative = errors.New("sandbox.slicer.resources: vcpu, ram_gb, and gpu_count must be >= 0")
+)
+
 func parseSandboxSection(table map[string]any, path string, _ bool, _ *slog.Logger, layer *configLayer) error {
 	var err error
 	layer.Sandbox.DefaultProvider, err = stringPointer(table, "default_provider", path)
@@ -615,8 +649,100 @@ func parseSlicerSection(table map[string]any, path string, layer *configLayer) e
 	if err != nil {
 		return err
 	}
+	err = parseSlicerResourcesSection(slicer, path, layer)
+	if err != nil {
+		return err
+	}
+	return validateSlicerLayer(layer.Sandbox, path)
+}
 
+func parseSlicerResourcesSection(slicer map[string]any, path string, layer *configLayer) error {
+	res, ok, err := optionalTable(slicer, "resources", path)
+	if err != nil || !ok {
+		return err
+	}
+	layer.Sandbox.SlicerResourceName, err = stringPointer(res, "name", path)
+	if err != nil {
+		return err
+	}
+	layer.Sandbox.SlicerResourceVCPU, err = intPointer(res, "vcpu", path)
+	if err != nil {
+		return err
+	}
+	layer.Sandbox.SlicerResourceRAMGB, err = intPointer(res, "ram_gb", path)
+	if err != nil {
+		return err
+	}
+	layer.Sandbox.SlicerStorageSize, err = stringPointer(res, "storage_size", path)
+	if err != nil {
+		return err
+	}
+	layer.Sandbox.SlicerGPUCount, err = intPointer(res, "gpu_count", path)
+	if err != nil {
+		return err
+	}
+	layer.Sandbox.SlicerImage, err = stringPointer(res, "image", path)
+	if err != nil {
+		return err
+	}
+	layer.Sandbox.SlicerHypervisor, err = stringPointer(res, "hypervisor", path)
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+// storageSizeRe matches slicer-style size strings: digits followed by
+// an optional unit suffix (K, M, G, T).
+var storageSizeRe = regexp.MustCompile(`^\d+[KMGT]?$`)
+
+func validateSlicerLayer(layer sandboxLayer, path string) error {
+	err := validateSlicerIntegers(layer, path)
+	if err != nil {
+		return err
+	}
+	err = validateSlicerStorageAndHypervisor(layer, path)
+	if err != nil {
+		return err
+	}
+	if layer.SlicerGroup != nil && *layer.SlicerGroup != "" && slicerLayerHasResources(layer) {
+		return fmt.Errorf("config %s: %w", path, errSlicerResourceConflict)
+	}
+	return nil
+}
+
+func validateSlicerIntegers(layer sandboxLayer, path string) error {
+	for _, v := range []*int{layer.SlicerResourceVCPU, layer.SlicerResourceRAMGB, layer.SlicerGPUCount} {
+		if v != nil && *v < 0 {
+			return fmt.Errorf("config %s: %w", path, errSlicerNegative)
+		}
+	}
+	return nil
+}
+
+func validateSlicerStorageAndHypervisor(layer sandboxLayer, path string) error {
+	if layer.SlicerStorageSize != nil && *layer.SlicerStorageSize != "" {
+		if !storageSizeRe.MatchString(*layer.SlicerStorageSize) {
+			return fmt.Errorf("config %s: %w: got %q", path, errSlicerStorageSize, *layer.SlicerStorageSize)
+		}
+	}
+	if layer.SlicerHypervisor != nil && *layer.SlicerHypervisor != "" {
+		switch *layer.SlicerHypervisor {
+		case "firecracker", "qemu":
+		default:
+			return fmt.Errorf("config %s: %w: got %q", path, errSlicerHypervisor, *layer.SlicerHypervisor)
+		}
+	}
+	return nil
+}
+
+func slicerLayerHasResources(layer sandboxLayer) bool {
+	return layer.SlicerResourceVCPU != nil ||
+		layer.SlicerResourceRAMGB != nil ||
+		layer.SlicerStorageSize != nil ||
+		layer.SlicerGPUCount != nil ||
+		layer.SlicerImage != nil ||
+		layer.SlicerHypervisor != nil
 }
 
 func parseObsidianSection(table map[string]any, path string, allowGlobalOnly bool, logger *slog.Logger, layer *configLayer) error {
@@ -916,6 +1042,13 @@ func mergeRemote(cfg *RemoteConfig, layer remoteLayer) {
 func mergeSandbox(cfg *SandboxConfig, layer sandboxLayer) {
 	assignString(&cfg.DefaultProvider, layer.DefaultProvider)
 	assignString(&cfg.Slicer.Group, layer.SlicerGroup)
+	assignString(&cfg.Slicer.Resources.Name, layer.SlicerResourceName)
+	assignInt(&cfg.Slicer.Resources.VCPU, layer.SlicerResourceVCPU)
+	assignInt(&cfg.Slicer.Resources.RAMGB, layer.SlicerResourceRAMGB)
+	assignString(&cfg.Slicer.Resources.StorageSize, layer.SlicerStorageSize)
+	assignInt(&cfg.Slicer.Resources.GPUCount, layer.SlicerGPUCount)
+	assignString(&cfg.Slicer.Resources.Image, layer.SlicerImage)
+	assignString(&cfg.Slicer.Resources.Hypervisor, layer.SlicerHypervisor)
 }
 
 func mergeObsidian(cfg *ObsidianConfig, layer obsidianLayer) {

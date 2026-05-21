@@ -70,6 +70,35 @@ func TestSlicer_LaunchBuildsCommandAndHandle(t *testing.T) {
 	}
 }
 
+func TestNewSlicerWithOptions_PassesGroupToArgv(t *testing.T) {
+	ctx := context.Background()
+	runner := sandbox.NewRecordingRunner()
+	runner.QueueOutput("vm-id\n")
+	provider := sandbox.NewSlicerProvider(sandbox.SlicerOptions{
+		Group:     "af-myrepo-tight",
+		Resources: sandbox.SlicerResources{VCPU: 2, RAMGB: 4},
+	}, runner)
+
+	_, err := provider.Launch(ctx, sandbox.LaunchOpts{
+		Workstream: "session",
+		Worktree:   "/repo",
+		AgentArgv:  []string{"pi"},
+	})
+	if err != nil {
+		t.Fatalf("Launch() error = %v", err)
+	}
+	commands := runner.Commands()
+	if len(commands) != 1 {
+		t.Fatalf("want 1 command, got %d", len(commands))
+	}
+	args := commands[0].Args
+	// Expect: vm run --name session --group af-myrepo-tight --mount /repo -- pi
+	want := []string{"vm", "run", "--name", "session", "--group", "af-myrepo-tight", "--mount", "/repo", "--", "pi"}
+	if !reflect.DeepEqual(args, want) {
+		t.Errorf("launch args = %#v, want %#v", args, want)
+	}
+}
+
 func TestFakeSandbox_LaunchHealthTeardownAndList(t *testing.T) {
 	ctx := context.Background()
 	fake := sandbox.NewFake("slicer")

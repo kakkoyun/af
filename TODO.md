@@ -352,57 +352,40 @@ Wave 3 — close-out:
 
 Wave 1 — 4 ADRs in parallel (output present, unverified):
 
-- [~] I10.1: ADR-060 — drop sbx, wire `af create --sandbox slicer`
-      end-to-end through `LaunchSandboxWorkstream`. Agent A landed:
-      `sandbox.NewProvider(name)`, dropped `SBXConfig`, `SBX SandboxConfig`
-      field, sbx doctor probe; new tests `TestCreate_SandboxFlagRejectsSBX`,
-      `TestKnownProviders_SlicerOnly`, etc. Real `slicer vm run` exec
-      (no stub).
-- [~] I10.2: ADR-061 — `[control]` section in `<repo>/.af/config.toml`
-      with layered precedence (CLI > repo > user > defaults). Agent B
-      landed: `ControlConfig`, `ResolveControl`, `ControlContext`,
-      additive state.toml fields (`Session.ApprovalMode`,
-      `Session.MaxAgents`, `Execution.RemoteControl`); 12 tests.
-      Side effect: cleaned up `internal/config/render.go`'s dead
-      `[sandbox.sbx]` render block to unblock compile after Agent A.
-- [~] I10.3: ADR-063 — `af control up/down/status` composing
-      superterm + tailscale serve. Agent C landed: new
-      `internal/control` package (196 LoC), `cmd/af/control.go`
-      (205 LoC), testscript `control-up.txt`, fakes in
-      `writeExternalFakes` for `superterm` + `tailscale`. 13 tests.
-      URL parsing via regex `https://[a-zA-Z0-9._-]+\.ts\.net\S*`.
-- [~] I10.4: ADR-064 — opinionated diff rendering. Agent D landed:
-      new `internal/diff` package, rewrote `cmd/af/proxy_commands.go`'s
-      `runDiff` to dispatch to `diff.Render`, hunk-piped path for
-      interactive TTY, `git diff --stat` for non-TTY, `diffity
-      base..head` for `--web`. Updated testscript `diff.txt` with
-      3 scenarios. Agent D also pre-emptively added the `hunk` and
-      `diffity` fakes to `writeExternalFakes` and absorbed C's
-      `tailscale`/`superterm` fakes — expect a merge conflict here.
+- [x] I10.1: ADR-060 — drop sbx, wire `af create --sandbox slicer`
+      end-to-end through `LaunchSandboxWorkstream`. Real `slicer vm
+      run` exec (no stub). 9 new tests.
+- [x] I10.2: ADR-061 — `[control]` section in `<repo>/.af/config.toml`
+      with layered precedence (CLI > repo > user > defaults).
+      `ControlConfig`, `ResolveControl`, `ControlContext`, additive
+      state.toml fields. 12 new tests.
+- [x] I10.3: ADR-063 — `af control up/down/status` composing
+      superterm + tailscale serve. New `internal/control` package,
+      cobra wiring, testscript, fakes. 13 new tests.
+- [x] I10.4: ADR-064 — opinionated diff rendering. New
+      `internal/diff` package; hunk-piped path for interactive TTY,
+      `git diff --stat` for non-TTY, `diffity base..head` for `--web`.
+      8 new tests.
 
-Wave 1 INTEGRATION (TODO on resume):
+Wave 1 INTEGRATION:
 
-- [ ] I10.5: Run `make check` against the merged Wave 1 state. Fix
-      any cross-agent issues (the most likely: gofumpt formatting
-      drift between agents A/B's parallel `config.go` edits;
-      noinlineerr / err113 mismatches at file boundaries; the
-      `writeExternalFakes` list could have duplicate `hunk`/
-      `diffity`/`tailscale`/`superterm` entries if C and D both
-      added them).
-- [ ] I10.6: Once green, commit Wave 1 properly with the
-      `feat(v1): Stage 10 Wave 1 — close I10.1-I10.4` message;
-      the prior WIP commit is squashable into it via
-      `git reset --soft HEAD~1` then re-commit.
+- [x] I10.5: `make check` was green on the first integration run
+      (worktree isolation prevented all cross-agent drift fears).
+- [x] I10.6: Wave 1 committed as `feat(v1): Stage 10 Wave 1 — close
+      I10.1-I10.4`.
 
 Wave 2 — 1 ADR (depends on Wave 1):
 
-- [ ] I10.7: ADR-062 — `[sandbox.slicer.resources]` schema +
-      validation + state capture per ADR-062. **Note**: slicer's
-      command surface has changed since ADR-062 was written; there is
-      no `slicer group` subcommand anymore. Implement the schema and
-      validation cleanly; defer the actual `slicer vm`/`slicer env`
-      group-probing call with a documented TODO until we revise
-      ADR-062 or add a superseding ADR.
+- [x] I10.7: ADR-062 — `[sandbox.slicer.resources]` schema (`name,
+      vcpu, ram_gb, storage_size, gpu_count, image, hypervisor`),
+      validation (negative-ints, size grammar, hypervisor vocab,
+      group-vs-resources mutual exclusion), `sandbox.ResolveLaunchGroup`
+      with `ExecGroupProber` parsing `slicer vm group` output, state
+      capture of 8 additive `Execution.sandbox_resource_*` fields,
+      `cmd/af/create.go` plumbing. 14 new tests. Per-VM resource
+      argv flags (--cpu/--memory/etc.) deferred with an inline
+      `// ADR-062 §Resolution step 6` comment; managed groups are
+      identified by name and the launch passes `--group <name>`.
 
 Wave 3 — close-out:
 

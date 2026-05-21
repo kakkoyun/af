@@ -157,3 +157,56 @@ func TestCreate_RejectsEmptyRequiredFields(t *testing.T) {
 		t.Fatal("Create with empty opts returned nil, want error")
 	}
 }
+
+func TestCreate_PreservesSlicerResourcesInState(t *testing.T) {
+	home := t.TempDir()
+	gitRoot := filepath.Join(home, "repo")
+	mkdirT(t, gitRoot)
+
+	gitRunner := git.NewFakeRunner()
+	gitRunner.SetResponse([]string{"worktree", "add"}, git.FakeResponse{})
+
+	wantResources := lifecycle.SandboxResourceProfile{
+		ProfileName:  "tight",
+		VCPU:         2,
+		RAMGB:        4,
+		StorageSize:  "25G",
+		GPUCount:     0,
+		Hypervisor:   "firecracker",
+		ManagedGroup: "af-owner-repo-tight",
+	}
+
+	result, err := lifecycle.Create(
+		context.Background(),
+		lifecycle.CreateDeps{Git: gitRunner},
+		lifecycle.CreateOptions{
+			Name:             "tight-test",
+			FromBranch:       "main",
+			GitRoot:          gitRoot,
+			RepoSlug:         repoSlug(),
+			WorktreeRoot:     filepath.Join(home, "worktrees"),
+			StateDir:         filepath.Join(home, "state"),
+			Bare:             true,
+			SandboxGroup:     wantResources.ManagedGroup,
+			SandboxResources: wantResources,
+		},
+	)
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	state, err := session.ReadState(result.StatePath)
+	if err != nil {
+		t.Fatalf("ReadState() error = %v", err)
+	}
+	ex := state.Execution
+	if ex.SandboxResourceProfile != "tight" {
+		t.Errorf("SandboxResourceProfile = %q, want tight", ex.SandboxResourceProfile)
+	}
+	if ex.SandboxResourceVCPU != 2 {
+		t.Errorf("SandboxResourceVCPU = %d, want 2", ex.SandboxResourceVCPU)
+	}
+	if ex.SandboxManagedGroup != "af-owner-repo-tight" {
+		t.Errorf("SandboxManagedGroup = %q, want af-owner-repo-tight", ex.SandboxManagedGroup)
+	}
+}
