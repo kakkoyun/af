@@ -54,8 +54,9 @@ convention defined in [ADR-032](032-adr-conventions.md).
 | [070](070-session-selection-and-inference.md)     | Session Selection & Inference                                                  | proposed | pending        | go, ux, session, fzf                 |
 | [071](071-pr-state-lifecycle.md)                  | PR State Lifecycle — TTL-Cached Refresh                                        | proposed | pending        | go, pr, github, cache, lifecycle     |
 | [072](072-state-toml-schema-rollup.md)            | state.toml Schema Amendments Roll-up                                           | proposed | pending        | go, state, schema, rollup            |
+| [073](073-af-review-multi-prompt-report.md)       | `af review` — Repo-Aware PR Review Report                                      | proposed | pending        | go, command, agent, review, pr, ai   |
 
-42 ADRs total.
+43 ADRs total.
 
 ---
 
@@ -124,6 +125,12 @@ ADRs touched in passing.
 - 072 state.toml schema roll-up (consolidates additions from 059,
   061, 062, 065, 067, 071)
 
+### New commands (073+)
+
+New user-facing commands added after the gap-analysis batch.
+
+- 073 `af review` — repo-aware draft PR review report
+
 ---
 
 ## Supersession map
@@ -168,7 +175,7 @@ ADR-026 was retired without being finalised in v0.
 
 ## How to add a new ADR
 
-1. Pick the next available number (next available is 073 as of this writing).
+1. Pick the next available number (next available is 074 as of this writing).
 2. Create `docs/adr/NNN-kebab-case-title.md` with the frontmatter from ADR-032.
 3. Body: Context → Decision → Consequences → Alternatives → References.
 4. Add a row to the catalogue table above.

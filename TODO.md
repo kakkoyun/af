@@ -658,6 +658,52 @@ the scope summary; see each ADR for the full contract.
       through ADR-072 frontmatter to `implementation: complete`,
       update README/CHANGELOG/PROGRESS, check off I13.1–I13.9.
 
+### Implementation Stage 14 — `af review` (ADR-073)
+
+ADR-073 defines `af review`: a read-only, repo-aware PR review report written
+to `.af/reviews/`. This stage implements the command end-to-end. Depends on
+Stage 7 (proxy commands + `BodyCmd`) and a green Stage 12/13 baseline.
+
+- [ ] I14.1: `internal/review/system_prompt.md` — create the embedded system
+      prompt file (verbatim text from ADR-073 §1). Add
+      `internal/review/prompt.go` with `SystemPrompt() string` using
+      `//go:embed`. Write a test that verifies the embedded string is non-empty
+      and contains the key tone constraints ("do not use severity tags",
+      "do not use emoji").
+
+- [ ] I14.2: `internal/review/prompt.go` — add `BuildPrompt(opts PromptOpts)
+      string` to assemble the full stdin payload: system prompt →
+      repo-specific append (four-layer resolution: user config, repo config,
+      repo file, CLI flag) → suggested skills block → PR context block →
+      diff. Table tests covering: no appends, all four append layers, empty
+      suggested-skills list, `--skill ""` suppression.
+
+- [ ] I14.3: `internal/config/config.go` — add the `[review]` table following
+      the existing five-touchpoint pattern: `ReviewConfig` struct,
+      `defaultReviewConfig()`, `mergeReview`, TOML parsing, `Config.Review`
+      field. Fields: `agent`, `model`, `system_prompt_append`,
+      `system_prompt_append_file`, `suggested_skills`. Tests for merge
+      precedence (repo > user > defaults).
+
+- [ ] I14.4: `internal/gh/gh.go` + `_test.go` — `PRMeta(ctx, n)` wrapping
+      `gh pr view --json number,title,headRefName,baseRefName` and
+      `PRDiff(ctx, n)` wrapping `gh pr diff <n>`. Return `errReviewNoPR` on
+      no PR detected, `errReviewEmptyDiff` on empty diff. Tests use a fake
+      `gh` shadow binary via the existing testscript fake-path pattern.
+
+- [ ] I14.5: `cmd/af/review.go` + `_test.go` — `newReviewCmd()` wiring PR
+      resolution, diff fetch, prompt build, agent `BodyCmd` call, atomic
+      report write to `.af/reviews/<UTC-ts>-pr<n>.md` (`0o600` file, `.tmp`
+      + rename), and ledger event. Register in `cmd/af/root.go`. Add
+      testscript `testdata/script/review.txt` covering the golden path (fake
+      `gh` + fake `claude`) and each named failure mode (`errReviewNoPR`,
+      `errReviewEmptyDiff`, `errReviewEmptyBody`).
+
+- [ ] I14.6: Stage 14 close-out — advance ADR-073 frontmatter to
+      `implementation: complete`, update README (add `af review` to command
+      table), CHANGELOG (Stage 14 section), PROGRESS (session entry). Add
+      `.af/reviews/` line to `.gitignore`. Check off I14.1–I14.6.
+
 ---
 
 ## Backlog (post-v1, unscheduled)

@@ -1646,3 +1646,44 @@ below it captures the only remaining `[ ]` items:
 modulo the two pending owner drafts (066/067) and the small Stage 11
 deferrals listed above. `goreleaser release --clean` is the path
 when the owner is ready to cut v1.0.0; no code blockers remain.
+
+---
+
+## 2026-05-21 — Session 30: ADR-073 `af review` design
+
+### Goal
+
+Draft ADR-073 (`af review` — Repo-Aware PR Review Report), register it in
+`docs/adr/INDEX.md`, add the Stage 14 implementation plan to `TODO.md`, and
+record this session in `PROGRESS.md`. No code lands — doc before code per
+the project constitution. The original plan targeted ADR-068, but the
+gap-analysis batch (`9c6bd6e`) used 068–072, so the ADR is renumbered 073.
+
+### Done
+
+- Wrote `docs/adr/073-af-review-multi-prompt-report.md` — full ADR in the
+  MADR shape used by ADR-057/058. Sections: Status, Context, Decision (13
+  numbered sub-sections including the verbatim immutable system prompt),
+  Consequences, Alternatives Considered, References.
+
+- Updated `docs/adr/INDEX.md`:
+  - Added catalogue row for ADR-073 (43rd entry, count 42→43).
+  - Updated "next available is 073" → "next available is 074".
+  - Added "New commands (073+)" conceptual grouping section.
+
+- Added Stage 14 implementation plan to `TODO.md` (items I14.1–I14.6)
+  covering: embedded system prompt (`//go:embed`), prompt builder with
+  four-layer append resolution, `[review]` config five-touchpoint,
+  `internal/gh` PR meta + diff helpers, `cmd/af/review.go` + testscript
+  golden path + named failure modes, and the close-out checklist.
+
+### Blockers
+
+None. ADR-073 is `implementation: pending` by design — implementation
+follows Stage 13 (gap-analysis batch ADRs 068–072).
+
+### Next
+
+Continue with Stage 12 (`TODO.md` items I12.1–I12.5): wire the
+`SlicerWTAvailable` doctor probe, add the lease-warning editor test, and
+implement ADR-066/067 VM session export and automatic sync state machine.
