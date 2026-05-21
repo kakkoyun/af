@@ -389,13 +389,15 @@ Wave 2 — 1 ADR (depends on Wave 1):
 
 Wave 3 — close-out:
 
-- [ ] I10.8: Advance ADR-060, 061, 062, 063, 064 frontmatter to
-      `complete` (Agents A/B/C/D have already done 060/061/063/064;
-      verify after integration). Only 062 + the new draft 065 will
-      remain `pending`.
-- [ ] I10.9: Refresh README (drop "af create --sandbox not yet
-      end-to-end" caveat now that ADR-060 wired it), CHANGELOG
-      (Stage 10 section), PROGRESS (Session 27 close-out).
+- [x] I10.8: All five ADR frontmatter blocks (060/061/062/063/064)
+      advanced to `implementation: complete`. Every numbered ADR
+      from 031 to 064 is now `complete`. Only `pending` ADRs
+      remaining are owner drafts 065/066/067.
+- [x] I10.9: README "Caveats" updated (dropped `af create --sandbox
+      not yet end-to-end`; added the optimistic group-shape match
+      caveat from ADR-062 plus a pointer to the owner drafts).
+      CHANGELOG gained a Stage 10 section. PROGRESS Session 28
+      records the close-out.
 
 ---
 

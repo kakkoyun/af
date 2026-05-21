@@ -15,6 +15,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Stage 10 — post-v1 ADRs 060–064 (Session 27–28)
+
+- **ADR-060** (slicer-only sandbox): dropped the Docker `sbx` provider
+  end-to-end. New `sandbox.NewProvider(name) (Sandbox, error)` factory.
+  `SBXConfig` deleted; `[sandbox] provider = "sbx"` is now a parse
+  error. `cmd/af/create.go` now invokes `lifecycle.LaunchSandboxWorkstream`
+  with a real `slicer vm run --name … --mount … -- <agent argv>`
+  invocation; the previous "sandbox launch is performed at agent start"
+  diagnostic is gone. Doctor probe for sbx removed.
+- **ADR-061** (repo-scoped control): new `[control]` section in
+  `<repo>/.af/config.toml` with `agent`, `approval_mode`, `sandbox`,
+  `remote`, `remote_control`, `max_agents`. Precedence: CLI > repo >
+  user > subsystem defaults > compiled. New `lifecycle.ResolveControl`
+  precedence resolver. Additive state.toml fields:
+  `Session.ApprovalMode`, `Session.MaxAgents`,
+  `Execution.RemoteControl`. Validation rejects unknown sandbox
+  providers, unknown remote-control values, shell metacharacters in
+  remote, negative max_agents, unknown approval modes.
+- **ADR-062** (slicer VM resource profiles): new
+  `[sandbox.slicer.resources]` schema (`name, vcpu, ram_gb,
+  storage_size, gpu_count, image, hypervisor`). New
+  `internal/sandbox/resources.go` with `SlicerResources`,
+  `ManagedGroupName(repoSlug, profile)`, `GroupProber` interface, and
+  `ExecGroupProber` backed by `slicer vm group` output parsing.
+  `lifecycle.CreateOptions.SandboxResources` threads the resolved
+  profile into state. 8 additive `Execution.sandbox_resource_*` fields
+  in state.toml. Per-VM argv flags deferred pending slicer machine-
+  readable group metadata (see `// ADR-062 §Resolution step 6`).
+- **ADR-063** (Tailscale + superterm remote control): new
+  `internal/control` package and `af control up/down/status` cobra
+  group. Composes `superterm up` for the dashboard with
+  `tailscale serve --bg <url>` for tailnet exposure. Sentinels for
+  missing tools, unsupported provider, unresolvable endpoint. URL
+  parsing via regex `https://[a-zA-Z0-9._-]+\.ts\.net\S*`. Flags
+  `--remote HOST --provider superterm --port N --json`. Testscript
+  `control-up.txt` covers happy path + missing-tool.
+- **ADR-064** (opinionated diff rendering): new `internal/diff`
+  package. `af diff` now dispatches: `hunk patch -` piped from
+  `git diff --no-color base...head` when hunk is on PATH (interactive
+  TTY), plain `git diff base...head` fallback, `git diff --stat`
+  when stdout is not a TTY, `diffity base..head` for `--web`. Base
+  resolution: explicit `--base` > `state.Stack.ParentBranch` >
+  `state.Worktree.BaseBranch`. ADR-048's `[diff].cmd` remains as a
+  future escape hatch but is no longer the default contract.
+- Aggregate: 5 ADRs advanced to `implementation: complete`; every ADR
+  from 031 to 064 is now `complete`. 4 new internal packages
+  (`control`, `diff`, plus extensions to `sandbox` and `lifecycle`).
+  Test count grew from 208 to 222 functions. `make check` green at
+  every wave commit; `goreleaser check` clean.
+
 #### Stage 9 — close out in-progress ADRs (Session 26)
 
 - `af pr --ai` now invokes `agent.BodyCmd` with the worktree diff and a

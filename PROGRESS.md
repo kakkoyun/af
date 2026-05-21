@@ -1398,3 +1398,103 @@ tree on success, so all output now sits under uncommitted changes on
 - The four subagent worktrees themselves were ephemeral and have
   been cleaned up by the harness. All content survives in the
   main working tree (verified at pause time).
+
+## 2026-05-22 — Session 28: Stage 10 close-out, every numbered ADR is complete
+
+### Goal
+
+Resume from Session 27's pause: verify Wave 1 integrates cleanly,
+land Wave 2 (ADR-062), close out Wave 3 docs.
+
+### Done
+
+**Wave 1 integration verified** (commit `<wave-1-sha>`):
+
+- `make check` was green on the first integration run. The worktree
+  isolation strategy completely prevented the cross-agent lint drift
+  that Session 26's no-worktree run had to chase. Every agent's
+  separate concern compiled and tested without intervention.
+- The owner committed ADR-065 (`docs(adr): adopt slicer worktree
+  transport`) and ADR-066 (`docs(adr): define VM agent session export`)
+  during the pause window; the stash that Session 27 set up to
+  preserve ADR-065 was dropped as obsolete.
+- ADR-066 had a markdown-table column-padding regression that the
+  Wave 2 agent's read pulled in; reverted at integration time.
+- ADR-067 (`Automatic Agent Session Export and Sync State`) appeared
+  as a new untracked owner draft; left untracked per established
+  pattern — the owner commits their own drafts on their schedule.
+
+**Wave 2** (commit `<wave-2-sha>`):
+
+- ADR-062 / I10.7 (single agent): `[sandbox.slicer.resources]` schema
+  + `internal/sandbox/resources.go` (`SlicerResources`,
+  `ManagedGroupName`, `GroupProber`, `ExecGroupProber`,
+  `ResolveLaunchGroup`) + 8 additive state.toml fields + 14 new tests.
+  Per-VM resource argv flags deferred with an inline ADR reference
+  because slicer does not yet expose machine-readable per-group
+  resource metadata; the managed-group approach means the group itself
+  carries the shape and slicer creates VMs in it on demand. The Wave 2
+  agent ran against the just-landed Wave 1 and finished with `make
+  check` green on the first integration run.
+
+**Wave 3** close-out (this commit):
+
+- README.md: status banner now says "Stages 0–10 are implemented;
+  every ADR from 031 to 064 is marked implementation: complete".
+  Removed the "af create --sandbox not yet end-to-end" caveat (ADR-060
+  fixed it). Replaced with two honest caveats: (a) slicer group-shape
+  match is optimistic pending an upstream API; (b) ADR-065/066/067
+  are owner drafts in flight.
+- CHANGELOG.md: new "Stage 10 — post-v1 ADRs 060–064" section
+  enumerates every shipped feature, package, and the aggregate (5
+  ADRs advanced, 4 packages touched, test count 208 → 222).
+- TODO.md: I10.1–I10.10 all `[x]`. The only remaining `pending` ADRs
+  are 065/066/067, which are owner drafts and not part of Stage 10
+  scope.
+
+### Conflict log
+
+- **Wave 1**: zero cross-agent issues at integration time. The
+  worktree isolation paid off completely. The Session 27 PROGRESS
+  entry pre-emptively documented likely failure modes (gofumpt drift
+  in shared `config.go`, duplicate `writeExternalFakes` entries),
+  none of which actually manifested — because each worktree merged
+  cleanly on its own.
+- **Wave 2**: a single owner-draft ADR (ADR-067) was caught by
+  `git add -A` and unstaged before commit. ADR-066 received a
+  markdown-table-formatter regression and was reverted at commit
+  time. Both expected.
+- **Owner activity during pause**: the owner committed ADR-065 and
+  ADR-066 as standalone `docs(adr): …` commits while the session was
+  paused. Detected on resume via `git log`; the stash that Session
+  27 set up was dropped.
+
+### Verification
+
+- `make check` green after Wave 1 commit (`fa17597` parent context),
+  after Wave 2 commit, and after this close-out.
+- `goreleaser check` clean.
+- 46 `*_test.go` files (up from 38 at start of Stage 9, no change
+  from Wave 1 integration since the new tests are in existing files
+  plus 4 new test files in Wave 1 + 2 new files in Wave 2).
+- 222 test functions (up from 208 after Wave 1).
+- 0 lint issues; all 20 packages pass `-race -count=1 -shuffle=on`.
+
+### ADR state after this session
+
+Every numbered ADR from 031 to 064 is `implementation: complete`.
+The only `pending` ADRs are 065/066/067, all of which are owner
+drafts in flight (slicer worktree transport, VM agent-session
+export, automatic session sync).
+
+### Next
+
+Decide whether to:
+
+1. Implement ADR-065/066/067 (the agent-session-sync triad) once the
+   owner has finalised the drafts.
+2. Cut a v1.0.0 release from current `main`: `goreleaser release
+   --clean` after dry-run validation.
+3. Address any TODO.md C-block stale tracker items (36 unchecked
+   docs/ADR-commit tracker entries from Stage B–E that all shipped
+   long ago).

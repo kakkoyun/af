@@ -6,14 +6,17 @@ dedicated worktree, a tmux session, and launches a primary agent (pi, claude, or
 codex) — all tied together under a single durable state file. When the task is
 done, everything is cleaned up with one command.
 
-> **Status — v1 (single-user).** Stages 0–9 are implemented; every v1 ADR
-> (031–059) is marked `implementation: complete`. `make check` is green. The
-> proxy commands (`af editor`, `af diff`, `af pr`, `af retro`), suspend/resume
-> lifecycle, stack-aware `af sync`, and goreleaser snapshot builds are all
-> exercised by integration testscripts. Remote / sandbox launches go through
-> `secret.Envelope` for ephemeral env-file transport. See [Caveats](#caveats)
-> for the remaining single-user assumptions and the post-v1 backlog
-> (ADR-060–064).
+> **Status — v1 (single-user).** Stages 0–10 are implemented; every ADR
+> from 031 to 064 is marked `implementation: complete`. `make check` is
+> green. The proxy commands (`af editor`, `af diff`, `af pr`, `af retro`),
+> suspend/resume lifecycle, stack-aware `af sync`, opinionated diff
+> rendering (hunk + diffity), repo-scoped `[control]` settings,
+> `af control up/down/status` remote-control via Tailscale + superterm,
+> slicer-only sandbox with `[sandbox.slicer.resources]` profile capture,
+> and goreleaser snapshot builds are all exercised by unit + integration
+> testscripts. Remote / sandbox launches go through `secret.Envelope`
+> for ephemeral env-file transport. See [Caveats](#caveats) for the
+> remaining single-user assumptions.
 
 ## Installation
 
@@ -182,20 +185,28 @@ Key sections:
 **Single-user.** `af` is a personal tool. There is no auth layer, no multi-user
 session sharing, and no remote API.
 
-**`af create --sandbox` not yet end-to-end.** `lifecycle.LaunchSandboxWorkstream`
-is implemented and unit-tested (including envelope write/delete), but
-`af create --sandbox PROVIDER` currently prints a deferred-launch notice rather
-than invoking the orchestrator. Wiring the CLI to the orchestrator is tracked
-under ADR-060 (slicer-only cleanup).
-
 **`af create --remote` runs minimal SSH setup.** `PrepareRemoteWorkstream`
-performs a small set of commands (mkdir + git clone) over SSH. It is not yet
-batched against a real remote tmux/agent boot — that landed will be wired when
-ADR-063 (Tailscale + superterm) lands.
+performs a small set of commands (mkdir + git clone) over SSH. The companion
+`af control up --remote HOST` (ADR-063) is the path for attaching a remote
+tmux / agent dashboard via Tailscale Serve + superterm.
 
 **`af pr --ai` and `af retro --ai` require a non-interactive agent.** The
 primary agent must support body-generation via stdin (pi `--print`, claude
 non-interactive). The empty-diff / empty-output errors surface clearly.
+
+**`[sandbox.slicer.resources]` group-shape match is optimistic.** ADR-062
+resolves a managed-group name `af-<repo-slug>-<profile>` and probes
+`slicer vm group` for existence. Because slicer does not expose stable
+machine-readable per-group resource metadata, shape mismatches between
+the configured profile and an existing group of that name are not
+strictly verified; a tightening pass lands when slicer ships such an
+API. See `internal/sandbox/resources.go` (`// ADR-062 §Resolution step
+6`) for the exact deferral.
+
+**Pending draft ADRs.** ADR-065 (`slicer wt` worktree transport), ADR-066
+(VM agent-session export), and ADR-067 (automatic session sync) are
+`status: proposed, implementation: pending`. They are the next batch of
+work after Stage 10.
 
 ## Building
 
