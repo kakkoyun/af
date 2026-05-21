@@ -1,0 +1,32 @@
+# Files that should NEVER be reformatted by Prettier.
+#
+# Background: Prettier's default markdown formatting normalises nested
+# list-continuation indentation (4-space -> 2-space) and collapses some
+# wrapped-bullet whitespace. The repo's tracking docs intentionally use
+# the wider continuation style for readability, and our markdown house
+# style is enforced manually + via .editorconfig, not by Prettier.
+#
+# Letting Prettier touch these files produces purely-cosmetic diffs that
+# mask real edits and create merge friction. So we exclude them here.
+# See .zed/settings.json for the editor-level safeguard.
+
+# Tracking files (high churn, manual formatting):
+TODO.md
+PROGRESS.md
+CHANGELOG.md
+README.md
+
+# All ADRs use manual formatting per ADR-032 conventions:
+docs/adr/
+
+# The v1 spec is hand-formatted:
+docs/SPEC.md
+docs/PLAN.md
+docs/CONVENTIONS.md
+
+# Frozen v0 archive — never touch:
+docs/v0/
+
+# Project-local agent guidance:
+CLAUDE.md
+AGENTS.md

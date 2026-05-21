@@ -1,0 +1,28 @@
+// Project-local Zed settings for af.
+//
+// The host's Zed installation ships Prettier 3.8.3 and, by default, runs
+// it as the on-save formatter for Markdown files. Prettier's default
+// markdown handling rewrites nested-list continuation indents (4 -> 2
+// spaces) and collapses some bullet-continuation whitespace. That
+// silently rewrites TODO.md, PROGRESS.md, and CHANGELOG.md every time
+// they are opened or auto-saved, producing semantically meaningless
+// diffs that mask real edits.
+//
+// We deliberately keep the project's markdown formatting consistent
+// with the rest of the repo's house style (see .editorconfig). Turning
+// `format_on_save` off for Markdown here means Zed will leave .md
+// files exactly as written. The `.prettierignore` at the repo root
+// is the belt-and-suspenders for other tools that might invoke
+// Prettier (pre-commit hooks, CI lint, other editors).
+//
+// If you ever want to opt back in for a specific file, run
+// `prettier --write <file>` manually and inspect the diff.
+{
+  "languages": {
+    "Markdown": {
+      "format_on_save": "off",
+      "remove_trailing_whitespace_on_save": true,
+      "ensure_final_newline_on_save": true
+    }
+  }
+}
