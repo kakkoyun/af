@@ -19,76 +19,93 @@ Closed at commit `1659d60`.
 - [x] C4: `docs(v0): archive mdbook scaffold` (`d9e6410`)
 - [x] C5: `docs(v0): docs/v0/README.md index` (`1659d60`)
 
-## Stage B — New top-level scaffolding (in progress)
+## Stage B — New top-level scaffolding ✅
 
 - [x] C6: `docs(v1): top-level CHANGELOG.md` (`b36a1ce`)
 - [x] C7: `docs(v1): top-level PROGRESS.md (Session 0)` (`0498299`)
-- [ ] C8: `docs(v1): top-level TODO.md` ← this commit
-- [ ] C9: `docs(v1): top-level README.md`
-- [ ] C10: `docs(v1): CLAUDE.md and AGENTS.md`
+- [x] C8: `docs(v1): top-level TODO.md`
+- [x] C9: `docs(v1): top-level README.md` (refreshed in Stage 9 + Stage 10)
+- [x] C10: `docs(v1): CLAUDE.md and AGENTS.md`
 
-## Stage C — v1 spec, plan, conventions
+## Stage C — v1 spec, plan, conventions ✅
 
-- [ ] C11: `docs(v1): docs/SPEC.md`
-- [ ] C12: `docs(v1): docs/PLAN.md` (lightweight; drops impl-phase block)
-- [ ] C13: `docs(v1): docs/CONVENTIONS.md`
+- [x] C11: `docs(v1): docs/SPEC.md`
+- [x] C12: `docs(v1): docs/PLAN.md` (lightweight; drops impl-phase block)
+- [x] C13: `docs(v1): docs/CONVENTIONS.md`
 
-## Stage D — ADRs 031–059 (29 commits)
+## Stage D — ADRs 031–059 (29 commits) ✅
 
-ADRs land in this order; each is a single atomic commit. All initially
-proposed (`status: proposed`); user reviews and accepts in follow-up
-commits per ADR-032's lifecycle rules.
+Every ADR from 031 to 059 has been written, accepted, and implemented
+(see Stage E for the index and the implementation stages below for
+code landing). The trackers below remain for historical traceability.
 
 ### Meta
 
-- [ ] C14: ADR-031 v1 Migration to Go + Scope Reduction (master)
-- [ ] C15: ADR-032 ADR Conventions for v1 (frontmatter, lifecycle)
-- [ ] C16: ADR-033 Documentation Archival Policy (v0 → v1)
+- [x] C14: ADR-031 v1 Migration to Go + Scope Reduction (master)
+- [x] C15: ADR-032 ADR Conventions for v1 (frontmatter, lifecycle)
+- [x] C16: ADR-033 Documentation Archival Policy (v0 → v1)
 
 ### Foundation (toolchain + structure)
 
-- [ ] C17: ADR-034 Go Module Layout & Idiom
-- [ ] C18: ADR-035 CLI Framework — cobra + pflag
-- [ ] C19: ADR-036 Configuration — TOML, layered, global vault config
-- [ ] C20: ADR-037 Session Metadata Schema
-- [ ] C21: ADR-038 Workstream + Worktree Layout
+- [x] C17: ADR-034 Go Module Layout & Idiom
+- [x] C18: ADR-035 CLI Framework — cobra + pflag
+- [x] C19: ADR-036 Configuration — TOML, layered, global vault config
+- [x] C20: ADR-037 Session Metadata Schema
+- [x] C21: ADR-038 Workstream + Worktree Layout
 
 ### Domain model
 
-- [ ] C22: ADR-039 Multi-Agent Multi-Session Model
-- [ ] C23: ADR-040 tmux-only Multiplexer
-- [ ] C24: ADR-041 SSH Remote Model
-- [ ] C25: ADR-042 Sandbox Providers (slicer + sbx)
-- [ ] C26: ADR-043 Agent Providers (claude, pi, codex; pi default)
+- [x] C22: ADR-039 Multi-Agent Multi-Session Model
+- [x] C23: ADR-040 tmux-only Multiplexer
+- [x] C24: ADR-041 SSH Remote Model
+- [x] C25: ADR-042 Sandbox Providers (slicer + sbx; sbx later dropped by ADR-060)
+- [x] C26: ADR-043 Agent Providers (claude, pi, codex; pi default)
 
 ### Commands
 
-- [ ] C27: ADR-044 Doctor + Install Hints (local & --remote)
-- [ ] C28: ADR-045 `af setup` — Environment Companion to Doctor
-- [ ] C29: ADR-046 `af suspend` / `af resume` Lifecycle
-- [ ] C30: ADR-047 Obsidian Integration — Notes + Bases
-- [ ] C31: ADR-048 Minimal Proxy Commands (editor, diff, pr)
+- [x] C27: ADR-044 Doctor + Install Hints (local & --remote)
+- [x] C28: ADR-045 `af setup` — Environment Companion to Doctor
+- [x] C29: ADR-046 `af suspend` / `af resume` Lifecycle
+- [x] C30: ADR-047 Obsidian Integration — Notes + Bases
+- [x] C31: ADR-048 Minimal Proxy Commands (editor, diff, pr)
 
 ### Cross-cutting
 
-- [ ] C32: ADR-049 Secret Management
-- [ ] C33: ADR-050 Code Quality — golangci-lint pedantic
-- [ ] C34: ADR-051 Testing Strategy
-- [ ] C35: ADR-052 Formal Verification Experimentation
-- [ ] C36: ADR-053 Build & Distribution — goreleaser + Make
+- [x] C32: ADR-049 Secret Management
+- [x] C33: ADR-050 Code Quality — golangci-lint pedantic
+- [x] C34: ADR-051 Testing Strategy
+- [x] C35: ADR-052 Formal Verification Experimentation
+- [x] C36: ADR-053 Build & Distribution — goreleaser + Make
 
 ### Command addenda
 
-- [ ] C37: ADR-054 `af status` — Workstream Dashboard
-- [ ] C38: ADR-055 `af info` — Workstream Detail View
-- [ ] C39: ADR-056 `af clean` — Reap Completed Workstreams
-- [ ] C40: ADR-057 `af pr --ai` — Agent-Authored PR Body
-- [ ] C41: ADR-058 `af retro` — Mine Archived Workstream Notes
-- [ ] C42: ADR-059 Stack-Aware Branch Model
+- [x] C37: ADR-054 `af status` — Workstream Dashboard
+- [x] C38: ADR-055 `af info` — Workstream Detail View
+- [x] C39: ADR-056 `af clean` — Reap Completed Workstreams
+- [x] C40: ADR-057 `af pr --ai` — Agent-Authored PR Body
+- [x] C41: ADR-058 `af retro` — Mine Archived Workstream Notes
+- [x] C42: ADR-059 Stack-Aware Branch Model
 
-## Stage E — ADR index
+## Stage E — ADR index ✅
 
-- [ ] C43: `docs(adr): docs/adr/INDEX.md (v0 archive link + v1 ADRs 031–059)`
+- [x] C43: `docs(adr): docs/adr/INDEX.md (v0 archive link + v1 ADRs 031–059)`
+
+## Post-v1 ADRs (060–065) ✅
+
+ADRs added after the original Stage A–E plan. Implementation tracked
+under Implementation Stages 9–11 below.
+
+- [x] ADR-060: Slicer-Only Sandbox Provider (drop sbx) — Stage 10 Wave 1.
+- [x] ADR-061: Repo-Scoped Control Settings — Stage 10 Wave 1.
+- [x] ADR-062: Repo-Scoped Slicer VM Resource Profiles — Stage 10 Wave 2.
+- [x] ADR-063: Remote Control via Tailscale Serve and superterm — Stage 10 Wave 1.
+- [x] ADR-064: Opinionated Diff Rendering (hunk + diffity) — Stage 10 Wave 1.
+- [x] ADR-065: Slicer Worktree Transport (`slicer wt`) — Stage 11.
+
+> **Note**: ADR-066 (VM agent-session export) and ADR-067 (automatic
+> agent-session sync) are owner drafts (`status: proposed`,
+> `implementation: pending`). They are deferred to a future stage and
+> are not part of the up-to-ADR-065 implementation target.
 
 ---
 
@@ -297,7 +314,7 @@ ADR to `implementation: complete`.
 Wave 1 — deferred placeholders + release tooling (parallel agents):
 
 - [x] I9.1: ADR-057 — wire `af pr --ai` to `agent.BodyCmd(BodyOpts{Cwd,
-      Model})`; build the prompt from the worktree diff; handle
+    Model})`; build the prompt from the worktree diff; handle
       empty-diff and empty-body errors; reject `--ai` with `--web`.
 - [x] I9.2: ADR-058 — wire `af retro --ai` to `agent.BodyCmd` with
       `BodyOpts.Cwd = ""`; synthesise narrative from the collected
@@ -316,8 +333,7 @@ Wave 2 — integration tests + envelope wiring:
       `af pr` using fake-path shadow binaries; verify token
       interpolation and `flag_template` expansion end-to-end.
 - [x] I9.6: ADR-040 + ADR-046 — tmux integration testscript that
-      exercises a smart-fake tmux state machine; verify SessionExists
-      + CreateSession + suspend/resume respawn (bare vs non-bare).
+      exercises a smart-fake tmux state machine; verify SessionExists + CreateSession + suspend/resume respawn (bare vs non-bare).
 - [x] I9.7: ADR-041 — SSH integration test using a smart-fake ssh
       that responds to `af doctor --remote` probes; covers all-present
       / sparse-host / failing-host cases.
@@ -354,7 +370,7 @@ Wave 1 — 4 ADRs in parallel (output present, unverified):
 
 - [x] I10.1: ADR-060 — drop sbx, wire `af create --sandbox slicer`
       end-to-end through `LaunchSandboxWorkstream`. Real `slicer vm
-      run` exec (no stub). 9 new tests.
+    run` exec (no stub). 9 new tests.
 - [x] I10.2: ADR-061 — `[control]` section in `<repo>/.af/config.toml`
       with layered precedence (CLI > repo > user > defaults).
       `ControlConfig`, `ResolveControl`, `ControlContext`, additive
@@ -372,12 +388,12 @@ Wave 1 INTEGRATION:
 - [x] I10.5: `make check` was green on the first integration run
       (worktree isolation prevented all cross-agent drift fears).
 - [x] I10.6: Wave 1 committed as `feat(v1): Stage 10 Wave 1 — close
-      I10.1-I10.4`.
+    I10.1-I10.4`.
 
 Wave 2 — 1 ADR (depends on Wave 1):
 
 - [x] I10.7: ADR-062 — `[sandbox.slicer.resources]` schema (`name,
-      vcpu, ram_gb, storage_size, gpu_count, image, hypervisor`),
+    vcpu, ram_gb, storage_size, gpu_count, image, hypervisor`),
       validation (negative-ints, size grammar, hypervisor vocab,
       group-vs-resources mutual exclusion), `sandbox.ResolveLaunchGroup`
       with `ExecGroupProber` parsing `slicer vm group` output, state
@@ -394,10 +410,43 @@ Wave 3 — close-out:
       from 031 to 064 is now `complete`. Only `pending` ADRs
       remaining are owner drafts 065/066/067.
 - [x] I10.9: README "Caveats" updated (dropped `af create --sandbox
-      not yet end-to-end`; added the optimistic group-shape match
+    not yet end-to-end`; added the optimistic group-shape match
       caveat from ADR-062 plus a pointer to the owner drafts).
       CHANGELOG gained a Stage 10 section. PROGRESS Session 28
       records the close-out.
+
+### Implementation Stage 11 — ADR-065 slicer worktree transport
+
+After Stage 10 closed every ADR up to 064, the owner accepted ADR-065
+(slicer `wt push/pull` as the slicer sandbox transport). This stage
+implements it so the v1 ADR set is complete up to and including 065.
+
+- [ ] I11.1: ADR-065 — replace the existing `slicer vm run` invocation
+      in `af create --sandbox slicer` with `slicer wt push --launch
+      [--hostgroup GROUP] [--depth N] --tag af --tag af-session=<name>
+      --tag af-repo=<repo> <worktree-path>`. Parse the VM name from
+      slicer's output and capture it in state.
+- [ ] I11.2: ADR-065 — additive `state.toml` schema for the worktree
+      lease: `[slicer_wt] vm, path, pushed_at, pulled_at, lease_state`
+      (`held_by_vm` | `pulled` | `discarded`). Round-trip tests.
+- [ ] I11.3: ADR-065 — new `af pull [session]` command that runs
+      `slicer wt pull <vm> <worktree-path>`, fast-forwards the host
+      branch, and updates the lease (`lease_state: pulled`,
+      `pulled_at` timestamp).
+- [ ] I11.4: ADR-065 — enforce the lease in destructive commands:
+      `af done` and `af suspend` refuse on `held_by_vm` without
+      `--force` (which sets `lease_state: discarded`). `af pr`
+      refuses outright on `held_by_vm` (the host branch may not
+      contain the VM's commits). `af diff` warns about a stale host
+      worktree. `af editor` warns the user the host files may be
+      stale. `af status` and `af info` surface the VM name and
+      lease state.
+- [ ] I11.5: ADR-065 — `af doctor` probes `slicer wt push --help` to
+      distinguish new Slicer builds from older ones lacking the `wt`
+      API.
+- [ ] I11.6: Wave 3 close-out for Stage 11 — advance ADR-065
+      frontmatter to `implementation: complete`, update README,
+      CHANGELOG, PROGRESS, check off I11.1–I11.6.
 
 ---
 
