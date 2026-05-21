@@ -1287,3 +1287,114 @@ ADR-060 onward is genuinely new feature scope:
 3. **ADR-062** — Per-repo slicer VM resource profiles.
 4. **ADR-063** — Remote control via Tailscale Serve + superterm.
 5. **ADR-064** — Opinionated diff rendering (hunk + diffity).
+
+## 2026-05-22 — Session 27: Stage 10 dispatched, PAUSED before integration
+
+### Goal
+
+Start implementing the five post-v1 ADRs (060–064) so every ADR in the
+tree reaches `implementation: complete`. Plan:
+
+- Wave 1: ADR-060 (slicer-only) + ADR-061 (repo control) + ADR-063
+  (control commands) + ADR-064 (diff rendering) in parallel.
+- Wave 2: ADR-062 (VM resource profiles) once 060+061 land.
+- Wave 3: lead close-out (frontmatter, docs sync).
+
+### Pre-flight (recorded for resume)
+
+- `tailscale` 1.98.2 installed (daemon not running — fakes are used).
+- `superterm` MISSING (test via fake binary, same pattern as tmux).
+- `hunk`, `diffity`, `delta`, `difft`, `bat` all installed.
+- `slicer` installed. **Important**: slicer's command surface has
+  changed since ADR-062 was written. No more `slicer group` subcommand.
+  Current surface: `slicer workspace`, `slicer vm`, `slicer env`,
+  `slicer worktree`, `slicer claude`, `slicer codex`, `slicer amp`,
+  `slicer opencode`, `slicer copilot`. ADR-062 Wave 2 work must adapt.
+
+### Done (Wave 1, IN A WIP COMMIT — not yet verified)
+
+Four subagents ran in isolated git worktrees with `worktree: true`.
+The subagent harness merged each worktree back into the main working
+tree on success, so all output now sits under uncommitted changes on
+`main`. **`make check` has NOT been run against the integrated state.**
+
+- **Agent A (I10.1 / ADR-060)**: dropped sbx end-to-end. New
+  `sandbox.NewProvider(name) (Sandbox, error)`. `SBXConfig` deleted.
+  `parseSandboxSection` now rejects `provider = "sbx"` with
+  `errSandboxProviderUnsupported`. `cmd/af/create.go` now calls
+  `lifecycle.LaunchSandboxWorkstream` for `--sandbox slicer` with a
+  real `slicer vm run --name … --mount … -- <agent argv>` invocation
+  (no stub). New tests: `TestKnownProviders_SlicerOnly`,
+  `TestNewProvider_AcceptsSlicer`, `TestNewProvider_RejectsSBX`,
+  `TestNewProvider_RejectsUnknown`, `TestSandboxConfig_RejectsSBXProvider`,
+  `TestSandboxConfig_AcceptsSlicerProvider`, `TestCreate_SandboxFlagRejectsSBX`,
+  `TestCreate_SandboxFlagRejectsDocker`,
+  `TestCreate_SandboxProviderFactory_RejectsSBX`.
+- **Agent B (I10.2 / ADR-061)**: added `[control]` config layer +
+  `ControlConfig`, `ControlFlags`, `ControlContext`, `ResolveControl`.
+  Additive state.toml fields: `Session.ApprovalMode`, `Session.MaxAgents`,
+  `Execution.RemoteControl`. Side effect: removed dead
+  `[sandbox.sbx]` block from `internal/config/render.go` to unblock
+  compile after Agent A's SBXConfig delete. 12 new tests in
+  `internal/config/control_test.go` and `internal/lifecycle/control_test.go`.
+- **Agent C (I10.3 / ADR-063)**: new `internal/control` package
+  (196 LoC) with `Up`, `Down`, `Status`, sentinels
+  `Err{ProviderUnsupported, SupertermMissing, TailscaleMissing,
+  SupertermStart, TailscaleServe, UnresolvableEndpoint}`. URL parsing
+  via regex `https://[a-zA-Z0-9._-]+\.ts\.net\S*`. New `cmd/af/control.go`
+  (205 LoC) wires cobra `af control up/down/status` with
+  `--remote --provider --port --json` flags. Testscript
+  `control-up.txt` with happy-path + missing-tool scenarios. 13 tests.
+  `writeExternalFakes` extended to include `tailscale` and `superterm`.
+- **Agent D (I10.4 / ADR-064)**: new `internal/diff` package (175
+  LoC). Rewrote `cmd/af/proxy_commands.go`'s `runDiff` to delegate to
+  `diff.Render`. Default terminal: hunk-piped when installed, else
+  `git diff` plain; non-TTY: `git diff --stat`; `--web`: `diffity
+  base..head`. Base resolution: explicit `--base` > `state.Stack.ParentBranch`
+  > `state.Worktree.BaseBranch`. 6 unit tests in
+  `internal/diff/diff_test.go`, 2 cmd-level tests, 3 testscript
+  scenarios in `diff.txt`. Pre-emptively added `hunk`, `diffity`,
+  `tailscale`, `superterm` to `writeExternalFakes` (expect a tidy-up
+  merge with Agent C's identical-purpose addition).
+
+### State on pause
+
+- **Branch**: `main` at WIP commit (to be created in the same
+  pause-flush as this PROGRESS entry).
+- **Working tree**: clean after the WIP commit.
+- **Stash**: `stash@{0}` holds the owner draft
+  `docs/adr/065-slicer-worktree-transport.md` that was untracked when
+  Wave 1 was dispatched; will be restored before pause finishes.
+- **Untouched in this session**: nothing else — only Wave 1 fired.
+
+### Recovery / resume procedure
+
+1. `cd /Users/kemal.akkoyun/Workspace/Projects/Personal/af`.
+2. `git log -3 --oneline` should show the WIP commit on top of
+   `22172f1 docs(v1): Stage 9 close-out — every v1 ADR is complete`.
+3. `git stash list` should show the ADR-065 draft stash.
+4. Run `make check` against current HEAD.
+5. **Expected failures**: gofumpt drift between Agent A's and Agent
+   B's parallel `config.go` edits; possible duplicate entries in
+   `writeExternalFakes` (both Agent C and Agent D added
+   `tailscale`/`superterm`/`hunk`/`diffity`); possible
+   noinlineerr/err113 drift at file boundaries. Fix sequentially.
+6. Once `make check` is green:
+   - `git reset --soft HEAD~1` to uncommit the WIP.
+   - `git commit -m 'feat(v1): Stage 10 Wave 1 — close I10.1-I10.4 (ADR-060/061/063/064)'`
+     with a proper body referencing the agent breakdown above.
+7. Update TODO.md: convert `[~]` markers for I10.1–I10.4 to `[x]`.
+8. Proceed to Wave 2 (ADR-062, depends on 060+061). When designing the
+   Wave 2 agent task, remember that the slicer CLI no longer has
+   `slicer group` — the implementation must adapt or explicitly defer.
+9. Wave 3 close-out per the established pattern.
+
+### Notes
+
+- pi-rewind snapshots in this session (commits matching
+  `pi-rewind:turn-019e4998-*`) preserve intermediate states and can
+  be used to recover individual files via `git checkout <pi-rewind-sha>
+  -- <path>` if needed.
+- The four subagent worktrees themselves were ephemeral and have
+  been cleaned up by the harness. All content survives in the
+  main working tree (verified at pause time).

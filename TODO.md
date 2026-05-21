@@ -340,6 +340,80 @@ Wave 3 — close-out:
       scoped control), 062 (per-repo VM profiles), 063 (Tailscale +
       superterm remote), 064 (opinionated diff rendering).
 
+### Implementation Stage 10 — Post-v1 ADRs (PAUSED mid-Wave-1)
+
+> **Status**: Paused 2026-05-22. Wave 1 (I10.1–I10.4) work was produced
+> by four parallel subagents in isolated git worktrees and merged back
+> into the main working tree. The changes are committed on `main` under
+> a `wip(stage-10)` commit; integration verification (`make check`)
+> against the merged state has NOT been run yet. Resume by running
+> `make check`, resolving any cross-agent lint, then committing
+> Wave 1 proper.
+
+Wave 1 — 4 ADRs in parallel (output present, unverified):
+
+- [~] I10.1: ADR-060 — drop sbx, wire `af create --sandbox slicer`
+      end-to-end through `LaunchSandboxWorkstream`. Agent A landed:
+      `sandbox.NewProvider(name)`, dropped `SBXConfig`, `SBX SandboxConfig`
+      field, sbx doctor probe; new tests `TestCreate_SandboxFlagRejectsSBX`,
+      `TestKnownProviders_SlicerOnly`, etc. Real `slicer vm run` exec
+      (no stub).
+- [~] I10.2: ADR-061 — `[control]` section in `<repo>/.af/config.toml`
+      with layered precedence (CLI > repo > user > defaults). Agent B
+      landed: `ControlConfig`, `ResolveControl`, `ControlContext`,
+      additive state.toml fields (`Session.ApprovalMode`,
+      `Session.MaxAgents`, `Execution.RemoteControl`); 12 tests.
+      Side effect: cleaned up `internal/config/render.go`'s dead
+      `[sandbox.sbx]` render block to unblock compile after Agent A.
+- [~] I10.3: ADR-063 — `af control up/down/status` composing
+      superterm + tailscale serve. Agent C landed: new
+      `internal/control` package (196 LoC), `cmd/af/control.go`
+      (205 LoC), testscript `control-up.txt`, fakes in
+      `writeExternalFakes` for `superterm` + `tailscale`. 13 tests.
+      URL parsing via regex `https://[a-zA-Z0-9._-]+\.ts\.net\S*`.
+- [~] I10.4: ADR-064 — opinionated diff rendering. Agent D landed:
+      new `internal/diff` package, rewrote `cmd/af/proxy_commands.go`'s
+      `runDiff` to dispatch to `diff.Render`, hunk-piped path for
+      interactive TTY, `git diff --stat` for non-TTY, `diffity
+      base..head` for `--web`. Updated testscript `diff.txt` with
+      3 scenarios. Agent D also pre-emptively added the `hunk` and
+      `diffity` fakes to `writeExternalFakes` and absorbed C's
+      `tailscale`/`superterm` fakes — expect a merge conflict here.
+
+Wave 1 INTEGRATION (TODO on resume):
+
+- [ ] I10.5: Run `make check` against the merged Wave 1 state. Fix
+      any cross-agent issues (the most likely: gofumpt formatting
+      drift between agents A/B's parallel `config.go` edits;
+      noinlineerr / err113 mismatches at file boundaries; the
+      `writeExternalFakes` list could have duplicate `hunk`/
+      `diffity`/`tailscale`/`superterm` entries if C and D both
+      added them).
+- [ ] I10.6: Once green, commit Wave 1 properly with the
+      `feat(v1): Stage 10 Wave 1 — close I10.1-I10.4` message;
+      the prior WIP commit is squashable into it via
+      `git reset --soft HEAD~1` then re-commit.
+
+Wave 2 — 1 ADR (depends on Wave 1):
+
+- [ ] I10.7: ADR-062 — `[sandbox.slicer.resources]` schema +
+      validation + state capture per ADR-062. **Note**: slicer's
+      command surface has changed since ADR-062 was written; there is
+      no `slicer group` subcommand anymore. Implement the schema and
+      validation cleanly; defer the actual `slicer vm`/`slicer env`
+      group-probing call with a documented TODO until we revise
+      ADR-062 or add a superseding ADR.
+
+Wave 3 — close-out:
+
+- [ ] I10.8: Advance ADR-060, 061, 062, 063, 064 frontmatter to
+      `complete` (Agents A/B/C/D have already done 060/061/063/064;
+      verify after integration). Only 062 + the new draft 065 will
+      remain `pending`.
+- [ ] I10.9: Refresh README (drop "af create --sandbox not yet
+      end-to-end" caveat now that ADR-060 wired it), CHANGELOG
+      (Stage 10 section), PROGRESS (Session 27 close-out).
+
 ---
 
 ## Backlog (post-v1, unscheduled)
