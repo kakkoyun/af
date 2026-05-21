@@ -17,11 +17,14 @@ type LaunchOpts struct {
 	Workstream string
 	Worktree   string
 	AgentArgv  []string
+	// Tags are additional --tag entries appended to the standard af tags (ADR-065).
+	Tags []string
 }
 
 // Handle identifies a running sandbox.
 type Handle struct {
 	ID        string
+	VMName    string
 	AttachCmd []string
 }
 
@@ -155,17 +158,12 @@ func (provider Provider) IsAvailable(ctx context.Context) bool {
 
 // Launch starts a sandbox and returns its handle.
 func (provider Provider) Launch(ctx context.Context, opts LaunchOpts) (*Handle, error) {
-	args := provider.launchArgs(opts)
-	output, err := provider.run(ctx, args...)
-	if err != nil {
-		return nil, fmt.Errorf("launch %s sandbox %s: %w", provider.name, opts.Workstream, err)
+	switch provider.kind {
+	case providerSlicer:
+		return provider.slicerWTLaunch(ctx, opts)
+	default:
+		return nil, fmt.Errorf("launch %s sandbox: %w", provider.name, ErrUnsupportedProvider)
 	}
-	id := strings.TrimSpace(string(output))
-	if id == "" {
-		id = opts.Workstream
-	}
-
-	return &Handle{ID: id, AttachCmd: provider.attachCommand(id)}, nil
 }
 
 // Attach attaches to a running sandbox.
@@ -214,22 +212,33 @@ func (provider Provider) List(ctx context.Context) ([]Handle, error) {
 	return handles, nil
 }
 
-func (provider Provider) launchArgs(opts LaunchOpts) []string {
-	switch provider.kind {
-	case providerSlicer:
-		return provider.slicerLaunchArgs(opts)
-	default:
-		return nil
+// slicerWTLaunch performs `slicer wt push --launch` and returns a Handle with the VM name.
+func (provider Provider) slicerWTLaunch(ctx context.Context, opts LaunchOpts) (*Handle, error) {
+	pushOpts := WTPushOptions{
+		WorktreePath: opts.Worktree,
+		HostGroup:    provider.group,
+		Tags:         wtTags(opts),
 	}
+	result, err := WTPush(ctx, provider.runner, pushOpts)
+	if err != nil {
+		return nil, fmt.Errorf("slicer wt push: %w", err)
+	}
+	return &Handle{
+		ID:        result.VM,
+		VMName:    result.VM,
+		AttachCmd: []string{provider.binary, "vm", "shell", result.VM},
+	}, nil
 }
 
-func (provider Provider) slicerLaunchArgs(opts LaunchOpts) []string {
-	args := []string{"vm", "run", "--name", opts.Workstream}
-	if provider.group != "" {
-		args = append(args, "--group", provider.group)
+const wtBaseTagCount = 2 // "af" + "af-session=..."
+
+func wtTags(opts LaunchOpts) []string {
+	tags := make([]string, 0, len(opts.Tags)+wtBaseTagCount)
+	if opts.Workstream != "" {
+		tags = append(tags, "af-session="+opts.Workstream)
 	}
-	args = append(args, "--mount", opts.Worktree, "--")
-	return append(args, opts.AgentArgv...)
+	tags = append(tags, opts.Tags...)
+	return tags
 }
 
 func (provider Provider) attachCommand(id string) []string {

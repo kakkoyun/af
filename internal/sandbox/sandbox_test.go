@@ -50,21 +50,21 @@ func TestNewProvider_RejectsUnknown(t *testing.T) {
 func TestSlicer_LaunchBuildsCommandAndHandle(t *testing.T) {
 	ctx := context.Background()
 	runner := sandbox.NewRecordingRunner()
-	runner.QueueOutput("vm-session\n")
+	runner.QueueOutput("Launched VM vm-session\n")
 	provider := sandbox.NewSlicerWithRunner(runner)
 
-	handle, err := provider.Launch(ctx, sandbox.LaunchOpts{Workstream: "session", Worktree: "/repo", AgentArgv: []string{"pi"}})
+	handle, err := provider.Launch(ctx, sandbox.LaunchOpts{Workstream: "session", Worktree: "/repo"})
 	if err != nil {
 		t.Fatalf("Launch() error = %v", err)
 	}
-	if handle.ID != "vm-session" {
-		t.Fatalf("handle ID = %q, want vm-session", handle.ID)
+	if handle.VMName != "vm-session" {
+		t.Fatalf("VMName = %q, want vm-session", handle.VMName)
 	}
 	if !reflect.DeepEqual(handle.AttachCmd, []string{"slicer", "vm", "shell", "vm-session"}) {
 		t.Fatalf("AttachCmd = %#v", handle.AttachCmd)
 	}
-
-	want := []sandbox.Command{{Name: "slicer", Args: []string{"vm", "run", "--name", "session", "--mount", "/repo", "--", "pi"}}}
+	// ADR-065: launch now uses wt push --launch
+	want := []sandbox.Command{{Name: "slicer", Args: []string{"wt", "push", "--launch", "--tag", "af", "--tag", "af-session=session", "/repo"}}}
 	if got := runner.Commands(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("commands = %#v, want %#v", got, want)
 	}
@@ -73,27 +73,29 @@ func TestSlicer_LaunchBuildsCommandAndHandle(t *testing.T) {
 func TestNewSlicerWithOptions_PassesGroupToArgv(t *testing.T) {
 	ctx := context.Background()
 	runner := sandbox.NewRecordingRunner()
-	runner.QueueOutput("vm-id\n")
+	runner.QueueOutput("Launched VM vm-id\n")
 	provider := sandbox.NewSlicerProvider(sandbox.SlicerOptions{
 		Group:     "af-myrepo-tight",
 		Resources: sandbox.SlicerResources{VCPU: 2, RAMGB: 4},
 	}, runner)
 
-	_, err := provider.Launch(ctx, sandbox.LaunchOpts{
+	handle, err := provider.Launch(ctx, sandbox.LaunchOpts{
 		Workstream: "session",
 		Worktree:   "/repo",
-		AgentArgv:  []string{"pi"},
 	})
 	if err != nil {
 		t.Fatalf("Launch() error = %v", err)
+	}
+	if handle.VMName != "vm-id" {
+		t.Fatalf("VMName = %q, want vm-id", handle.VMName)
 	}
 	commands := runner.Commands()
 	if len(commands) != 1 {
 		t.Fatalf("want 1 command, got %d", len(commands))
 	}
 	args := commands[0].Args
-	// Expect: vm run --name session --group af-myrepo-tight --mount /repo -- pi
-	want := []string{"vm", "run", "--name", "session", "--group", "af-myrepo-tight", "--mount", "/repo", "--", "pi"}
+	// ADR-065: launch uses wt push --launch with --hostgroup derived from group
+	want := []string{"wt", "push", "--launch", "--hostgroup", "af-myrepo-tight", "--tag", "af", "--tag", "af-session=session", "/repo"}
 	if !reflect.DeepEqual(args, want) {
 		t.Errorf("launch args = %#v, want %#v", args, want)
 	}

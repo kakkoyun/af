@@ -15,7 +15,8 @@ import (
 var errLifecycleNoState = errors.New("no .af/state.toml in current directory")
 
 func newSuspendCmd(_ *rootOptions) *cobra.Command {
-	return &cobra.Command{
+	var force bool
+	cmd := &cobra.Command{
 		Use:   "suspend [session]",
 		Short: "Suspend a workstream (state.toml records suspension; tmux stays alive)",
 		Args:  cobra.MaximumNArgs(1),
@@ -28,9 +29,15 @@ func newSuspendCmd(_ *rootOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			state, err := lifecycle.SuspendWorkstream(cmd.Context(), lifecycle.SuspendOptions{StatePath: statePath})
+			state, err := lifecycle.SuspendWorkstream(cmd.Context(), lifecycle.SuspendOptions{
+				StatePath: statePath,
+				Force:     force,
+			})
 			if err != nil {
 				return fmt.Errorf("suspend: %w", err)
+			}
+			if state.SlicerWT.VM != "" {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "note: slicer VM %s lease is %s\n", state.SlicerWT.VM, state.SlicerWT.LeaseState) //nolint:errcheck // Informational only.
 			}
 			_, err = fmt.Fprintf(cmd.OutOrStdout(), "workstream %s -> %s\n", state.Session.Name, state.Session.Status)
 			if err != nil {
@@ -39,6 +46,8 @@ func newSuspendCmd(_ *rootOptions) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&force, "force", false, "force suspend even when worktree is leased to a slicer VM (sets lease_state=discarded)")
+	return cmd
 }
 
 func newResumeCmd(_ *rootOptions) *cobra.Command {

@@ -20,12 +20,13 @@ import (
 )
 
 var (
-	errProxyNoState        = errors.New("workstream state not found")
-	errEditorNotConfigured = errors.New("no editor configured (see [editor].terminal/[editor].visual)")
-	errPRAIWebIncompatible = errors.New("pr: --ai is incompatible with --web")
-	errPRAIEmptyDiff       = errors.New("pr: --ai requires a non-empty diff between base and head")
-	errPRAIAgentNoBody     = errors.New("pr: agent does not support non-interactive body generation")
-	errPRAIEmptyBody       = errors.New("pr: agent returned an empty body")
+	errProxyNoState         = errors.New("workstream state not found")
+	errEditorNotConfigured  = errors.New("no editor configured (see [editor].terminal/[editor].visual)")
+	errPRAIWebIncompatible  = errors.New("pr: --ai is incompatible with --web")
+	errPRAIEmptyDiff        = errors.New("pr: --ai requires a non-empty diff between base and head")
+	errPRAIAgentNoBody      = errors.New("pr: agent does not support non-interactive body generation")
+	errPRAIEmptyBody        = errors.New("pr: agent returned an empty body")
+	errPRWorktreeLeasedToVM = errors.New("pr: host branch may not contain VM commits")
 )
 
 const defaultBodyAgentName = "pi"
@@ -139,6 +140,9 @@ func runEditor(cmd *cobra.Command, name string, terminal, visual bool) error {
 	if err != nil {
 		return err
 	}
+	if state.IsLeasedToVM() {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: host worktree may be stale; run `af pull %s` for latest VM state\n", state.Session.Name) //nolint:errcheck // Informational warning.
+	}
 	target := cfg.Editor.Terminal
 	if visual {
 		target = cfg.Editor.Visual
@@ -167,6 +171,9 @@ func runDiff(cmd *cobra.Command, name, baseOverride string, web, forceInteractiv
 	state, _, err := loadProxyState(cmd.Context(), name)
 	if err != nil {
 		return err
+	}
+	if state.IsLeasedToVM() {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: host worktree may be stale; run `af pull %s` for latest VM state\n", state.Session.Name) //nolint:errcheck // Informational warning.
 	}
 
 	// Resolve base: explicit flag > stack parent branch > base_branch > HEAD.
@@ -212,6 +219,12 @@ func isInteractiveStdout(cmd *cobra.Command) bool {
 func runPR(cmd *cobra.Command, name string, opts prOptions) error {
 	if opts.ai && opts.web {
 		return fmt.Errorf("%w", errPRAIWebIncompatible)
+	}
+	// Check lease before loading full state; if held_by_vm the host branch
+	// may not contain the VM's commits, making the PR misleading.
+	stateEarly, stateEarlyErr := loadProxyStateOnly(cmd.Context(), name)
+	if stateEarlyErr == nil && stateEarly.IsLeasedToVM() {
+		return fmt.Errorf("%w (vm=%s); run `af pull %s` first", errPRWorktreeLeasedToVM, stateEarly.SlicerWT.VM, stateEarly.Session.Name)
 	}
 	state, cfg, err := loadProxyState(cmd.Context(), name)
 	if err != nil {
@@ -361,6 +374,18 @@ func buildProxyInvocation(cfgCmd config.ProxyCommandConfig, tokens proxy.Tokens,
 		return proxy.Command{}, fmt.Errorf("build argv command: %w", err)
 	}
 	return command, nil
+}
+
+func loadProxyStateOnly(_ context.Context, name string) (session.State, error) {
+	statePath, err := resolveLifecycleStatePath(name)
+	if err != nil {
+		return session.State{}, err
+	}
+	state, err := session.ReadState(statePath)
+	if err != nil {
+		return session.State{}, fmt.Errorf("proxy: %w: %w", errProxyNoState, err)
+	}
+	return state, nil
 }
 
 func loadProxyState(ctx context.Context, name string) (session.State, config.Config, error) {

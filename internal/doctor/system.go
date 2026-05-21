@@ -8,6 +8,30 @@ import (
 	"strings"
 )
 
+// SlicerWTAvailable reports whether the installed slicer binary supports the
+// `wt` (worktree) API required by ADR-065. It runs `slicer wt push --help`
+// and checks for a `--launch` flag in the output.
+//
+// Returns (true, "") when the wt API is available.
+// Returns (false, hint) when slicer is installed but lacks the wt API — the
+// caller should surface hint as a non-blocking warning.
+// Returns (false, "") when slicer is not on PATH at all.
+func SlicerWTAvailable(ctx context.Context) (bool, string) {
+	_, err := exec.LookPath("slicer")
+	if err != nil {
+		return false, ""
+	}
+	cmd := exec.CommandContext(ctx, "slicer", "wt", "push", "--help")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, "slicer is installed but `slicer wt push --help` failed; upgrade slicer to a build that includes the wt worktree API (ADR-065)"
+	}
+	if !strings.Contains(string(out), "--launch") {
+		return false, "slicer is installed but its `wt` API does not advertise --launch; upgrade slicer (ADR-065)"
+	}
+	return true, ""
+}
+
 // SystemLookup resolves binaries via os/exec.LookPath and runs
 // `<binary> --version` to capture a version line.
 type SystemLookup struct{}

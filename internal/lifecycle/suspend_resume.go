@@ -11,13 +11,20 @@ import (
 	"github.com/kakkoyun/af/internal/session"
 )
 
-// ErrLifecycleTransition reports an invalid state-machine transition.
-var ErrLifecycleTransition = errors.New("invalid lifecycle transition")
+var (
+	// ErrLifecycleTransition reports an invalid state-machine transition.
+	ErrLifecycleTransition = errors.New("invalid lifecycle transition")
+	// ErrSuspendLeasedToVM reports that the host worktree is still held by a slicer VM.
+	ErrSuspendLeasedToVM = errors.New("suspend: workstream is still leased to a slicer VM")
+)
 
 // SuspendOptions configures SuspendWorkstream.
 type SuspendOptions struct {
 	Now       time.Time
 	StatePath string
+	// Force allows suspending even when the worktree is leased to a slicer VM.
+	// It sets lease_state=discarded.
+	Force bool
 }
 
 // SuspendWorkstream transitions the workstream from active to suspended.
@@ -32,6 +39,10 @@ func SuspendWorkstream(_ context.Context, opts SuspendOptions) (session.State, e
 	next, ok := Apply(State(state.Session.Status), Suspend)
 	if !ok {
 		return state, fmt.Errorf("suspend: %w from %s", ErrLifecycleTransition, state.Session.Status)
+	}
+	state, err = checkAndClearLease(state, opts.Force, ErrSuspendLeasedToVM)
+	if err != nil {
+		return state, err
 	}
 	now := opts.Now
 	if now.IsZero() {

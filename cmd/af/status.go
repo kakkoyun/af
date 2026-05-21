@@ -68,11 +68,16 @@ func statusEmitJSON(cmd *cobra.Command, summaries []sessionSummary) error {
 	rows := make([]map[string]any, 0, len(summaries))
 	for i := range summaries {
 		s := summaries[i].state
-		rows = append(rows, map[string]any{
+		row := map[string]any{
 			"name":   s.Session.Name,
 			"status": s.Session.Status,
 			"branch": s.Worktree.Branch,
-		})
+		}
+		if s.SlicerWT.VM != "" {
+			row["slicer_wt_vm"] = s.SlicerWT.VM
+			row["slicer_wt_lease"] = string(s.SlicerWT.LeaseState)
+		}
+		rows = append(rows, row)
 	}
 	data, err := json.MarshalIndent(rows, "", "  ")
 	if err != nil {
@@ -99,7 +104,12 @@ func statusEmitText(cmd *cobra.Command, summaries []sessionSummary) error {
 		return fmt.Errorf("status write header: %w", err)
 	}
 	for i := range summaries {
-		_, err = fmt.Fprintf(w, "%-30s %-10s %s\n", summaries[i].state.Session.Name, summaries[i].state.Session.Status, summaries[i].state.Worktree.Branch)
+		s := summaries[i].state
+		suffix := ""
+		if s.SlicerWT.VM != "" {
+			suffix = " [vm=" + s.SlicerWT.VM + " lease=" + string(s.SlicerWT.LeaseState) + "]"
+		}
+		_, err = fmt.Fprintf(w, "%-30s %-10s %s%s\n", s.Session.Name, s.Session.Status, s.Worktree.Branch, suffix)
 		if err != nil {
 			return fmt.Errorf("status write row: %w", err)
 		}

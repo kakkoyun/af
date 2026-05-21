@@ -96,10 +96,11 @@ func locateInfoState(stateDir, name string, root *rootOptions) (string, error) {
 
 func writeInfoJSON(cmd *cobra.Command, state session.State, events []session.Event) error {
 	payload := map[string]any{
-		"session":  state.Session,
-		"worktree": state.Worktree,
-		"agents":   state.Agents,
-		"events":   events,
+		"session":   state.Session,
+		"worktree":  state.Worktree,
+		"slicer_wt": state.SlicerWT,
+		"agents":    state.Agents,
+		"events":    events,
 	}
 	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
@@ -134,6 +135,20 @@ func writeInfoCore(w io.Writer, state session.State) error {
 		"Worktree:  " + state.Worktree.Path,
 		"Repo:      " + state.Worktree.RepoSlug,
 		"Created:   " + state.Session.CreatedAt.Format("2006-01-02 15:04:05 MST"),
+	}
+	if state.SlicerWT.VM != "" {
+		wtLines := []string{
+			"",
+			"Slicer worktree:",
+			"  VM:        " + state.SlicerWT.VM,
+			"  Path:      " + state.SlicerWT.Path,
+			"  Pushed:    " + state.SlicerWT.PushedAt.Format("2006-01-02 15:04:05 MST"),
+		}
+		if state.SlicerWT.PulledAt != nil {
+			wtLines = append(wtLines, "  Pulled:    "+state.SlicerWT.PulledAt.Format("2006-01-02 15:04:05 MST"))
+		}
+		wtLines = append(wtLines, "  Lease:     "+string(state.SlicerWT.LeaseState))
+		lines = append(lines, wtLines...)
 	}
 	for _, line := range lines {
 		_, err := fmt.Fprintln(w, line)

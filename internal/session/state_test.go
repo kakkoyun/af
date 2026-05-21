@@ -339,3 +339,78 @@ func assertSlicerResources(t *testing.T, ex session.ExecutionState) {
 		t.Errorf("SandboxManagedGroup = %q, want af-myrepo-tight", ex.SandboxManagedGroup)
 	}
 }
+
+func TestState_RoundTrip_PreservesSlicerWT(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.toml")
+	now := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
+	pulledAt := now.Add(time.Hour)
+
+	in := session.State{
+		SchemaVersion: 1,
+		Session:       session.Info{Name: "demo", Status: "active", CreatedAt: now},
+		SlicerWT: session.SlicerWTState{
+			VM:         "sbox-abc123",
+			Path:       "/path/to/wt",
+			PushedAt:   now,
+			PulledAt:   &pulledAt,
+			LeaseState: session.SlicerWTLeasePulled,
+		},
+	}
+	err := session.WriteState(path, in)
+	if err != nil {
+		t.Fatalf("WriteState: %v", err)
+	}
+	out, err := session.ReadState(path)
+	if err != nil {
+		t.Fatalf("ReadState: %v", err)
+	}
+	if out.SlicerWT.VM != "sbox-abc123" {
+		t.Errorf("VM = %q, want sbox-abc123", out.SlicerWT.VM)
+	}
+	if out.SlicerWT.Path != "/path/to/wt" {
+		t.Errorf("Path = %q, want /path/to/wt", out.SlicerWT.Path)
+	}
+	if out.SlicerWT.LeaseState != session.SlicerWTLeasePulled {
+		t.Errorf("LeaseState = %q, want pulled", out.SlicerWT.LeaseState)
+	}
+	if out.SlicerWT.PulledAt == nil {
+		t.Fatal("PulledAt is nil")
+	}
+	if !out.SlicerWT.PulledAt.Equal(pulledAt) {
+		t.Errorf("PulledAt = %v, want %v", out.SlicerWT.PulledAt, pulledAt)
+	}
+}
+
+func TestSlicerWTLeaseState_Constants(t *testing.T) {
+	t.Parallel()
+	if session.SlicerWTLeaseHeldByVM != "held_by_vm" {
+		t.Errorf("HeldByVM = %q", session.SlicerWTLeaseHeldByVM)
+	}
+	if session.SlicerWTLeasePulled != "pulled" {
+		t.Errorf("Pulled = %q", session.SlicerWTLeasePulled)
+	}
+	if session.SlicerWTLeaseDiscarded != "discarded" {
+		t.Errorf("Discarded = %q", session.SlicerWTLeaseDiscarded)
+	}
+}
+
+func TestState_IsLeasedToVM(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		lease session.SlicerWTLeaseState
+		want  bool
+	}{
+		{session.SlicerWTLeaseHeldByVM, true},
+		{session.SlicerWTLeasePulled, false},
+		{session.SlicerWTLeaseDiscarded, false},
+		{"", false},
+	}
+	for _, tc := range cases {
+		s := session.State{SlicerWT: session.SlicerWTState{LeaseState: tc.lease}}
+		if got := s.IsLeasedToVM(); got != tc.want {
+			t.Errorf("lease=%q: IsLeasedToVM()=%v, want %v", tc.lease, got, tc.want)
+		}
+	}
+}

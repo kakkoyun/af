@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/kakkoyun/af/internal/session"
 )
 
 func TestStatus_DefaultExcludesCompleted(t *testing.T) {
@@ -63,5 +65,22 @@ func TestStatus_JSONEmitsValidJSON(t *testing.T) {
 		if _, ok := rows[0][key]; !ok {
 			t.Fatalf("JSON row missing key %q; row: %v", key, rows[0])
 		}
+	}
+}
+
+func TestStatus_ShowsLease(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionStateWithLease(t, home, "leased-status", session.SlicerWTLeaseHeldByVM)
+
+	stdout, _, err := executeCommand(t, newRootCmd(), "status")
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if !strings.Contains(stdout, "sbox-abc") {
+		t.Errorf("status output missing VM name; got:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "held_by_vm") {
+		t.Errorf("status output missing lease state; got:\n%s", stdout)
 	}
 }

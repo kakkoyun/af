@@ -13,22 +13,41 @@ import (
 	"github.com/kakkoyun/af/internal/session"
 )
 
-// ErrDoneAlreadyTerminal reports a Done on a workstream already in a
-// terminal state.
-var ErrDoneAlreadyTerminal = errors.New("workstream already terminal")
+var (
+	// ErrDoneAlreadyTerminal reports a Done on a workstream already in a terminal state.
+	ErrDoneAlreadyTerminal = errors.New("workstream already terminal")
+	// ErrDoneLeasedToVM reports that the host worktree is still held by a slicer VM.
+	ErrDoneLeasedToVM = errors.New("done: workstream is still leased to a slicer VM")
+)
 
 // DoneOptions configures Done.
 type DoneOptions struct {
 	Now        time.Time
 	StatePath  string
 	ArchiveDir string
-	Force      bool
+	// Force treats the workstream as Abandoned and skips safety checks.
+	// When the worktree is leased to a VM, Force sets lease_state=discarded.
+	Force bool
 }
 
 // DoneDeps wires Done to its external collaborators.
 type DoneDeps struct {
 	Git git.Runner
 	Mux mux.Multiplexer
+}
+
+// checkAndClearLease guards against starting a destructive operation while the
+// host worktree is leased to a slicer VM. If force is true it sets the lease
+// state to discarded; otherwise it returns baseErr with a hint.
+func checkAndClearLease(state session.State, force bool, baseErr error) (session.State, error) {
+	if !state.IsLeasedToVM() {
+		return state, nil
+	}
+	if !force {
+		return state, fmt.Errorf("%w (vm=%s); run `af pull` first or pass --force", baseErr, state.SlicerWT.VM)
+	}
+	state.SlicerWT.LeaseState = session.SlicerWTLeaseDiscarded
+	return state, nil
 }
 
 // FinishWorkstream cleans up the workstream: kills the tmux session,
@@ -44,6 +63,10 @@ func FinishWorkstream(ctx context.Context, deps DoneDeps, opts DoneOptions) (ses
 	}
 	if IsTerminal(State(state.Session.Status)) {
 		return state, fmt.Errorf("done: %w (status=%s)", ErrDoneAlreadyTerminal, state.Session.Status)
+	}
+	state, err = checkAndClearLease(state, opts.Force, ErrDoneLeasedToVM)
+	if err != nil {
+		return state, err
 	}
 
 	killMuxSession(ctx, deps.Mux, state.Execution.TmuxSession)

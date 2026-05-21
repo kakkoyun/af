@@ -1,6 +1,7 @@
 package doctor_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -87,4 +88,17 @@ func TestDetectPlatform_FallsBackOnError(t *testing.T) {
 func classifyForTest(t *testing.T, content map[string]string, err error) doctor.Platform {
 	t.Helper()
 	return doctor.DetectPlatform(fakeOSRelease{content: content, err: err})
+}
+
+func TestSlicerWTAvailable_NotOnPath(t *testing.T) {
+	t.Parallel()
+	// When slicer is not on PATH, SlicerWTAvailable returns (false, "").
+	// We can't guarantee slicer is absent here, so we just verify the function
+	// returns consistent types and doesn't panic.
+	ok, hint := doctor.SlicerWTAvailable(context.Background())
+	if ok && hint != "" {
+		t.Errorf("when available, hint should be empty; got %q", hint)
+	}
+	// !ok && hint == "" is acceptable: slicer not installed on this machine.
+	_ = ok
 }

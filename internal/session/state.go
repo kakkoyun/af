@@ -32,6 +32,28 @@ var (
 	errEventTypeMissing      = errors.New("ledger event type is required")
 )
 
+// SlicerWTLeaseState describes who currently holds the worktree.
+type SlicerWTLeaseState string
+
+const (
+	// SlicerWTLeaseHeldByVM means the VM was pushed and hasn't been pulled yet.
+	SlicerWTLeaseHeldByVM SlicerWTLeaseState = "held_by_vm"
+	// SlicerWTLeasePulled means the VM work was pulled back to the host.
+	SlicerWTLeasePulled SlicerWTLeaseState = "pulled"
+	// SlicerWTLeaseDiscarded means the lease was forcibly released (af done/suspend --force).
+	SlicerWTLeaseDiscarded SlicerWTLeaseState = "discarded"
+)
+
+// SlicerWTState records the host-worktree lease for a slicer-wt workstream (ADR-065).
+// All fields are individually omitempty; the section is omitted entirely when VM is empty.
+type SlicerWTState struct {
+	PushedAt   time.Time          `toml:"pushed_at,omitempty"`
+	PulledAt   *time.Time         `toml:"pulled_at,omitempty"`
+	VM         string             `toml:"vm,omitempty"`
+	Path       string             `toml:"path,omitempty"`
+	LeaseState SlicerWTLeaseState `toml:"lease_state,omitempty"`
+}
+
 // State is the v1 state.toml schema for one workstream.
 type State struct {
 	Session       Info           `toml:"session"`
@@ -40,8 +62,14 @@ type State struct {
 	Execution     ExecutionState `toml:"execution"`
 	Worktree      WorktreeState  `toml:"worktree"`
 	PR            PRState        `toml:"pr"`
+	SlicerWT      SlicerWTState  `toml:"slicer_wt"`
 	Agents        []AgentState   `toml:"agents"`
 	SchemaVersion int            `toml:"schema_version"`
+}
+
+// IsLeasedToVM reports whether the host worktree is currently held by a slicer VM.
+func (s State) IsLeasedToVM() bool {
+	return s.SlicerWT.LeaseState == SlicerWTLeaseHeldByVM
 }
 
 // Info stores workstream identity and lifecycle status.
