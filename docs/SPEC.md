@@ -225,6 +225,7 @@ workstreams.
 | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `af session-data sync [session] [--agent all\|claude\|codex\|pi\|harness] [--continue-host] [--dry-run]` | Inventory + copy session data from the VM home directory into the host's matching agent/harness directories. Idempotent. |
 | `af session-data list [session] [--vm VM]`                                               | Inventory session files in the VM without importing.                                                                                     |
+| `af pull [session]`                                                                      | Run `slicer wt pull` for the workstream; import VM branches, fast-forward host branch, release the lease (ADR-065).                      |
 
 `af suspend` and `af done` invoke `af session-data sync --agent all`
 automatically before tearing down the VM. `--continue-host`
@@ -583,6 +584,14 @@ user must not edit the host worktree until pull completes.
 
 `state.toml.[sandbox.slicer.lease]` records the holder VM and last
 push/pull timestamps (ADR-072).
+
+`af` wraps the pull side with an `af pull [session]` command (added
+by Stage 11 implementation): it dispatches `slicer wt pull` for the
+workstream, imports VM branches under `refs/slicer/<vm>/*`,
+fast-forwards the host branch, and releases the lease. The
+workstream must have `[sandbox.slicer.lease].holder_vm != ""`
+(`lease_state = held_by_vm`). After `af pull`, the host branch
+carries the VM commits and can be pushed normally.
 
 ### 10.3 Agent session-data sync
 

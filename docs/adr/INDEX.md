@@ -46,7 +46,7 @@ convention defined in [ADR-032](032-adr-conventions.md).
 | [062](062-repo-scoped-slicer-vm-resources.md)     | Repo-Scoped Slicer VM Resource Profiles                                        | proposed | complete       | go, sandbox, slicer, resources       |
 | [063](063-remote-control-via-tailscale-and-superterm.md) | Remote Control via Tailscale Serve and superterm                        | proposed | complete       | go, remote, tailscale, superterm     |
 | [064](064-opinionated-diff-rendering.md)          | Opinionated Diff Rendering (hunk + diffity)                                    | proposed | complete       | go, command, diff, hunk, diffity     |
-| [065](065-slicer-worktree-transport.md)           | Slicer Worktree Transport (`slicer wt`)                                        | proposed | pending        | go, sandbox, slicer, worktree, git   |
+| [065](065-slicer-worktree-transport.md)           | Slicer Worktree Transport (`slicer wt`)                                        | proposed | complete       | go, sandbox, slicer, worktree, git   |
 | [066](066-agent-session-export-from-slicer-vms.md) | Agent Session Export from Slicer VMs                                          | proposed | pending        | go, sandbox, slicer, session, export |
 | [067](067-automatic-agent-session-export.md)      | Automatic Agent Session Export and Sync State                                  | proposed | pending        | go, sandbox, slicer, session, state  |
 | [068](068-operational-ux-contract.md)             | Operational UX Contract (JSON, exit codes, TTY, concurrency, completion)       | proposed | pending        | go, ux, json, exit-codes             |
