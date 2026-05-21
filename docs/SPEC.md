@@ -214,7 +214,7 @@ exposes the whole tmux server.
 | `af control down [--remote HOST]`                                    | Tear down the remote-control binding.                                                                            |
 | `af control status [--remote HOST] [--json]`                         | Report up/down + Tailscale URL + bound tmux server.                                                              |
 
-Repo config (`<repo>/.af/config.toml`) sets `[control].remote_control = "superterm"` to opt the repo in (ADR-061); state.toml captures `[control].provider/port/bound_at` (ADR-072).
+Repo config (`<repo>/.af/config.toml`) sets `[control].remote_control = "superterm"` to opt the repo in (ADR-061); state.toml captures `execution.remote_control` (ADR-072).
 
 ### 3.13 VM agent session-data sync
 
@@ -315,18 +315,22 @@ everything.
 
 ### 5.2 `state.toml` schema (v1, schema_version = 1)
 
-Foundational schema is defined in ADR-037; the consolidated schema
-(absorbing ADR-059, ADR-061, ADR-062, ADR-065, ADR-067, ADR-071,
-ADR-072) is:
+Foundational schema is defined in ADR-037; the consolidated
+as-implemented schema is defined in ADR-072. ADRs 061, 062, 065 are
+fully implemented (Stage 10 + Stage 11). ADRs 067 (session sync) and
+071 (PR cache) are accepted but implementation pending; their fields
+are marked **PROPOSED** below.
 
 ```toml
 schema_version = 1
 
 [session]
-name         = "kakkoyun--issue-42"
-id           = "<uuid v5>"
-created_at   = 2026-05-06T12:00:00Z
-status       = "active"             # active | suspended | completed | abandoned
+name          = "kakkoyun--issue-42"
+id            = "<uuid v5>"
+created_at    = 2026-05-06T12:00:00Z
+status        = "active"            # active | suspended | completed | abandoned
+approval_mode = ""                  # optional; agent-provider approval override
+max_agents    = 0                   # optional; 0 = config default
 # suspended_at omitted until status = "suspended"
 
 [worktree]
@@ -334,7 +338,7 @@ path         = "/Users/kemal/Workspace/.worktrees/af/kakkoyun--issue-42"
 branch       = "kakkoyun/issue-42"
 base_branch  = "upstream/main"
 git_root     = "/Users/kemal/Workspace/Projects/Personal/af"
-repo_slug    = "kakkoyun/af"        # owner/name from upstream/origin; "" => `af status` renders CI as n/a
+repo_slug    = "kakkoyun/af"        # owner/name from upstream/origin; "" => `af status` CI = n/a
 
 [execution]
 mode             = "local"          # local | bare | remote | sandbox
@@ -342,8 +346,17 @@ multiplexer      = "tmux"
 tmux_session     = "kakkoyun--issue-42"
 ssh_host         = ""               # populated for remote mode
 remote_path      = ""
-sandbox_provider = ""               # "" | "slicer"   (ADR-060; "sbx" rejected on load)
+sandbox_provider = ""               # "" | "slicer" (ADR-060; "sbx" rejected on load)
 sandbox_id       = ""
+remote_control               = ""   # ADR-061 capture; "" | "superterm" (omitempty)
+sandbox_resource_profile     = ""   # ADR-062 captured profile (all omitempty below)
+sandbox_resource_vcpu        = 0
+sandbox_resource_ram_gb      = 0
+sandbox_resource_storage_size = ""
+sandbox_resource_gpu_count   = 0
+sandbox_resource_image       = ""
+sandbox_resource_hypervisor  = ""
+sandbox_managed_group        = ""   # "af-<slug>-<profile>" or explicit group
 
 [[agents]]
 slot            = "primary"
@@ -359,38 +372,26 @@ created_at      = 2026-05-06T12:00:00Z
 [pr]
 number              = 0
 url                 = ""
-state               = ""            # "" | open | draft | closed | merged   (ADR-071)
-last_refreshed_at   = ""            # ISO; "" = never refreshed              (ADR-071)
-last_refresh_error  = ""            # truncated 120-char error; cleared on success (ADR-071)
+state               = ""            # "" | open | draft | closed | merged
+# PROPOSED (ADR-071, implementation pending):
+last_refreshed_at   = ""            # ISO; "" = never refreshed
+last_refresh_error  = ""            # truncated 120-char error
 
-[stack]                             # ADR-059 — omitted when parent_session == ""
+[stack]                             # ADR-059 — always present; empty when unstacked
 parent_session = ""
 parent_branch  = ""
 # linked_at omitted until the parent is set
 
-[control]                           # ADR-061 — omitted when repo opt-out
-provider        = ""                # captured from repo [control].remote_control
-port            = 0                 # set by `af control up`; 0 when down
-bound_at        = ""                # ISO; "" until first up
+[slicer_wt]                         # ADR-065 — omitted entirely when vm == ""
+vm            = ""                  # holder VM; "" when not leased
+path          = ""                  # worktree path leased to the VM
+pushed_at     = 2026-05-21T15:00:00Z
+pulled_at     = ""                  # ISO; set after `slicer wt pull`
+lease_state   = ""                  # held_by_vm | pulled | discarded
 
-[sandbox.slicer.resources]          # ADR-062 — omitted unless slicer + non-default resources
-profile_name    = ""                # "" = default-group launch
-group           = ""                # "af-<slug>-<profile>" or explicit
-vcpu            = 0
-ram_gb          = 0
-storage_size    = ""
-gpu_count       = 0
-image           = ""
-hypervisor      = ""
-
-[sandbox.slicer.lease]              # ADR-065 — omitted until first `slicer wt push`
-holder_vm       = ""
-last_push_at    = ""
-last_pull_at    = ""
-
-[[session_sync]]                    # ADR-067 — one entry per agent/harness ever synced
+[[session_sync]]                    # PROPOSED (ADR-067, implementation pending)
 agent           = "claude"          # claude | codex | pi | harness
-source_root     = "/home/agent/.claude/sessions"   # VM-side path
+source_root     = "/home/agent/.claude/sessions"
 last_synced_at  = ""
 last_hash       = ""                # sha256 of last imported tail
 last_offset     = 0                 # byte offset for resumable JSONL appends
@@ -569,9 +570,10 @@ Defined in ADR-062. Repo config `[sandbox.slicer.resources]` declares
 the desired profile (vcpu, ram, storage, gpu, image, hypervisor).
 `af create --sandbox slicer` resolves a managed group named
 `af-<repo-slug>-<profile>`, probes Slicer for its existence, creates
-it with `count: 0` if missing, and records the effective profile in
-`state.toml.[sandbox.slicer.resources]`. Group-shape mismatch is a
-hard error.
+it with `count: 0` if missing, and records the effective profile as
+flat fields under `state.toml.[execution]` (prefix
+`sandbox_resource_*` + `sandbox_managed_group`; see ADR-072
+§Block-naming rationale). Group-shape mismatch is a hard error.
 
 ### 10.2 Worktree transport (`slicer wt`)
 
@@ -582,16 +584,17 @@ sync); `slicer wt pull` brings VM commits back as
 `refs/slicer/<vm>/*` refs that fast-forward the host branch. The
 user must not edit the host worktree until pull completes.
 
-`state.toml.[sandbox.slicer.lease]` records the holder VM and last
-push/pull timestamps (ADR-072).
+`state.toml.[slicer_wt]` records the holder VM, the leased worktree
+path, push/pull timestamps, and a `lease_state` of
+`held_by_vm | pulled | discarded` (ADR-072).
 
 `af` wraps the pull side with an `af pull [session]` command (added
 by Stage 11 implementation): it dispatches `slicer wt pull` for the
 workstream, imports VM branches under `refs/slicer/<vm>/*`,
-fast-forwards the host branch, and releases the lease. The
-workstream must have `[sandbox.slicer.lease].holder_vm != ""`
-(`lease_state = held_by_vm`). After `af pull`, the host branch
-carries the VM commits and can be pushed normally.
+fast-forwards the host branch, and updates the lease to `pulled`.
+The workstream must have `[slicer_wt].lease_state == "held_by_vm"`.
+After `af pull`, the host branch carries the VM commits and can be
+pushed normally.
 
 ### 10.3 Agent session-data sync
 
