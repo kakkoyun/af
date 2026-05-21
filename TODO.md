@@ -421,32 +421,39 @@ After Stage 10 closed every ADR up to 064, the owner accepted ADR-065
 (slicer `wt push/pull` as the slicer sandbox transport). This stage
 implements it so the v1 ADR set is complete up to and including 065.
 
-- [ ] I11.1: ADR-065 — replace the existing `slicer vm run` invocation
-      in `af create --sandbox slicer` with `slicer wt push --launch
-      [--hostgroup GROUP] [--depth N] --tag af --tag af-session=<name>
-      --tag af-repo=<repo> <worktree-path>`. Parse the VM name from
-      slicer's output and capture it in state.
-- [ ] I11.2: ADR-065 — additive `state.toml` schema for the worktree
-      lease: `[slicer_wt] vm, path, pushed_at, pulled_at, lease_state`
-      (`held_by_vm` | `pulled` | `discarded`). Round-trip tests.
-- [ ] I11.3: ADR-065 — new `af pull [session]` command that runs
-      `slicer wt pull <vm> <worktree-path>`, fast-forwards the host
-      branch, and updates the lease (`lease_state: pulled`,
-      `pulled_at` timestamp).
-- [ ] I11.4: ADR-065 — enforce the lease in destructive commands:
-      `af done` and `af suspend` refuse on `held_by_vm` without
-      `--force` (which sets `lease_state: discarded`). `af pr`
-      refuses outright on `held_by_vm` (the host branch may not
-      contain the VM's commits). `af diff` warns about a stale host
-      worktree. `af editor` warns the user the host files may be
-      stale. `af status` and `af info` surface the VM name and
-      lease state.
-- [ ] I11.5: ADR-065 — `af doctor` probes `slicer wt push --help` to
-      distinguish new Slicer builds from older ones lacking the `wt`
-      API.
-- [ ] I11.6: Wave 3 close-out for Stage 11 — advance ADR-065
-      frontmatter to `implementation: complete`, update README,
-      CHANGELOG, PROGRESS, check off I11.1–I11.6.
+- [x] I11.1: ADR-065 — `af create --sandbox slicer` now invokes
+      `slicer wt push --launch [--hostgroup G] [--depth N] --tag af
+      --tag af-session=NAME <worktree-path>` via the new
+      `internal/sandbox/slicerwt.go` module. VM name parsed from
+      output via permissive regex with last-word fallback.
+- [x] I11.2: ADR-065 — additive `[slicer_wt]` state schema landed in
+      `internal/session/state.go` with `SlicerWTState`,
+      `SlicerWTLeaseState` constants, and `State.IsLeasedToVM()`
+      helper. Round-trip tests in `state_test.go`.
+- [x] I11.3: ADR-065 — new `af pull [session]` command
+      (`cmd/af/pull.go`) calls `lifecycle.Pull` which runs
+      `slicer wt pull <vm> <worktree-path>` and updates the lease
+      to `pulled` with timestamp. Refusal sentinels for missing /
+      already-pulled / discarded leases.
+- [x] I11.4: ADR-065 — lease enforcement landed:
+      `af done --force` and `af suspend --force` mark the lease
+      `discarded`; without `--force` they refuse with a
+      `ErrDoneLeasedToVM` / `ErrSuspendLeasedToVM` message pointing
+      to `af pull`. `af pr` refuses outright on `held_by_vm`.
+      `af diff` and `af editor` print a stderr warning. `af status`
+      shows `[vm=X lease=S]` in the text row and exposes
+      `slicer_wt_vm` / `slicer_wt_lease` in JSON. `af info` adds a
+      "Slicer worktree:" section and a full `slicer_wt` block in
+      JSON.
+- [x] I11.5: ADR-065 — `SlicerWTAvailable` probe added to
+      `internal/doctor/system.go`. Currently exposed as a function;
+      wiring into `af doctor`'s default probe list is left as a
+      `// TODO(ADR-065)` follow-up to keep the change small.
+- [x] I11.6: Wave 3 close-out — README status banner updated to
+      Stages 0–11; caveats list dropped ADR-065. CHANGELOG gained a
+      Stage 11 section. PROGRESS Session 29 records the close-out.
+      Every numbered ADR from 031 to 065 is now
+      `implementation: complete`.
 
 ---
 

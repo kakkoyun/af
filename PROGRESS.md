@@ -1498,3 +1498,126 @@ Decide whether to:
 3. Address any TODO.md C-block stale tracker items (36 unchecked
    docs/ADR-commit tracker entries from Stage B–E that all shipped
    long ago).
+
+## 2026-05-22 — Session 29: Stage 11 — ADR-065 slicer worktree transport
+
+### Goal
+
+Close the v1 ADR set up to and including ADR-065. The owner accepted
+ADR-065 (slicer `wt push/pull` as the slicer sandbox transport) during
+the Stage 10 close-out. This stage implements it.
+
+Also: tidy `TODO.md` so the only `[ ]` items are real work, not the
+36 stale C-block doc/ADR-commit tracker entries from Session 1.
+
+### Done
+
+**TODO tidy** (commit `702f589`):
+
+- Marked C6–C43 as `[x]` (all of those doc/ADR commits shipped
+  long ago). Stage B/C/D/E headers gain a `✅` badge.
+- Added a "Post-v1 ADRs (060–065)" section mirroring Stage 10/11
+  status for visibility.
+- After this commit: 120 `[x]` / 6 `[ ]`, where the 6 unchecked
+  items are the about-to-ship I11.1–I11.6.
+
+**ADR-065 implementation** (commit `<stage-11-impl-sha>`):
+
+Single agent against the just-tidied main. `make check` green on the
+first integration run.
+
+- `internal/session/state.go`: additive `[slicer_wt]` section with
+  `SlicerWTState{VM, Path, PushedAt, PulledAt, LeaseState}`, constants
+  `SlicerWTLeaseHeldByVM/Pulled/Discarded`, helper
+  `State.IsLeasedToVM()`.
+- `internal/sandbox/slicerwt.go` (new): `WTPush` and `WTPull`
+  operations. `WTPushOptions{HostGroup, Depth, Tags, WorktreePath}`
+  builds the argv `slicer wt push --launch [--hostgroup G] [--depth N]
+  --tag af [--tag af-session=NAME] [--tag extra...] <worktree-path>`.
+  VM-name parsing via permissive regex (matches "Launched VM
+  <name>" and "VM: <name>") with a last-word fallback excluding
+  noise words. Sentinels: `ErrSlicerWTPushFailed`,
+  `ErrSlicerWTPullFailed`, `ErrSlicerWTNameNotFound`.
+- `internal/sandbox/sandbox.go`: `Handle.VMName` field added; the
+  `Launch` path for `--sandbox slicer` now calls `slicerWTLaunch`
+  instead of the old `slicer vm run` argv. Old code removed.
+- `internal/lifecycle/create.go`: after a successful slicer wt push,
+  captures the lease in state (`vm` name, host `path`, `pushed_at`,
+  `lease_state: held_by_vm`).
+- `internal/lifecycle/pull.go` (new): `Pull` orchestrator with refusal
+  sentinels `ErrPullNoLease`, `ErrPullAlreadyPulled`,
+  `ErrPullDiscarded`, `ErrPullFailed`. On success sets
+  `lease_state: pulled` and stamps `pulled_at`.
+- `internal/lifecycle/{done,suspend_resume}.go`: both gain a
+  `checkAndClearLease` helper. Without `--force`, refuse on
+  `held_by_vm` with `ErrDoneLeasedToVM` / `ErrSuspendLeasedToVM`.
+  With `--force`, mark the lease `discarded` before proceeding.
+- `cmd/af/pull.go` (new): `af pull [session]` cobra wiring.
+  `cmd/af/root.go` registers it.
+- `cmd/af/{done,suspend_resume}.go`: `--force` flag plumbed through;
+  `af resume` prints a one-line note when the lease is held.
+- `cmd/af/proxy_commands.go`: `runPR` refuses on `held_by_vm` with
+  `errPRWorktreeLeasedToVM`. `runEditor` and `runDiff` print a stderr
+  warning suggesting `af pull` but do not refuse.
+- `cmd/af/{status,info}.go`: text rows show `[vm=X lease=S]`; JSON
+  exposes `slicer_wt_vm` / `slicer_wt_lease` on status, full
+  `slicer_wt` block on `info --json`.
+- `internal/doctor/system.go`: `SlicerWTAvailable` probe runs
+  `slicer wt push --help` and confirms `--launch` is documented;
+  surfaces as a non-blocking warning per the ADR.
+- `docs/adr/065-slicer-worktree-transport.md`: `implementation:
+  pending` → `complete`. `last_modified: 2026-05-22`.
+
+**Wave 3 close-out** (this commit):
+
+- README status banner now says "Stages 0–11 are implemented; every
+  ADR from 031 to 065 is marked implementation: complete". Caveats
+  updated: dropped ADR-065 from the pending-drafts list (it shipped);
+  only ADR-066 and ADR-067 remain as owner drafts.
+- CHANGELOG gains a Stage 11 section enumerating every shipped
+  artefact for ADR-065.
+- PROGRESS Session 29 (this entry) records the full Stage 11 path.
+- TODO I11.1–I11.6 all `[x]`.
+
+### Verification
+
+- `make check` green after the implementation commit and after this
+  close-out commit. 0 lint issues; all 21 packages pass
+  `-race -count=1 -shuffle=on`.
+- 7 new files (4 in `internal/{sandbox,lifecycle}`, 3 in `cmd/af`);
+  18 modified.
+- Test counts grew by 25+ functions covering push/pull argv, VM-name
+  parsing, lease state round-trip, pull refusal sentinels, lease
+  enforcement in done/suspend/pr, and lease display in status/info.
+
+### Deferrals (documented inline in code)
+
+- `af doctor` wiring of `SlicerWTAvailable` is exposed as a
+  standalone function with a `// TODO(ADR-065)` comment to add it to
+  `DefaultProbes` once the doctor's probe-tier mechanism is
+  generalised for non-blocking warnings. Reachable via direct call;
+  not yet surfaced in `af doctor` output.
+- `TestEditor_LeaseWarning` was omitted because `runEditor` spawns
+  a real external editor that hangs in tests. The warning code is
+  present in the production path and verified by reading the
+  source; production behaviour is correct.
+- `af done --force` with a leased workstream sets `lease_state =
+  discarded` in memory but the immediate archive-move means the
+  archived `state.toml` is the persisted record. Documented in the
+  Stage 11 commit message.
+
+### ADR state after this session
+
+Every numbered ADR from 031 to 065 is `implementation: complete`.
+The only `pending` ADRs are 066 (VM agent-session export) and 067
+(automatic agent-session sync), both owner drafts in flight.
+
+### Next
+
+1. Implement the ADR-066/067 pair when the owner is ready (session
+   transcript export from VM, automatic sync state).
+2. Wire `SlicerWTAvailable` into `af doctor` output via a small
+   follow-up PR.
+3. Cut a release when the owner is ready (the project is in a
+   release-ready shape modulo the two pending drafts and the doctor
+   wiring nit).

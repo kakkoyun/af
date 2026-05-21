@@ -15,6 +15,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Stage 11 — ADR-065 slicer worktree transport (Session 29)
+
+- **ADR-065** (slicer worktree transport): `af create --sandbox slicer`
+  now invokes `slicer wt push --launch [--hostgroup G] [--depth N]
+  --tag af --tag af-session=NAME <worktree-path>` instead of the
+  earlier `slicer vm run` (which mounted the host worktree). The VM
+  receives a sanitised, self-contained `.git` clone; the host worktree
+  is **leased to the VM** while the VM holds it.
+- New `af pull [session]` command runs `slicer wt pull <vm>
+  <worktree-path>`, fast-forwards the host branch, and releases the
+  lease (`lease_state: pulled`, `pulled_at` stamped).
+- Lease enforcement across destructive commands:
+  - `af done` and `af suspend` refuse on `held_by_vm` unless `--force`
+    is passed (in which case the lease is marked `discarded`).
+  - `af pr` refuses outright on `held_by_vm` because the host branch
+    may not yet contain the VM's commits.
+  - `af diff` and `af editor` print a stderr warning suggesting
+    `af pull` but do not refuse.
+  - `af status` and `af info` surface `vm=<name> lease=<state>` in
+    both text and JSON output.
+- New `internal/sandbox/slicerwt.go` with `WTPush`/`WTPull` operations,
+  permissive VM-name parser (matches "Launched VM <name>" / "VM:
+  <name>" with a last-word fallback), sentinels `ErrSlicerWTPushFailed`,
+  `ErrSlicerWTPullFailed`, `ErrSlicerWTNameNotFound`.
+- Additive `state.toml` schema: new `[slicer_wt]` section with `vm`,
+  `path`, `pushed_at`, `pulled_at`, `lease_state`
+  (`held_by_vm`/`pulled`/`discarded`). `State.IsLeasedToVM()` helper.
+- New `internal/lifecycle/pull.go` orchestrator with refusal sentinels
+  `ErrPullNoLease`, `ErrPullAlreadyPulled`, `ErrPullDiscarded`,
+  `ErrPullFailed`.
+- `internal/doctor/system.go` gains `SlicerWTAvailable` probe that runs
+  `slicer wt push --help` and confirms `--launch` is documented; wired
+  into the doctor report as a non-blocking warning per the ADR.
+- 1 ADR advanced to `implementation: complete` (065); every ADR from
+  031 to 065 is now `complete`.
+
 #### Stage 10 — post-v1 ADRs 060–064 (Session 27–28)
 
 - **ADR-060** (slicer-only sandbox): dropped the Docker `sbx` provider

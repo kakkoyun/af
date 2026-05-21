@@ -6,17 +6,19 @@ dedicated worktree, a tmux session, and launches a primary agent (pi, claude, or
 codex) — all tied together under a single durable state file. When the task is
 done, everything is cleaned up with one command.
 
-> **Status — v1 (single-user).** Stages 0–10 are implemented; every ADR
-> from 031 to 064 is marked `implementation: complete`. `make check` is
+> **Status — v1 (single-user).** Stages 0–11 are implemented; every ADR
+> from 031 to 065 is marked `implementation: complete`. `make check` is
 > green. The proxy commands (`af editor`, `af diff`, `af pr`, `af retro`),
 > suspend/resume lifecycle, stack-aware `af sync`, opinionated diff
 > rendering (hunk + diffity), repo-scoped `[control]` settings,
 > `af control up/down/status` remote-control via Tailscale + superterm,
 > slicer-only sandbox with `[sandbox.slicer.resources]` profile capture,
-> and goreleaser snapshot builds are all exercised by unit + integration
-> testscripts. Remote / sandbox launches go through `secret.Envelope`
-> for ephemeral env-file transport. See [Caveats](#caveats) for the
-> remaining single-user assumptions.
+> slicer worktree transport (`slicer wt push/pull`) with host-worktree
+> lease enforcement and `af pull`, and goreleaser snapshot builds are
+> all exercised by unit + integration testscripts. Remote / sandbox
+> launches go through `secret.Envelope` for ephemeral env-file
+> transport. See [Caveats](#caveats) for the remaining single-user
+> assumptions.
 
 ## Installation
 
@@ -203,10 +205,9 @@ strictly verified; a tightening pass lands when slicer ships such an
 API. See `internal/sandbox/resources.go` (`// ADR-062 §Resolution step
 6`) for the exact deferral.
 
-**Pending draft ADRs.** ADR-065 (`slicer wt` worktree transport), ADR-066
-(VM agent-session export), and ADR-067 (automatic session sync) are
-`status: proposed, implementation: pending`. They are the next batch of
-work after Stage 10.
+**Pending draft ADRs.** ADR-066 (VM agent-session export) and ADR-067
+(automatic session sync) are `status: proposed, implementation:
+pending`. They are the next batch of work after Stage 11.
 
 ## Building
 
