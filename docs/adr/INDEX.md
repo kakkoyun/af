@@ -41,8 +41,21 @@ convention defined in [ADR-032](032-adr-conventions.md).
 | [057](057-af-pr-ai-body.md)                       | `af pr --ai` — Agent-Authored PR Body                                          | proposed | pending        | go, command, agent, pr, ai           |
 | [058](058-af-retro-mining.md)                     | `af retro` — Mine Archived Workstream Notes                                    | proposed | pending        | go, command, obsidian, retrospective |
 | [059](059-stack-aware-branches.md)                | Stack-Aware Branch Model                                                       | proposed | pending        | go, stack, branch, rebase, lifecycle |
+| [060](060-slicer-only-sandbox-provider.md)        | Slicer-Only Sandbox Provider (drop sbx)                                        | proposed | complete       | go, sandbox, slicer, scope           |
+| [061](061-repo-scoped-control-settings.md)        | Repo-Scoped Control Settings                                                   | proposed | complete       | go, config, repo, control            |
+| [062](062-repo-scoped-slicer-vm-resources.md)     | Repo-Scoped Slicer VM Resource Profiles                                        | proposed | complete       | go, sandbox, slicer, resources       |
+| [063](063-remote-control-via-tailscale-and-superterm.md) | Remote Control via Tailscale Serve and superterm                        | proposed | complete       | go, remote, tailscale, superterm     |
+| [064](064-opinionated-diff-rendering.md)          | Opinionated Diff Rendering (hunk + diffity)                                    | proposed | complete       | go, command, diff, hunk, diffity     |
+| [065](065-slicer-worktree-transport.md)           | Slicer Worktree Transport (`slicer wt`)                                        | proposed | pending        | go, sandbox, slicer, worktree, git   |
+| [066](066-agent-session-export-from-slicer-vms.md) | Agent Session Export from Slicer VMs                                          | proposed | pending        | go, sandbox, slicer, session, export |
+| [067](067-automatic-agent-session-export.md)      | Automatic Agent Session Export and Sync State                                  | proposed | pending        | go, sandbox, slicer, session, state  |
+| [068](068-operational-ux-contract.md)             | Operational UX Contract (JSON, exit codes, TTY, concurrency, completion)       | proposed | pending        | go, ux, json, exit-codes             |
+| [069](069-boundary-and-privacy.md)                | Boundary & Privacy — Telemetry, Multi-Machine, Name Collisions                  | proposed | pending        | go, privacy, multi-machine, naming   |
+| [070](070-session-selection-and-inference.md)     | Session Selection & Inference                                                  | proposed | pending        | go, ux, session, fzf                 |
+| [071](071-pr-state-lifecycle.md)                  | PR State Lifecycle — TTL-Cached Refresh                                        | proposed | pending        | go, pr, github, cache, lifecycle     |
+| [072](072-state-toml-schema-rollup.md)            | state.toml Schema Amendments Roll-up                                           | proposed | pending        | go, state, schema, rollup            |
 
-29 ADRs total.
+42 ADRs total.
 
 ---
 
@@ -84,6 +97,32 @@ Each user-facing command and the integrations that back it.
 Concerns that touch every ADR above.
 
 - 049 secrets / 050 lint / 051 testing / 052 formal verification / 053 build & release
+
+### Post-v1 deepening (060–067)
+
+Additions made after Stage 9 closed out the original 031–059 set.
+These sharpen the sandbox story, add the remote-control surface, and
+bring opinionated defaults to diff rendering.
+
+- 060 slicer-only sandbox / 061 repo-scoped [control] / 062 slicer VM
+  resource profiles / 063 Tailscale + superterm remote control /
+  064 hunk + diffity diff rendering / 065 `slicer wt` worktree
+  transport / 066 VM agent session export / 067 automatic session
+  sync
+
+### Cross-cutting contracts (068–072)
+
+The gap-analysis batch — formal contracts for surfaces that several
+ADRs touched in passing.
+
+- 068 Operational UX (JSON envelope, exit codes, TTY/color,
+  concurrency, completion)
+- 069 Boundary & privacy (telemetry promise, single-machine model,
+  name collisions)
+- 070 Session selection & inference (resolution order + fzf)
+- 071 PR state lifecycle (TTL-cached refresh)
+- 072 state.toml schema roll-up (consolidates additions from 059,
+  061, 062, 065, 067, 071)
 
 ---
 
@@ -129,7 +168,7 @@ ADR-026 was retired without being finalised in v0.
 
 ## How to add a new ADR
 
-1. Pick the next available number (next available is 060 as of this writing).
+1. Pick the next available number (next available is 073 as of this writing).
 2. Create `docs/adr/NNN-kebab-case-title.md` with the frontmatter from ADR-032.
 3. Body: Context → Decision → Consequences → Alternatives → References.
 4. Add a row to the catalogue table above.
