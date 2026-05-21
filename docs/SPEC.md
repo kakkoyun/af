@@ -232,7 +232,38 @@ automatically before tearing down the VM. `--continue-host`
 normalises imported sessions so the user can continue the
 conversation on the host (when the agent format permits).
 
-### 3.14 Meta
+### 3.14 Review draft
+
+Defined in ADR-073. Read-only, repo-aware PR review draft written to
+`<worktree>/.af/reviews/`. Shares the `agent.BodyCmd` pattern
+(ADR-043 / ADR-057) with `af pr --ai` and `af retro --ai`, but is
+shaped for richer per-repo guidance via an immutable system prompt
+plus four-layer per-repo append (user config → repo config →
+repo-relative file → CLI flag).
+
+| Command | Purpose |
+| --- | --- |
+| `af review [session] [--pr N] [--agent NAME] [--model M] [--base REF] [--out PATH] [--stdout] [--append-prompt TEXT] [--skill NAME]... [--print-system-prompt]` | Build a review-draft prompt (immutable af system prompt + per-repo appends + suggested skills + PR context + `gh pr diff` output), invoke the configured agent's `BodyCmd`, and atomically write the resulting report to `<worktree>/.af/reviews/<UTC-ts>-pr<n>.md` (`0o600` under `0o750`, `.tmp` + rename). |
+
+- PR resolution: `--pr N` wins; otherwise `gh pr view --json
+  number,title,headRefName,baseRefName` against the current branch.
+  No PR → `errReviewNoPR`.
+- Diff source: `gh pr diff <n>` (matches the PR UI diff). Empty diff
+  → `errReviewEmptyDiff` (agent is not invoked).
+- `--print-system-prompt` is a debugging aid: it prints the fully
+  resolved prompt and exits without invoking the agent or hitting
+  the PR.
+- `--stdout` prints the report to stdout instead of writing a file.
+- `--skill ""` suppresses the suggested-skills hints for one
+  invocation; `--skill <name>` (repeatable) replaces the config list.
+- Named failure modes: `errReviewNoPR`, `errReviewEmptyDiff`,
+  `errReviewAgentUnavailable`, `errReviewEmptyBody`, plus `gh`
+  missing and agent non-zero exit (no partial write).
+- A `review.report.written` ledger event is appended when a session
+  is active, with fields `{pr, path, agent, model}`. Otherwise no
+  state mutation.
+
+### 3.15 Meta
 
 | Command      | Purpose                                                |
 | ------------ | ------------------------------------------------------ |
@@ -307,7 +338,8 @@ everything.
 └── secrets/                     # Persistent-disk fallback for the ephemeral envelope (ADR-049)
 
 <repo>/.af/
-└── state.toml -> symlink to ~/.local/share/af/v1/sessions/<session>/state.toml
+├── state.toml -> symlink to ~/.local/share/af/v1/sessions/<session>/state.toml
+└── reviews/                  # `af review` writes drafts here (ADR-073); 0o750 dir, 0o600 files
 ```
 
 `<repo>/.af/` is added to the user's global `.gitignore`
@@ -410,7 +442,8 @@ agent_versions = { pi = "...", claude = "..." }
 ### 5.3 `ledger.jsonl` events
 
 One JSON object per line. ADR-037 defines the foundational event
-types; ADR-071 adds `pr_state_changed`. Notable events:
+types; ADR-071 adds `pr_state_changed`; ADR-073 adds
+`review.report.written`. Notable events:
 
 ```
 session_created, agent_launched, agent_added, agent_stopped,
@@ -421,11 +454,15 @@ pr_opened, pr_merged, pr_closed, pr_state_changed,
 stack_linked, stack_unlinked, stack_reparented, synced,
 control_up, control_down,
 session_data_synced,
+review.report.written,
 error
 ```
 
 Every agent-scoped event carries `slot`, `agent`, and (where
-relevant) `session_id` keys.
+relevant) `session_id` keys. `review.report.written` carries
+`{pr, path, agent, model}` (ADR-073 §9); it uses dot-notation
+because the event semantically lives in the `review` sub-namespace.
+New namespaced event classes follow the same `<area>.<verb>` pattern.
 
 ### 5.4 Atomicity & concurrency
 
@@ -470,6 +507,10 @@ Foundational schema in ADR-036. Sections, with ADR ownership noted:
   `"custom"`), `shell`, `cmd`, token-interpolated. (ADR-036 + ADR-064)
 - `[pr]` — `shell`, `cmd`, `flag_template`, `template`, `ai_model`,
   `refresh_ttl` (default `10m`, ADR-071).
+- `[review]` — `agent`, `model`, `system_prompt_append`,
+  `system_prompt_append_file`, `suggested_skills`
+  (default `["/review", "/go-review", "/simplify"]`). Layered
+  user → repo per ADR-036 precedence. (ADR-073)
 - `[status]` — `max_parallel` (default 8; cap on concurrent `gh pr
   view` fetches). (ADR-054)
 - `[remote]` — `default_host`, `ssh_options`. (ADR-041)
@@ -837,6 +878,6 @@ later iteration; they do not block v1.
 
 ## 17. References
 
-- [`docs/adr/INDEX.md`](adr/INDEX.md) — full v1 ADR catalogue (031–072).
+- [`docs/adr/INDEX.md`](adr/INDEX.md) — full v1 ADR catalogue (031–073).
 - [`docs/v0/SPEC.md`](v0/SPEC.md) — v0 (Rust era) spec, immutable.
 - [`docs/v0/adr/`](v0/adr/) — 30 v0 ADRs, frozen.

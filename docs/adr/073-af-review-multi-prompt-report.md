@@ -11,7 +11,7 @@ related: ["031", "035", "036", "037", "043", "051", "057", "058"]
 tags: ["go", "command", "agent", "review", "pr", "ai"]
 ---
 
-# ADR-068: `af review` — Repo-Aware PR Review Report
+# ADR-073: `af review` — Repo-Aware PR Review Report
 
 ## Context
 
