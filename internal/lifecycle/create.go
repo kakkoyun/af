@@ -30,7 +30,7 @@ const (
 var ErrCreate = errors.New("create workstream failed")
 
 // CreateOptions configures a local workstream creation.
-type CreateOptions struct {
+type CreateOptions struct { //nolint:govet // Field grouping by semantic domain beats pointer-size packing.
 	// Clock + IO.
 	Now time.Time
 	// Required identity inputs.
@@ -48,6 +48,9 @@ type CreateOptions struct {
 	PrefixOnForkOnly bool
 	HasUpstream      bool
 	Bare             bool // skip agent launch
+	// Control holds effective resolved ADR-061 control settings captured from
+	// ResolveControl. Zero value means all defaults.
+	Control ControlContext
 }
 
 // CreateResult records the artefacts produced by a successful Create.
@@ -225,39 +228,7 @@ func writeInitialState(opts CreateOptions, resolved resolvedNames, plan git.Work
 	statePath := filepath.Join(sessionDir, "state.toml")
 	ledgerPath := filepath.Join(sessionDir, "ledger.jsonl")
 
-	state := session.State{
-		SchemaVersion: 1,
-		Session: session.Info{
-			ID:        resolved.sessionID,
-			Name:      resolved.name,
-			Status:    string(Active),
-			CreatedAt: resolved.now,
-		},
-		Worktree: session.WorktreeState{
-			Path:       plan.Path,
-			Branch:     plan.Branch,
-			BaseBranch: opts.FromBranch,
-			GitRoot:    opts.GitRoot,
-			RepoSlug:   resolved.repoSlug,
-		},
-		Execution: session.ExecutionState{
-			Mode:        executionLocal,
-			Multiplexer: "tmux",
-			TmuxSession: resolved.tmuxSession,
-		},
-		Versions: session.VersionsState{
-			AF:            version.Version,
-			AgentVersions: map[string]string{},
-		},
-		Agents: []session.AgentState{{
-			Slot:       primaryAgentSlot,
-			Provider:   opts.AgentName,
-			Status:     string(Active),
-			CreatedAt:  resolved.now,
-			SessionIDs: []string{},
-		}},
-	}
-
+	state := buildInitialState(opts, resolved, plan)
 	err = session.WriteState(statePath, state)
 	if err != nil {
 		return "", "", fmt.Errorf("write state.toml: %w", err)
@@ -277,6 +248,44 @@ func writeInitialState(opts CreateOptions, resolved resolvedNames, plan git.Work
 		return "", "", fmt.Errorf("append create event: %w", err)
 	}
 	return statePath, ledgerPath, nil
+}
+
+func buildInitialState(opts CreateOptions, resolved resolvedNames, plan git.WorktreePlan) session.State {
+	return session.State{
+		SchemaVersion: 1,
+		Session: session.Info{
+			ID:           resolved.sessionID,
+			Name:         resolved.name,
+			Status:       string(Active),
+			CreatedAt:    resolved.now,
+			ApprovalMode: approvalModeToString(opts.Control.ApprovalMode),
+			MaxAgents:    opts.Control.MaxAgents,
+		},
+		Worktree: session.WorktreeState{
+			Path:       plan.Path,
+			Branch:     plan.Branch,
+			BaseBranch: opts.FromBranch,
+			GitRoot:    opts.GitRoot,
+			RepoSlug:   resolved.repoSlug,
+		},
+		Execution: session.ExecutionState{
+			Mode:          executionLocal,
+			Multiplexer:   "tmux",
+			TmuxSession:   resolved.tmuxSession,
+			RemoteControl: opts.Control.RemoteControl,
+		},
+		Versions: session.VersionsState{
+			AF:            version.Version,
+			AgentVersions: map[string]string{},
+		},
+		Agents: []session.AgentState{{
+			Slot:       primaryAgentSlot,
+			Provider:   opts.AgentName,
+			Status:     string(Active),
+			CreatedAt:  resolved.now,
+			SessionIDs: []string{},
+		}},
+	}
 }
 
 func writeWorkstreamNote(ctx context.Context, store obsidian.Store, resolved resolvedNames, plan git.WorktreePlan, opts CreateOptions) (string, error) {

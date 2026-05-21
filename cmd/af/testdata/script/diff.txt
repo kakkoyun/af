@@ -1,19 +1,30 @@
-# af diff invokes the configured [diff].cmd proxy with {base} and {head} token
-# substitution. The --base flag overrides the base ref from state.toml.
+# af diff ADR-064 opinionated rendering scenarios.
+#
+# The fakebin directory (prepended to PATH by the testscript harness) contains
+# fake git, hunk, and diffity stubs that echo their invocation arguments.
+# Because the testscript runner is not an interactive TTY, af diff runs the
+# non-interactive git diff --stat path by default. The --web path runs diffity.
+# The hunk interactive path is covered by internal/diff unit tests.
 
 env HOME=$WORK/home
 mkdir $HOME/.config/af
 mkdir $HOME/.local/share/af/v1/sessions/demo
-cp config.toml $HOME/.config/af/config.toml
+
 cp state.toml $HOME/.local/share/af/v1/sessions/demo/state.toml
 
-# Default base ref comes from worktree.base_branch in state.toml.
+# ── Scenario 1: non-interactive default → git diff --stat ─────────────────────
+# No TTY ⇒ diff.Render uses non-interactive path ⇒ git diff --stat.
 exec af diff demo
-stdout 'DIFF base=main head=feat/demo'
+stdout 'fake git'
 
-# --base overrides the base ref from state.
+# ── Scenario 2: --base override changes the range ─────────────────────────────
 exec af diff demo --base develop
-stdout 'DIFF base=develop head=feat/demo'
+stdout 'fake git'
+
+# ── Scenario 3: --web opens diffity with base..head ───────────────────────────
+exec af diff demo --web
+stdout 'fake diffity'
+stdout 'main\.\.feat/demo'
 
 -- state.toml --
 schema_version = 1
@@ -27,9 +38,3 @@ created_at = 2026-05-22T10:00:00Z
 path = "/tmp"
 branch = "feat/demo"
 base_branch = "main"
-
--- config.toml --
-schema_version = 1
-
-[diff]
-cmd = ["echo", "DIFF", "base={base}", "head={head}"]

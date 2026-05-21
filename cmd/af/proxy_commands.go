@@ -9,9 +9,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/kakkoyun/af/internal/agent"
 	"github.com/kakkoyun/af/internal/config"
+	"github.com/kakkoyun/af/internal/diff"
 	"github.com/kakkoyun/af/internal/git"
 	"github.com/kakkoyun/af/internal/proxy"
 	"github.com/kakkoyun/af/internal/session"
@@ -62,20 +64,27 @@ func newEditorCmd(_ *rootOptions) *cobra.Command {
 }
 
 func newDiffCmd(_ *rootOptions) *cobra.Command {
-	var base string
+	var (
+		base        string
+		web         bool
+		interactive bool
+	)
 	cmd := &cobra.Command{
 		Use:   "diff [session]",
-		Short: "Run the configured diff proxy command for a workstream",
+		Short: "Render the workstream diff (hunk if installed, else git diff; --web opens diffity)",
+		Long:  "diff resolves the base ref and dispatches to hunk (if installed) for terminal rendering, or plain git diff as a fallback. --web opens the diff range in diffity. Non-interactive stdout uses git diff --stat.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := ""
 			if len(args) == 1 {
 				name = args[0]
 			}
-			return runDiff(cmd, name, base)
+			return runDiff(cmd, name, base, web, interactive)
 		},
 	}
-	cmd.Flags().StringVar(&base, "base", "", "override the base ref")
+	cmd.Flags().StringVar(&base, "base", "", "override the base ref (default: stack parent > base_branch > HEAD)")
+	cmd.Flags().BoolVar(&web, "web", false, "open the diff in a browser via diffity (ADR-064)")
+	cmd.Flags().BoolVar(&interactive, "interactive", false, "force interactive mode even when stdout is not a TTY")
 	return cmd
 }
 
@@ -154,26 +163,50 @@ func runEditor(cmd *cobra.Command, name string, terminal, visual bool) error {
 	return nil
 }
 
-func runDiff(cmd *cobra.Command, name, baseOverride string) error {
-	state, cfg, err := loadProxyState(cmd.Context(), name)
+func runDiff(cmd *cobra.Command, name, baseOverride string, web, forceInteractive bool) error {
+	state, _, err := loadProxyState(cmd.Context(), name)
 	if err != nil {
 		return err
 	}
-	tokens := proxy.Tokens{
-		"base":     baseOrDefault(state, baseOverride),
-		"head":     state.Worktree.Branch,
-		"worktree": state.Worktree.Path,
+
+	// Resolve base: explicit flag > stack parent branch > base_branch > HEAD.
+	base := baseOverride
+	if base == "" {
+		base = firstNonEmpty(state.Stack.ParentBranch, state.Worktree.BaseBranch, "HEAD")
 	}
-	command, err := buildProxyInvocation(cfg.Diff.Command, tokens, state.Worktree.Path)
-	if err != nil {
-		return fmt.Errorf("diff: %w", err)
+	head := state.Worktree.Branch
+	if head == "" {
+		head = "HEAD"
 	}
-	out, err := proxy.ExecRunner{}.Run(cmd.Context(), command)
-	_, _ = cmd.OutOrStdout().Write(out) //nolint:errcheck // Pass-through to user terminal.
-	if err != nil {
-		return fmt.Errorf("diff: %w", err)
+
+	mode := diff.ModeAuto
+	if web {
+		mode = diff.ModeWeb
+	}
+
+	renderErr := diff.Render(cmd.Context(), diff.Deps{Exec: diff.ExecExecutor{}}, diff.Options{
+		Worktree:    state.Worktree.Path,
+		Base:        base,
+		Head:        head,
+		Mode:        mode,
+		Stdout:      cmd.OutOrStdout(),
+		Stderr:      cmd.ErrOrStderr(),
+		Interactive: forceInteractive || isInteractiveStdout(cmd),
+	})
+	if renderErr != nil {
+		return fmt.Errorf("diff: %w", renderErr)
 	}
 	return nil
+}
+
+// isInteractiveStdout returns true when the command's stdout is an interactive
+// terminal (i.e. a real TTY, not a pipe or test buffer).
+func isInteractiveStdout(cmd *cobra.Command) bool {
+	f, ok := cmd.OutOrStdout().(*os.File)
+	if !ok {
+		return false
+	}
+	return term.IsTerminal(int(f.Fd()))
 }
 
 func runPR(cmd *cobra.Command, name string, opts prOptions) error {
@@ -239,7 +272,7 @@ func primaryAgentName(agents []session.AgentState) string {
 // it in non-interactive print mode, and returns the trimmed stdout as the
 // PR body per ADR-057.
 func defaultPRAIBody(ctx context.Context, st session.State, model string) (string, error) {
-	diff, err := computeWorktreeDiff(ctx, git.NewExecRunner(), st.Worktree.Path, st.Worktree.BaseBranch, st.Worktree.Branch)
+	worktreeDiff, err := computeWorktreeDiff(ctx, git.NewExecRunner(), st.Worktree.Path, st.Worktree.BaseBranch, st.Worktree.Branch)
 	if err != nil {
 		return "", err
 	}
@@ -251,7 +284,7 @@ func defaultPRAIBody(ctx context.Context, st session.State, model string) (strin
 	if !ok {
 		return "", fmt.Errorf("%w", errPRAIAgentNoBody)
 	}
-	return runAgentBody(ctx, bodyArgs, st.Worktree.Path, buildBodyPrompt(diff))
+	return runAgentBody(ctx, bodyArgs, st.Worktree.Path, buildBodyPrompt(worktreeDiff))
 }
 
 // computeWorktreeDiff returns the diff between base and head in dir.
@@ -296,8 +329,8 @@ func runAgentBody(ctx context.Context, argv []string, cwd, prompt string) (strin
 
 // buildBodyPrompt returns the stdin prompt fed to the agent for PR body
 // generation. In v1 the template is hard-coded (ADR-057).
-func buildBodyPrompt(diff string) string {
-	return bodyPromptHeader + diff + bodyPromptFooter
+func buildBodyPrompt(diffOutput string) string {
+	return bodyPromptHeader + diffOutput + bodyPromptFooter
 }
 
 func expandFlagTemplate(template map[string][]string, opts prOptions, tokens proxy.Tokens) []string {
@@ -344,16 +377,6 @@ func loadProxyState(ctx context.Context, name string) (session.State, config.Con
 		return state, config.Config{}, fmt.Errorf("proxy: load config: %w", err)
 	}
 	return state, cfg, nil
-}
-
-func baseOrDefault(state session.State, override string) string {
-	if override != "" {
-		return override
-	}
-	if state.Worktree.BaseBranch != "" {
-		return state.Worktree.BaseBranch
-	}
-	return "HEAD"
 }
 
 func firstNonEmpty(values ...string) string {

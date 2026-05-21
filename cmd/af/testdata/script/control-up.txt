@@ -1,0 +1,42 @@
+# control-up: verify that af control up/down/status drive superterm and
+# tailscale serve correctly.
+#
+# Uses the fake superterm and tailscale binaries provided by writeExternalFakes
+# in testscript_test.go. Both fakes are stateless: superterm up always prints
+# a local URL; tailscale serve --bg always prints a tailnet URL.
+#
+# Two scenarios are exercised:
+#   1. happy path   — af control up prints both URLs; status shows live; down succeeds.
+#   2. missing tool — override PATH to hide superterm; af control up must fail.
+
+# ── Scenario 1: happy path ────────────────────────────────────────────────────
+
+exec af control up
+stdout 'http://localhost:7681'
+stdout 'https://fake-node.fake-tailnet.ts.net'
+stdout 'Remote control active'
+
+exec af control status
+stdout 'http://localhost:7681'
+stdout 'https://fake-node.fake-tailnet.ts.net'
+
+exec af control down
+stdout 'remote control stopped'
+
+# ── Scenario 2: unsupported provider ─────────────────────────────────────────
+# af control up --provider unknown must return an error referencing "superterm".
+
+! exec af control up --provider unknown
+stderr 'unsupported'
+
+# ── Scenario 3: missing superterm ─────────────────────────────────────────────
+# Place a broken-superterm wrapper (exits 127) in a new bin directory prepended
+# ahead of the normal fakebin. The tailscale fake remains reachable from fakebin.
+# af control up must fail and mention superterm.
+
+mkdir $WORK/badsuperterm
+exec sh -c 'printf "#!/bin/sh\nexit 127\n" > $WORK/badsuperterm/superterm && chmod 755 $WORK/badsuperterm/superterm'
+env PATH=$WORK/badsuperterm:$PATH
+
+! exec af control up
+stderr 'superterm'

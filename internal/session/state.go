@@ -46,11 +46,13 @@ type State struct {
 
 // Info stores workstream identity and lifecycle status.
 type Info struct {
-	CreatedAt   time.Time  `toml:"created_at"`
-	SuspendedAt *time.Time `toml:"suspended_at,omitempty"`
-	Name        string     `toml:"name"`
-	ID          string     `toml:"id"`
-	Status      string     `toml:"status"`
+	CreatedAt    time.Time  `toml:"created_at"`
+	SuspendedAt  *time.Time `toml:"suspended_at,omitempty"`
+	Name         string     `toml:"name"`
+	ID           string     `toml:"id"`
+	Status       string     `toml:"status"`
+	ApprovalMode string     `toml:"approval_mode,omitempty"`
+	MaxAgents    int        `toml:"max_agents,omitempty"`
 }
 
 // WorktreeState stores the primary git worktree metadata.
@@ -71,6 +73,7 @@ type ExecutionState struct {
 	RemotePath      string `toml:"remote_path"`
 	SandboxProvider string `toml:"sandbox_provider"`
 	SandboxID       string `toml:"sandbox_id"`
+	RemoteControl   string `toml:"remote_control,omitempty"`
 }
 
 // AgentState stores one agent slot in a workstream.

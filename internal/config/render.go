@@ -100,10 +100,6 @@ func renderSandbox(b *strings.Builder, s SandboxConfig) {
 	b.WriteString("[sandbox.slicer]\n")
 	renderString(b, "group", s.Slicer.Group)
 	b.WriteString("\n")
-
-	b.WriteString("[sandbox.sbx]\n")
-	renderString(b, "image", s.SBX.Image)
-	b.WriteString("\n")
 }
 
 func renderObsidian(b *strings.Builder, o ObsidianConfig) {

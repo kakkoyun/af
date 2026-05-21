@@ -158,11 +158,8 @@ func shouldTierProbes() []Probe {
 
 func niceTierProbes() []Probe {
 	return []Probe{
-		{Name: "slicer", Tier: TierNice, Reason: "local sandbox (ADR-042)", Hints: map[Platform]string{
+		{Name: "slicer", Tier: TierNice, Reason: "local sandbox (ADR-060)", Hints: map[Platform]string{
 			PlatformOther: "see https://slicervm.com/install",
-		}},
-		{Name: "sbx", Tier: TierNice, Reason: "local sandbox (ADR-042)", Hints: map[Platform]string{
-			PlatformOther: "see https://docs.docker.com/ai/sandboxes/",
 		}},
 		{Name: "delta", Tier: TierNice, Reason: "nicer af diff rendering", Hints: map[Platform]string{
 			PlatformMacOS:  "brew install git-delta",

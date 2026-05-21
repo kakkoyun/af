@@ -2,9 +2,9 @@
 adr: 060
 title: "Slicer-Only Sandbox Provider (drop sbx)"
 status: proposed
-implementation: pending
+implementation: complete
 date: 2026-05-20
-last_modified: 2026-05-20
+last_modified: 2026-05-22
 supersedes: ["042"]
 superseded_by: null
 related: ["031", "036", "041", "044", "049", "062"]

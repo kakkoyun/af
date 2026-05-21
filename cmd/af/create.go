@@ -16,6 +16,8 @@ import (
 	"github.com/kakkoyun/af/internal/lifecycle"
 	"github.com/kakkoyun/af/internal/mux"
 	"github.com/kakkoyun/af/internal/obsidian"
+	"github.com/kakkoyun/af/internal/sandbox"
+	"github.com/kakkoyun/af/internal/secret"
 )
 
 type createOptions struct {
@@ -41,8 +43,9 @@ type createContext struct {
 
 //nolint:gochecknoglobals // Test seam for the create subcommand.
 var (
-	newCreateContextOverride func(*rootOptions) *createContext
-	errEmptyGitTopLevel      = errors.New("git rev-parse --show-toplevel returned empty")
+	newCreateContextOverride  func(*rootOptions) *createContext
+	errEmptyGitTopLevel       = errors.New("git rev-parse --show-toplevel returned empty")
+	errSandboxFlagUnsupported = errors.New("--sandbox only accepts \"slicer\" (ADR-060)")
 )
 
 const remoteURLHostAndPath = 2
@@ -68,7 +71,7 @@ func newCreateCmd(opts *rootOptions) *cobra.Command {
 	cmd.Flags().BoolVar(&cOpts.bare, "bare", false, "skip tmux + agent launch (create state + worktree only)")
 	cmd.Flags().BoolVar(&cOpts.yolo, "yolo", false, "launch the primary agent with permissive approval mode")
 	cmd.Flags().StringVar(&cOpts.remote, "remote", "", "ssh host to create the workstream on (ADR-041)")
-	cmd.Flags().StringVar(&cOpts.sandbox, "sandbox", "", "sandbox provider: slicer or sbx (ADR-042)")
+	cmd.Flags().StringVar(&cOpts.sandbox, "sandbox", "", "sandbox provider: slicer (ADR-060)")
 	return cmd
 }
 
@@ -99,7 +102,7 @@ func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, nam
 		return err
 	}
 
-	err = preCreateRemoteSandbox(ctx, cmd, opts, cfg, repoSlug, agentName, fromBranch)
+	err = preCreateRemote(ctx, opts, cfg, repoSlug, agentName, fromBranch)
 	if err != nil {
 		return err
 	}
@@ -127,7 +130,45 @@ func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, nam
 		return fmt.Errorf("create: %w", err)
 	}
 
+	err = launchSandbox(ctx, opts, result, primary)
+	if err != nil {
+		return err
+	}
+
 	return printCreateResult(cmd, result)
+}
+
+// launchSandbox invokes lifecycle.LaunchSandboxWorkstream after the
+// worktree and state files have been created by lifecycle.Create.
+// Returns nil immediately when --sandbox is unset or --bare is active.
+// The envelope file is placed in the same directory as state.toml so
+// the slicer mount can source it, and is deleted by the deferred
+// lifecycle.LaunchSandboxWorkstream cleanup.
+func launchSandbox(ctx context.Context, opts *createOptions, result lifecycle.CreateResult, primary agent.Agent) error {
+	if opts.sandbox == "" || opts.bare {
+		return nil
+	}
+	provider, err := sandbox.NewProvider(opts.sandbox)
+	if err != nil {
+		return fmt.Errorf("create --sandbox: %w", err)
+	}
+	agentArgv := primary.LaunchCmd(agent.LaunchOpts{
+		Cwd:       result.WorktreePath,
+		SessionID: result.SessionID,
+	})
+	envelopePath := filepath.Join(filepath.Dir(result.StatePath), result.SessionName+"-sandbox.env")
+	_, err = lifecycle.LaunchSandboxWorkstream(ctx, lifecycle.SandboxContext{
+		Provider: provider,
+		Envelope: secret.Envelope{Path: envelopePath},
+	}, sandbox.LaunchOpts{
+		Workstream: result.SessionName,
+		Worktree:   result.WorktreePath,
+		AgentArgv:  agentArgv,
+	})
+	if err != nil {
+		return fmt.Errorf("create --sandbox launch: %w", err)
+	}
+	return nil
 }
 
 func resolveAgentName(opts *createOptions, cfg config.Config) string {
@@ -137,7 +178,7 @@ func resolveAgentName(opts *createOptions, cfg config.Config) string {
 	return cfg.General.DefaultAgent
 }
 
-func preCreateRemoteSandbox(ctx context.Context, cmd *cobra.Command, opts *createOptions, cfg config.Config, repoSlug, agentName, fromBranch string) error {
+func preCreateRemote(ctx context.Context, opts *createOptions, cfg config.Config, repoSlug, agentName, fromBranch string) error {
 	if opts.remote != "" {
 		_, err := lifecycle.PrepareRemoteWorkstream(ctx, lifecycle.RemoteContext{
 			Host:       opts.remote,
@@ -147,8 +188,8 @@ func preCreateRemoteSandbox(ctx context.Context, cmd *cobra.Command, opts *creat
 			return fmt.Errorf("create --remote: %w", err)
 		}
 	}
-	if opts.sandbox != "" {
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "sandbox provider %s requested; sandbox launch is performed at agent start (ADR-042)\n", opts.sandbox) //nolint:errcheck // Diagnostic only; failure surfaces in next step.
+	if opts.sandbox != "" && opts.sandbox != "slicer" {
+		return fmt.Errorf("%w: got %q", errSandboxFlagUnsupported, opts.sandbox)
 	}
 	return nil
 }

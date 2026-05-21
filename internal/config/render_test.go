@@ -29,7 +29,6 @@ func TestRender_EmitsSchemaVersionAndAllSections(t *testing.T) {
 		"[remote]",
 		"[sandbox]",
 		"[sandbox.slicer]",
-		"[sandbox.sbx]",
 		"[obsidian]",
 		"[obsidian.vaults]",
 		"[doctor]",

@@ -210,6 +210,46 @@ cmd = ["git", "diff"]
 	}
 }
 
+func TestSandboxConfig_RejectsSBXProvider(t *testing.T) {
+	home := t.TempDir()
+	userCfgPath := filepath.Join(home, ".config", "af", "config.toml")
+	writeFile(t, userCfgPath, `
+schema_version = 1
+[sandbox]
+default_provider = "sbx"
+`)
+
+	_, err := config.LoadWithOptions(context.Background(), config.LoadOptions{
+		UserConfigPath: userCfgPath,
+	})
+	if err == nil {
+		t.Fatal("LoadWithOptions() error = nil, want error for sbx provider")
+	}
+	if !strings.Contains(err.Error(), "sbx") {
+		t.Fatalf("error %q does not mention sbx", err)
+	}
+}
+
+func TestSandboxConfig_AcceptsSlicerProvider(t *testing.T) {
+	home := t.TempDir()
+	userCfgPath := filepath.Join(home, ".config", "af", "config.toml")
+	writeFile(t, userCfgPath, `
+schema_version = 1
+[sandbox]
+default_provider = "slicer"
+`)
+
+	cfg, err := config.LoadWithOptions(context.Background(), config.LoadOptions{
+		UserConfigPath: userCfgPath,
+	})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v, want no error for slicer provider", err)
+	}
+	if cfg.Sandbox.DefaultProvider != "slicer" {
+		t.Fatalf("DefaultProvider = %q, want slicer", cfg.Sandbox.DefaultProvider)
+	}
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	err := os.MkdirAll(filepath.Dir(path), 0o750)

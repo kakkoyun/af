@@ -2,9 +2,9 @@
 adr: 061
 title: "Repo-Scoped Control Settings"
 status: proposed
-implementation: pending
+implementation: complete
 date: 2026-05-20
-last_modified: 2026-05-20
+last_modified: 2026-05-22
 supersedes: []
 superseded_by: null
 related: ["035", "036", "038", "043", "060", "063"]

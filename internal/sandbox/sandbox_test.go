@@ -2,17 +2,48 @@ package sandbox_test
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
 	"github.com/kakkoyun/af/internal/sandbox"
 )
 
-func TestKnownProviders_AreSlicerThenSbx(t *testing.T) {
+func TestKnownProviders_SlicerOnly(t *testing.T) {
 	got := sandbox.KnownProviders()
-	want := []string{"slicer", "sbx"}
+	want := []string{"slicer"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("KnownProviders() = %#v, want %#v", got, want)
+	}
+}
+
+func TestNewProvider_AcceptsSlicer(t *testing.T) {
+	p, err := sandbox.NewProvider("slicer")
+	if err != nil {
+		t.Fatalf("NewProvider(\"slicer\") error = %v", err)
+	}
+	if p == nil {
+		t.Fatal("NewProvider(\"slicer\") returned nil provider")
+	}
+}
+
+func TestNewProvider_RejectsSBX(t *testing.T) {
+	_, err := sandbox.NewProvider("sbx")
+	if err == nil {
+		t.Fatal("NewProvider(\"sbx\") error = nil, want ErrUnsupportedProvider")
+	}
+	if !errors.Is(err, sandbox.ErrUnsupportedProvider) {
+		t.Fatalf("NewProvider(\"sbx\") error = %v, want ErrUnsupportedProvider", err)
+	}
+}
+
+func TestNewProvider_RejectsUnknown(t *testing.T) {
+	_, err := sandbox.NewProvider("docker")
+	if err == nil {
+		t.Fatal("NewProvider(\"docker\") error = nil, want ErrUnsupportedProvider")
+	}
+	if !errors.Is(err, sandbox.ErrUnsupportedProvider) {
+		t.Fatalf("NewProvider(\"docker\") error = %v, want ErrUnsupportedProvider", err)
 	}
 }
 
@@ -34,29 +65,6 @@ func TestSlicer_LaunchBuildsCommandAndHandle(t *testing.T) {
 	}
 
 	want := []sandbox.Command{{Name: "slicer", Args: []string{"vm", "run", "--name", "session", "--mount", "/repo", "--", "pi"}}}
-	if got := runner.Commands(); !reflect.DeepEqual(got, want) {
-		t.Fatalf("commands = %#v, want %#v", got, want)
-	}
-}
-
-func TestSbx_LaunchBuildsCommandAndHandle(t *testing.T) {
-	ctx := context.Background()
-	runner := sandbox.NewRecordingRunner()
-	runner.QueueOutput("container-id\n")
-	provider := sandbox.NewSbxWithRunner(runner)
-
-	handle, err := provider.Launch(ctx, sandbox.LaunchOpts{Workstream: "session", Worktree: "/repo", AgentArgv: []string{"claude", "--continue"}})
-	if err != nil {
-		t.Fatalf("Launch() error = %v", err)
-	}
-	if handle.ID != "container-id" {
-		t.Fatalf("handle ID = %q, want container-id", handle.ID)
-	}
-	if !reflect.DeepEqual(handle.AttachCmd, []string{"sbx", "attach", "container-id"}) {
-		t.Fatalf("AttachCmd = %#v", handle.AttachCmd)
-	}
-
-	want := []sandbox.Command{{Name: "sbx", Args: []string{"run", "--name", "session", "--workdir", "/workstream", "--mount", "/repo:/workstream", "--", "claude", "--continue"}}}
 	if got := runner.Commands(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("commands = %#v, want %#v", got, want)
 	}

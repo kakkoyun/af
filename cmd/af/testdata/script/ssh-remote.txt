@@ -39,7 +39,6 @@ exec af doctor --remote sparsehost
 stdout '✓ git'
 stdout '✓ tmux'
 stdout '⚠.*slicer.*not in PATH'
-stdout '⚠.*sbx.*not in PATH'
 stdout '⚠.*delta.*not in PATH'
 stdout 'Status: all required tools present'
 
@@ -143,7 +142,7 @@ case "$cmd" in
     echo '0.44.0 (HEAD)'
     ;;
 
-  # ---- TierNice: slicer, sbx, delta (absent on sparsehost) ----
+  # ---- TierNice: slicer, delta (absent on sparsehost; sbx removed per ADR-060) ----
   *'command -v slicer'*)
     case "$host" in
       sparsehost) ;;
@@ -152,15 +151,6 @@ case "$cmd" in
     ;;
   'slicer --version 2>&1 || true')
     echo 'slicer 0.1.0'
-    ;;
-  *'command -v sbx'*)
-    case "$host" in
-      sparsehost) ;;
-      *) echo '/usr/local/bin/sbx' ;;
-    esac
-    ;;
-  'sbx --version 2>&1 || true')
-    echo 'sbx 0.1.0'
     ;;
   *'command -v delta'*)
     case "$host" in

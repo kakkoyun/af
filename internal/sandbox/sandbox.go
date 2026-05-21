@@ -2,13 +2,15 @@ package sandbox
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"sort"
 	"strings"
 )
 
-const sbxWorkdir = "/workstream"
+// ErrUnsupportedProvider reports an unknown or removed sandbox provider name.
+var ErrUnsupportedProvider = errors.New("unsupported sandbox provider")
 
 // LaunchOpts configures a sandbox launch.
 type LaunchOpts struct {
@@ -62,8 +64,20 @@ func (ExecRunner) Run(ctx context.Context, command Command) ([]byte, error) {
 }
 
 // KnownProviders returns sandbox provider names in fallback order.
+// Only "slicer" is supported per ADR-060.
 func KnownProviders() []string {
-	return []string{"slicer", "sbx"}
+	return []string{"slicer"}
+}
+
+// NewProvider returns the named sandbox provider backed by os/exec.
+// Only "slicer" is accepted; all other names return ErrUnsupportedProvider.
+func NewProvider(name string) (Sandbox, error) {
+	switch name {
+	case "slicer":
+		return NewSlicer(), nil
+	default:
+		return nil, fmt.Errorf("%w: %q (only \"slicer\" is supported per ADR-060)", ErrUnsupportedProvider, name)
+	}
 }
 
 // Provider is a CLI-backed sandbox provider.
@@ -78,7 +92,6 @@ type providerKind int
 
 const (
 	providerSlicer providerKind = iota
-	providerSbx
 )
 
 // NewSlicer returns the slicer sandbox provider.
@@ -89,16 +102,6 @@ func NewSlicer() Provider {
 // NewSlicerWithRunner returns the slicer sandbox provider using runner.
 func NewSlicerWithRunner(runner Runner) Provider {
 	return newProvider("slicer", providerSlicer, runner)
-}
-
-// NewSbx returns the sbx sandbox provider.
-func NewSbx() Provider {
-	return NewSbxWithRunner(ExecRunner{})
-}
-
-// NewSbxWithRunner returns the sbx sandbox provider using runner.
-func NewSbxWithRunner(runner Runner) Provider {
-	return newProvider("sbx", providerSbx, runner)
 }
 
 func newProvider(binary string, kind providerKind, runner Runner) Provider {
@@ -190,9 +193,6 @@ func (provider Provider) launchArgs(opts LaunchOpts) []string {
 	case providerSlicer:
 		args := []string{"vm", "run", "--name", opts.Workstream, "--mount", opts.Worktree, "--"}
 		return append(args, opts.AgentArgv...)
-	case providerSbx:
-		args := []string{"run", "--name", opts.Workstream, "--workdir", sbxWorkdir, "--mount", opts.Worktree + ":" + sbxWorkdir, "--"}
-		return append(args, opts.AgentArgv...)
 	default:
 		return nil
 	}
@@ -206,8 +206,6 @@ func (provider Provider) attachArgs(id string) []string {
 	switch provider.kind {
 	case providerSlicer:
 		return []string{"vm", "shell", id}
-	case providerSbx:
-		return []string{"attach", id}
 	default:
 		return nil
 	}
@@ -217,8 +215,6 @@ func (provider Provider) healthArgs(id string) []string {
 	switch provider.kind {
 	case providerSlicer:
 		return []string{"vm", "status", id}
-	case providerSbx:
-		return []string{"inspect", id}
 	default:
 		return nil
 	}
@@ -228,8 +224,6 @@ func (provider Provider) teardownArgs(id string) []string {
 	switch provider.kind {
 	case providerSlicer:
 		return []string{"vm", "delete", id}
-	case providerSbx:
-		return []string{"rm", id}
 	default:
 		return nil
 	}
@@ -239,8 +233,6 @@ func (provider Provider) listArgs() []string {
 	switch provider.kind {
 	case providerSlicer:
 		return []string{"vm", "list"}
-	case providerSbx:
-		return []string{"list"}
 	default:
 		return nil
 	}

@@ -162,6 +162,56 @@ func TestLockFile_CreatesLockFileAndUnlocks(t *testing.T) {
 	}
 }
 
+// TestState_RoundTrip_PreservesControlFields verifies that the ADR-061
+// additive fields (ApprovalMode, MaxAgents, RemoteControl) survive a
+// WriteState → ReadState round-trip.
+func TestState_RoundTrip_PreservesControlFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.toml")
+	created := time.Date(2026, time.May, 22, 10, 0, 0, 0, time.UTC)
+
+	want := session.State{
+		SchemaVersion: 1,
+		Session: session.Info{
+			Name:         "ctrl-test",
+			ID:           "ctrl-uuid",
+			CreatedAt:    created,
+			Status:       "active",
+			ApprovalMode: "yolo",
+			MaxAgents:    4,
+		},
+		Worktree: session.WorktreeState{
+			Path: "/tmp/ctrl", Branch: "ctrl-branch",
+			BaseBranch: "main", GitRoot: "/tmp/repo", RepoSlug: "owner/repo",
+		},
+		Execution: session.ExecutionState{
+			Mode: "local", Multiplexer: "tmux",
+			TmuxSession:   "af-ctrl-test",
+			RemoteControl: "superterm",
+		},
+		Versions: session.VersionsState{AF: "dev", AgentVersions: map[string]string{}},
+	}
+
+	err := session.WriteState(path, want)
+	if err != nil {
+		t.Fatalf("WriteState() error = %v", err)
+	}
+	got, err := session.ReadState(path)
+	if err != nil {
+		t.Fatalf("ReadState() error = %v", err)
+	}
+
+	if got.Session.ApprovalMode != "yolo" {
+		t.Errorf("Session.ApprovalMode = %q, want yolo", got.Session.ApprovalMode)
+	}
+	if got.Session.MaxAgents != 4 {
+		t.Errorf("Session.MaxAgents = %d, want 4", got.Session.MaxAgents)
+	}
+	if got.Execution.RemoteControl != "superterm" {
+		t.Errorf("Execution.RemoteControl = %q, want superterm", got.Execution.RemoteControl)
+	}
+}
+
 func sampleState() session.State {
 	created := time.Date(2026, time.May, 20, 12, 0, 0, 0, time.UTC)
 	return session.State{
