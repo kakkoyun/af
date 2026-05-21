@@ -11,12 +11,21 @@ for the narrative log and [`docs/adr/`](docs/adr/) for accepted decisions.
 
 ## Handover snapshot (read this first)
 
-**Status at HEAD `d1d66b7`** (2026-05-22, end of Session 29):
+**Status at HEAD `2d7ad71`** (2026-05-22, after Stage 11 + the
+gap-analysis pass):
 
 - Every numbered ADR from **031 to 065** is `implementation: complete`.
-- Only `pending` ADRs are **066** (VM agent-session export) and **067**
-  (automatic agent-session sync) — both owner drafts; specs are written
-  but no code has been written against them.
+- `pending` ADRs: **066** (VM agent-session export), **067**
+  (automatic agent-session sync), **068** (operational UX contract),
+  **069** (boundary & privacy), **070** (session selection &
+  inference), **071** (PR state TTL cache), **072** (state.toml
+  schema roll-up).
+- ADRs 068–072 are the **gap-analysis batch** — cross-cutting
+  contracts plus a state-schema consolidation. They were drafted to
+  match what's currently shipped, so most of 068/072 is
+  documentation of existing behaviour. ADRs 069/070/071 add new
+  required behaviour. See §"Stage 12 / 13 reading list" below for
+  what each one implies for code work.
 - ADR-032 is `implementation: n/a` (it is the conventions ADR itself).
 - `make check` is green: 0 lint, all 21 packages pass
   `-race -count=1 -shuffle=on`.
@@ -37,10 +46,72 @@ for the narrative log and [`docs/adr/`](docs/adr/) for accepted decisions.
 3. **Implement ADR-066 + ADR-067** (the agent-session-export +
    automatic-sync pair). Larger; I12.3–I12.4. Spec is well-defined;
    parallelizable into two worktree agents.
-4. **Cut v1.0.0 release.** `goreleaser release --clean` after a
+4. **Implement ADRs 068–072** (gap-analysis batch). New cross-cutting
+   contracts that need to land before v1.0.0. See §"Stage 12 / 13
+   reading list" below.
+5. **Cut v1.0.0 release.** `goreleaser release --clean` after a
    dry-run validation; tag, push, GitHub release. Out of scope until
    the owner is ready; the project is in release-ready shape modulo
-   the small follow-ups above.
+   the follow-ups above.
+
+### Stage 12 / 13 reading list — the gap-analysis batch
+
+The owner ran a SPEC-vs-ADR reconciliation pass in branch
+`docs/gap-analysis-v1` (now merged into `main`). Five new ADRs and a
+full SPEC rewrite landed. **None of the gap-analysis commits changed
+any code** — they're documentation-only; existing code keeps
+working. Concrete impact on future code work:
+
+- **ADR-068 (Operational UX contract).** Mostly documents what's
+  already shipped. Concrete commitments going forward:
+    - Every command that ships `--json` carries
+      `{"schema": <int>, "data": {...}}` (per-command schema number).
+    - The exit-code table in §2 (sysexits) is canonical — new error
+      classes must pick a code from the table.
+    - Per-session flock at `~/.local/share/af/v1/sessions/<name>/.af.lock`
+      for mutating ops (currently atomic per-file flock per ADR-037
+      — needs lifting to a session-level lock for consistent semantics
+      across mixed-file ops like `af note --append`, `af stack`).
+    - Tab-completion sources per §5 are mandatory; some of them
+      (sessions, slot names) may need adding.
+- **ADR-069 (Boundary & privacy).** All three sub-decisions are
+  mostly already true; documenting the contract.
+    - **No outbound calls from `af`'s own code.** Worth a `gosec`-style
+      rule that rejects any new `net/http` import outside
+      sub-process invocations.
+    - **Single-machine canonical state.** No code change needed.
+    - **Strict-fail name collisions across active+suspended+archived.**
+      Verify `af create` enforces this. Quick test to add.
+- **ADR-070 (Session selection & inference).** New behaviour:
+    - Resolution order: arg → `--session` → `AF_SESSION` → cwd
+      symlink → fzf picker on stderr (TTY only) → `EX_NOINPUT`.
+    - `AF_SESSION` env var is new; `af create` should
+      `tmux setenv -t <session> AF_SESSION <session>` so panes inherit.
+    - fzf picker is new; falls back to error when stdin/stderr aren't
+      both TTYs or fzf is missing.
+- **ADR-071 (PR state TTL cache).** New behaviour:
+    - `state.toml.[pr]` gains two fields (PROPOSED in ADR-072):
+      `last_refreshed_at`, `last_refresh_error`.
+    - `[pr].refresh_ttl = "10m"` config knob (default 10m).
+    - Refresh policy: `af list` never refreshes; `af status`/`af info`
+      refresh on TTL expiry; `af clean`/`af sync`/`af done` always
+      force-refresh.
+    - New ledger event `pr_state_changed` on flips.
+    - `af pr --refresh` and `af status --refresh` explicit
+      force-refresh paths.
+- **ADR-072 (state.toml schema roll-up).** Aligns the canonical
+  state.toml dump in ADR-037 with what's actually implemented after
+  Stages 9–11 (flat `execution.sandbox_resource_*` fields,
+  `[slicer_wt]` block, `execution.remote_control`). Ships **no new
+  fields** — only catalogues the existing ones. The two `PROPOSED`
+  blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are forward
+  pointers to ADR-067/ADR-071's implementation work.
+
+Good approach for the next implementor: pick ADR-070 + ADR-071
+first (they're new-behaviour ADRs and unblock other work like
+`af list` performance and the dashboard freshness story). ADR-068's
+formal flock lift can come with whatever ADR adds the next mutating
+command. ADR-069 is mostly tests.
 
 **Where to look first**:
 
@@ -48,7 +119,7 @@ for the narrative log and [`docs/adr/`](docs/adr/) for accepted decisions.
 - Stage 12 plan below (the only remaining `[ ]` items in this file).
 - For ADR scope: `docs/adr/066-*.md` and `docs/adr/067-*.md`.
 - For the slicer-wt code path that just landed: `internal/sandbox/
-  slicerwt.go`, `internal/lifecycle/pull.go`, `cmd/af/pull.go`,
+slicerwt.go`, `internal/lifecycle/pull.go`, `cmd/af/pull.go`,
   and the lease checks scattered across `done.go`, `suspend_resume.go`,
   `proxy_commands.go`, `status.go`, `info.go`.
 
@@ -359,7 +430,7 @@ ADR to `implementation: complete`.
 Wave 1 — deferred placeholders + release tooling (parallel agents):
 
 - [x] I9.1: ADR-057 — wire `af pr --ai` to `agent.BodyCmd(BodyOpts{Cwd,
-    Model})`; build the prompt from the worktree diff; handle
+  Model})`; build the prompt from the worktree diff; handle
       empty-diff and empty-body errors; reject `--ai` with `--web`.
 - [x] I9.2: ADR-058 — wire `af retro --ai` to `agent.BodyCmd` with
       `BodyOpts.Cwd = ""`; synthesise narrative from the collected
@@ -415,7 +486,7 @@ Wave 1 — 4 ADRs in parallel (output present, unverified):
 
 - [x] I10.1: ADR-060 — drop sbx, wire `af create --sandbox slicer`
       end-to-end through `LaunchSandboxWorkstream`. Real `slicer vm
-    run` exec (no stub). 9 new tests.
+  run` exec (no stub). 9 new tests.
 - [x] I10.2: ADR-061 — `[control]` section in `<repo>/.af/config.toml`
       with layered precedence (CLI > repo > user > defaults).
       `ControlConfig`, `ResolveControl`, `ControlContext`, additive
@@ -433,12 +504,12 @@ Wave 1 INTEGRATION:
 - [x] I10.5: `make check` was green on the first integration run
       (worktree isolation prevented all cross-agent drift fears).
 - [x] I10.6: Wave 1 committed as `feat(v1): Stage 10 Wave 1 — close
-    I10.1-I10.4`.
+  I10.1-I10.4`.
 
 Wave 2 — 1 ADR (depends on Wave 1):
 
 - [x] I10.7: ADR-062 — `[sandbox.slicer.resources]` schema (`name,
-    vcpu, ram_gb, storage_size, gpu_count, image, hypervisor`),
+  vcpu, ram_gb, storage_size, gpu_count, image, hypervisor`),
       validation (negative-ints, size grammar, hypervisor vocab,
       group-vs-resources mutual exclusion), `sandbox.ResolveLaunchGroup`
       with `ExecGroupProber` parsing `slicer vm group` output, state
@@ -455,7 +526,7 @@ Wave 3 — close-out:
       from 031 to 064 is now `complete`. Only `pending` ADRs
       remaining are owner drafts 065/066/067.
 - [x] I10.9: README "Caveats" updated (dropped `af create --sandbox
-    not yet end-to-end`; added the optimistic group-shape match
+  not yet end-to-end`; added the optimistic group-shape match
       caveat from ADR-062 plus a pointer to the owner drafts).
       CHANGELOG gained a Stage 10 section. PROGRESS Session 28
       records the close-out.
@@ -468,7 +539,7 @@ implements it so the v1 ADR set is complete up to and including 065.
 
 - [x] I11.1: ADR-065 — `af create --sandbox slicer` now invokes
       `slicer wt push --launch [--hostgroup G] [--depth N] --tag af
-      --tag af-session=NAME <worktree-path>` via the new
+    --tag af-session=NAME <worktree-path>` via the new
       `internal/sandbox/slicerwt.go` module. VM name parsed from
       output via permissive regex with last-word fallback.
 - [x] I11.2: ADR-065 — additive `[slicer_wt]` state schema landed in
@@ -534,6 +605,58 @@ are the only `[ ]` items in this file.
 - [ ] I12.5: Wave 3 close-out for Stage 12 — advance ADR-066 and
       ADR-067 frontmatter to `implementation: complete`, update
       README/CHANGELOG/PROGRESS, check off I12.1–I12.5.
+
+### Implementation Stage 13 — Gap-analysis batch (ADRs 068–072)
+
+The five ADRs added by the gap-analysis pass on branch
+`docs/gap-analysis-v1`. See the Stage 12 / 13 reading list above for
+the scope summary; see each ADR for the full contract.
+
+- [ ] I13.1: ADR-070 — implement the session-resolution chain:
+      `arg` → `--session` flag → `AF_SESSION` env → cwd symlink →
+      fzf picker (stderr, TTY-only) → `EX_NOINPUT`. Add `AF_SESSION`
+      propagation via `tmux setenv` in `af create` / `af resume`.
+      `internal/session/resolve.go` is the natural home; testscript
+      coverage in `session-resolve.txt`.
+- [ ] I13.2: ADR-071 — TTL-bounded PR cache:
+      - Add `last_refreshed_at` and `last_refresh_error` to
+        `PRState` (omitempty).
+      - Add `[pr].refresh_ttl` to config schema (default `10m`,
+        Go duration syntax).
+      - Hook the refresh path through `af status`/`af info`
+        (TTL-respecting) and `af clean`/`af sync`/`af done`
+        (always force-refresh).
+      - Add `--refresh` flag to `af pr`, `af status`, `af info`.
+      - Emit `pr_state_changed` ledger events on flips.
+      - Map empty-PR `--refresh` to `EX_DATAERR` (65).
+- [ ] I13.3: ADR-068 §4 — lift per-file flock (ADR-037) to per-session
+      flock at `<session>/.af.lock`. Mutating ops acquire exclusive
+      with 30s timeout → `EX_TEMPFAIL` on timeout. Read-only ops
+      (`list`, `status`, `info`) don't lock. Audit existing mutating
+      commands; testscript coverage in `concurrency.txt`.
+- [ ] I13.4: ADR-068 §1 — JSON envelope `{schema, data}` for every
+      `--json`-bearing command. Existing `af status --json`/`af
+      info --json` schemas migrate; new commands plug into
+      `internal/jsonio/`. Errors on `--json` writes go to stderr as a
+      JSON error doc.
+- [ ] I13.5: ADR-068 §2 — sysexits exit-code table. Audit every
+      `return fmt.Errorf` / `os.Exit` for code mapping; centralise
+      in `internal/exitcode/`. Wire into `main` so a returned
+      `*ExitError` sets the right code.
+- [ ] I13.6: ADR-068 §5 — tab-completion. Audit each command in
+      `cmd/af/` for `cmd.RegisterFlagCompletionFunc` and arg
+      completion. Session/slot/host/agent/sandbox completions per
+      §5 table.
+- [ ] I13.7: ADR-069 §3 — strict name-collision check in `af
+      create` covering active + suspended + archived. Verify the
+      friendly error message + `EX_DATAERR`. Likely already
+      in place against `sessions/`; verify against `archive/`.
+- [ ] I13.8: ADR-069 §1 — add a CI/lint rule that rejects
+      `net/http` imports outside `internal/sandbox/`, `internal/
+      remote/`, etc. `golangci-lint` `depguard` config.
+- [ ] I13.9: Wave 3 close-out for Stage 13 — advance ADR-068
+      through ADR-072 frontmatter to `implementation: complete`,
+      update README/CHANGELOG/PROGRESS, check off I13.1–I13.9.
 
 ---
 
