@@ -11,28 +11,29 @@ for the narrative log and [`docs/adr/`](docs/adr/) for accepted decisions.
 
 ## Handover snapshot (read this first)
 
-**Status at HEAD `2d7ad71`** (2026-05-22, after Stage 11 + the
-gap-analysis pass):
+**Status at HEAD `9f0227c`** (2026-05-22, after Stage 11 + the
+gap-analysis pass + ADR-073 design):
 
 - Every numbered ADR from **031 to 065** is `implementation: complete`.
 - `pending` ADRs: **066** (VM agent-session export), **067**
   (automatic agent-session sync), **068** (operational UX contract),
   **069** (boundary & privacy), **070** (session selection &
   inference), **071** (PR state TTL cache), **072** (state.toml
-  schema roll-up).
+  schema roll-up), **073** (`af review` repo-aware PR review).
 - ADRs 068–072 are the **gap-analysis batch** — cross-cutting
   contracts plus a state-schema consolidation. They were drafted to
   match what's currently shipped, so most of 068/072 is
   documentation of existing behaviour. ADRs 069/070/071 add new
-  required behaviour. See §"Stage 12 / 13 reading list" below for
-  what each one implies for code work.
+  required behaviour. ADR-073 is a new read-only command. See
+  §"Stage 12 / 13 reading list" below for what each one implies for
+  code work.
 - ADR-032 is `implementation: n/a` (it is the conventions ADR itself).
 - `make check` is green: 0 lint, all 21 packages pass
   `-race -count=1 -shuffle=on`.
 - `goreleaser check` is green; `make snapshot-all` cross-builds for
   darwin/arm64, linux/amd64, linux/arm64.
-- Working tree is clean. `main` is 29 commits ahead of `origin/main`
-  (no push planned yet — v1.0.0 release timing is the owner's call).
+- Working tree is clean. `main` is in sync with `origin/main` after
+  the gap-analysis pass; no rebase needed.
 
 **Next session pickup options** (in roughly increasing effort):
 
@@ -46,10 +47,13 @@ gap-analysis pass):
 3. **Implement ADR-066 + ADR-067** (the agent-session-export +
    automatic-sync pair). Larger; I12.3–I12.4. Spec is well-defined;
    parallelizable into two worktree agents.
-4. **Implement ADRs 068–072** (gap-analysis batch). New cross-cutting
-   contracts that need to land before v1.0.0. See §"Stage 12 / 13
-   reading list" below.
-5. **Cut v1.0.0 release.** `goreleaser release --clean` after a
+4. **Implement ADRs 068–072** (gap-analysis batch) in Stage 13. New
+   cross-cutting contracts that need to land before v1.0.0. See
+   §"Stage 12 / 13 reading list" below and Stage 13 task list (I13.1–
+   I13.9).
+5. **Implement ADR-073 `af review`** in Stage 14 (I14.1–I14.6). Depends
+   on Stage 13 PR state work (ADR-071); otherwise self-contained.
+6. **Cut v1.0.0 release.** `goreleaser release --clean` after a
    dry-run validation; tag, push, GitHub release. Out of scope until
    the owner is ready; the project is in release-ready shape modulo
    the follow-ups above.
@@ -112,6 +116,16 @@ first (they're new-behaviour ADRs and unblock other work like
 `af list` performance and the dashboard freshness story). ADR-068's
 formal flock lift can come with whatever ADR adds the next mutating
 command. ADR-069 is mostly tests.
+
+- **ADR-073 (`af review`).** New read-only command writing a Markdown
+  PR review report to `.af/reviews/`. Depends on ADR-071's PR state
+  refresh path landing first (it uses the cached PR metadata).
+  Implementation plan is Stage 14 below (I14.1–I14.6). Stack: embed
+  immutable system prompt via `//go:embed`, four-layer prompt-append
+  resolution (user config, repo config, repo file, CLI flag), new
+  `[review]` config table, new `internal/gh` helpers wrapping
+  `gh pr view --json` and `gh pr diff`, atomic 0o600 write of the
+  report, ledger event.
 
 **Where to look first**:
 

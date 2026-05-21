@@ -1687,3 +1687,54 @@ follows Stage 13 (gap-analysis batch ADRs 068–072).
 Continue with Stage 12 (`TODO.md` items I12.1–I12.5): wire the
 `SlicerWTAvailable` doctor probe, add the lease-warning editor test, and
 implement ADR-066/067 VM session export and automatic sync state machine.
+
+## 2026-05-22 — Session 31: Consolidation after gap-analysis + ADR-073
+
+### Goal
+
+Reconcile the work that landed between Session 29's handover commit
+(`c00a37e`) and the current HEAD (`9f0227c`). Three parallel doc-only
+branches landed in main during the gap window:
+
+1. `docs/gap-analysis-v1` — ADRs 068–072 + SPEC rewrite (`9c6bd6e`,
+   `92e7b89`, `2d7ad71`).
+2. `worktree-docs-adr-068` — became ADR-073 (`e333225`) with Stage 14
+   in `TODO.md`.
+3. `docs/adr-073-spec-absorption` — SPEC pickup for ADR-073
+   (`9f0227c`).
+
+None of these commits changed code. The repository tree was
+untouched outside `docs/` and the tracking files.
+
+### Done
+
+- Updated the **Handover snapshot** at the top of `TODO.md`:
+  - HEAD reference advanced `2d7ad71` → `9f0227c`.
+  - Added ADR-073 to the `pending` list (now 8 pending: 066, 067,
+    068, 069, 070, 071, 072, 073).
+  - Added a 5th "next session pickup option" pointing at Stage 14
+    (ADR-073) and noted the ADR-071 dependency.
+  - "29 commits ahead of origin" line replaced with "in sync with
+    origin/main" (origin caught up during the gap window).
+- Appended an ADR-073 paragraph to the "Stage 12 / 13 reading list"
+  with the implementation outline (`//go:embed` prompt, four-layer
+  append resolution, `[review]` config, `internal/gh`, atomic 0o600
+  write).
+- This PROGRESS entry (Session 31) records the consolidation.
+
+### Verification
+
+- `make check` is still green: 0 lint, all 21 packages pass
+  `-race -count=1 -shuffle=on`. No code paths changed.
+- ADR count: 43 files in `docs/adr/0*.md`. Status breakdown:
+  34 `complete` (031, 033–065), 1 `n/a` (032), 8 `pending` (066–073).
+- TODO checks: 126 `[x]` / 20 `[ ]`. The 20 unchecked items are
+  Stages 12–14 (I12.1–I12.5, I13.1–I13.9, I14.1–I14.6) — the
+  full forward plan for v1.0.0.
+- Working tree clean after this commit; in sync with `origin/main`.
+
+### Next
+
+Unchanged from Session 30's pointer: continue with Stage 12. The
+full pickup ladder (Stage 12 → 13 → 14, with ADR-073 depending on
+ADR-071) is in the Handover snapshot in `TODO.md`.
