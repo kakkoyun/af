@@ -9,6 +9,51 @@ for the narrative log and [`docs/adr/`](docs/adr/) for accepted decisions.
 
 ---
 
+## Handover snapshot (read this first)
+
+**Status at HEAD `d1d66b7`** (2026-05-22, end of Session 29):
+
+- Every numbered ADR from **031 to 065** is `implementation: complete`.
+- Only `pending` ADRs are **066** (VM agent-session export) and **067**
+  (automatic agent-session sync) — both owner drafts; specs are written
+  but no code has been written against them.
+- ADR-032 is `implementation: n/a` (it is the conventions ADR itself).
+- `make check` is green: 0 lint, all 21 packages pass
+  `-race -count=1 -shuffle=on`.
+- `goreleaser check` is green; `make snapshot-all` cross-builds for
+  darwin/arm64, linux/amd64, linux/arm64.
+- Working tree is clean. `main` is 29 commits ahead of `origin/main`
+  (no push planned yet — v1.0.0 release timing is the owner's call).
+
+**Next session pickup options** (in roughly increasing effort):
+
+1. **Wire `SlicerWTAvailable` into `af doctor`'s default probe list.**
+   The probe function exists in `internal/doctor/system.go` with a
+   `// TODO(ADR-065)` marker. Small (~30 lines) follow-up; see
+   I12.1 below.
+2. **Add a `TestEditor_LeaseWarning`** that exercises the warning
+   path without spawning a real editor (e.g. inject a fake editor
+   command via the existing seam). Small (~20 lines); I12.2.
+3. **Implement ADR-066 + ADR-067** (the agent-session-export +
+   automatic-sync pair). Larger; I12.3–I12.4. Spec is well-defined;
+   parallelizable into two worktree agents.
+4. **Cut v1.0.0 release.** `goreleaser release --clean` after a
+   dry-run validation; tag, push, GitHub release. Out of scope until
+   the owner is ready; the project is in release-ready shape modulo
+   the small follow-ups above.
+
+**Where to look first**:
+
+- `PROGRESS.md` Session 29 has the full Stage 11 narrative + deferrals.
+- Stage 12 plan below (the only remaining `[ ]` items in this file).
+- For ADR scope: `docs/adr/066-*.md` and `docs/adr/067-*.md`.
+- For the slicer-wt code path that just landed: `internal/sandbox/
+  slicerwt.go`, `internal/lifecycle/pull.go`, `cmd/af/pull.go`,
+  and the lease checks scattered across `done.go`, `suspend_resume.go`,
+  `proxy_commands.go`, `status.go`, `info.go`.
+
+---
+
 ## Stage A — Archive v0 docs ✅
 
 Closed at commit `1659d60`.
@@ -454,6 +499,41 @@ implements it so the v1 ADR set is complete up to and including 065.
       Stage 11 section. PROGRESS Session 29 records the close-out.
       Every numbered ADR from 031 to 065 is now
       `implementation: complete`.
+
+### Implementation Stage 12 — Follow-ups + ADR-066/067 (next session)
+
+Small follow-ups from Stage 11, plus the next two pending ADRs. These
+are the only `[ ]` items in this file.
+
+- [ ] I12.1: Wire `internal/doctor.SlicerWTAvailable` into the
+      `af doctor` default probe list as a non-blocking warning per
+      ADR-065. The probe function exists; this is just the
+      `defaultProbes()` registration + a `TestSystem_SlicerWTReported`
+      test asserting that `af doctor` mentions the wt API status when
+      slicer is installed.
+- [ ] I12.2: Add `TestEditor_LeaseWarning` for the lease-warning path
+      in `runEditor`. Use the existing `editorCommand` seam (or add
+      one if missing) so the test never spawns a real editor. Verify
+      stderr contains the "host worktree may be stale" message.
+- [ ] I12.3: ADR-066 — implement VM agent-session export. Per the
+      ADR, this means a host-side allowlist copy of
+      `~/.claude/projects/**`, `~/.codex/sessions/**`, pi's resolved
+      `sessionDir`, and harness session roots from the VM back to the
+      host as part of `af pull` (or a sibling command). Read
+      `docs/adr/066-agent-session-export-from-slicer-vms.md` for the
+      exact allowlist + denylist + safety rules.
+- [ ] I12.4: ADR-067 — automatic agent-session sync state machine.
+      Per the ADR, this captures sync state in `state.toml` and runs
+      the export from I12.3 automatically at sane points (after
+      successful pull, before `af done`, on resume). Read
+      `docs/adr/067-automatic-agent-session-export.md` for the
+      details and exact failure-mode handling. May be parallelizable
+      with I12.3 in worktrees if the state fields are sequenced
+      carefully (I12.3 lands the export module; I12.4 wires the
+      automatic triggers around it).
+- [ ] I12.5: Wave 3 close-out for Stage 12 — advance ADR-066 and
+      ADR-067 frontmatter to `implementation: complete`, update
+      README/CHANGELOG/PROGRESS, check off I12.1–I12.5.
 
 ---
 

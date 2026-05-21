@@ -1612,12 +1612,37 @@ Every numbered ADR from 031 to 065 is `implementation: complete`.
 The only `pending` ADRs are 066 (VM agent-session export) and 067
 (automatic agent-session sync), both owner drafts in flight.
 
-### Next
+### Next session pickup (handover)
 
-1. Implement the ADR-066/067 pair when the owner is ready (session
-   transcript export from VM, automatic sync state).
-2. Wire `SlicerWTAvailable` into `af doctor` output via a small
-   follow-up PR.
-3. Cut a release when the owner is ready (the project is in a
-   release-ready shape modulo the two pending drafts and the doctor
-   wiring nit).
+The top of `TODO.md` now has a **Handover snapshot** block; Stage 12
+below it captures the only remaining `[ ]` items:
+
+1. **I12.1**: Wire `internal/doctor.SlicerWTAvailable` into
+   `defaultProbes()` so `af doctor` actually surfaces the wt API
+   warning. The probe function exists; only the registration + a
+   one-line doctor-report assertion test are missing.
+2. **I12.2**: Add a `TestEditor_LeaseWarning` that uses an injectable
+   editor command so the test never blocks on a real editor. The
+   warning emission lives in `cmd/af/proxy_commands.go.runEditor`;
+   you may need to add a small package-level seam similar to
+   `prAIBodyFunc` / `retroAIBodyFunc`.
+3. **I12.3 + I12.4**: Implement ADR-066 (VM agent-session export)
+   and ADR-067 (automatic agent-session sync). Specs are at
+   `docs/adr/066-agent-session-export-from-slicer-vms.md` and
+   `docs/adr/067-automatic-agent-session-export.md`. Parallelizable
+   in worktrees if I12.3 lands the export module and I12.4 wires
+   automatic triggers around it.
+4. **I12.5**: Wave 3 close-out for Stage 12 (frontmatter, README,
+   CHANGELOG, PROGRESS).
+
+**Pre-flight for the next session** (verify these are still true):
+
+- `make check` green on `main`.
+- `slicer wt push --help` shows `--launch`.
+- `tailscale` and `gh` still authenticated (Stage 9/10 caveats).
+- The agent CLIs (`pi`, `claude`, `codex`) are still on PATH.
+
+**Release readiness**: the project is in a release-ready shape
+modulo the two pending owner drafts (066/067) and the small Stage 11
+deferrals listed above. `goreleaser release --clean` is the path
+when the owner is ready to cut v1.0.0; no code blockers remain.
