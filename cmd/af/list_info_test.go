@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,8 +95,21 @@ func TestInfo_JSONMode_EmitsParsableJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("info --json: %v", err)
 	}
-	if !strings.Contains(stdout, `"Name": "alpha"`) {
-		t.Fatalf("info --json missing alpha name; got:\n%s", stdout)
+	var envelope map[string]any
+	err = json.Unmarshal([]byte(strings.TrimSpace(stdout)), &envelope)
+	if err != nil {
+		t.Fatalf("info --json not valid JSON: %v\noutput:\n%s", err, stdout)
+	}
+	if envelope["schema"] != float64(1) {
+		t.Fatalf("schema = %v, want 1", envelope["schema"])
+	}
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("data is %T, want object", envelope["data"])
+	}
+	sessionPayload, ok := data["session"].(map[string]any)
+	if !ok || sessionPayload["Name"] != "alpha" {
+		t.Fatalf("info --json missing alpha session; data=%v", data)
 	}
 }
 

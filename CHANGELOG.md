@@ -44,6 +44,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cannot resolve a PR, `errReviewEmptyDiff` when the diff is empty,
   `errReviewEmptyBody` when the agent returns whitespace.
 
+#### Stage 13 — ADR-068 operational UX contract
+
+- **JSON envelope**: `af status --json` and `af info --json` now emit
+  `{ "schema": 1, "data": ... }` instead of bare payloads.
+- **Exit-code vocabulary**: `cmd/af/exit_codes.go` maps known error
+  classes to ADR-068 sysexits-style codes, and `main` exits with that
+  mapping.
+- **Per-session lock helper**: `cmd/af/session_lock.go` centralises
+  exclusive session locking at `<session>/.af.lock`; `af note --append`
+  uses it and PR refresh write paths continue to serialize state/ledger
+  writes through a shared helper.
+- **Completion sources**: root `--session` and `[session]` positionals
+  complete workstream names; `af status --filter` completes lifecycle
+  states.
+
 #### Stage 13 — ADR-070 session selection
 
 - **ADR-070 session resolution**: every `[session]` command now uses

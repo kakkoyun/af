@@ -2101,3 +2101,45 @@ command has one shared resolution contract.
 Only ADR-068 and ADR-072 remain pending. ADR-068 is the last behaviour
 work (session-level flock, JSON envelope, exit codes, completion);
 ADR-072 is a schema-roll-up verification/doc close-out.
+
+
+## 2026-05-22 — Session 36: ADR-068 operational UX contract
+
+### Goal
+
+Close the ADR-068 cross-cutting UX contract: JSON envelope, exit-code
+vocabulary, session lock helper, and completion sources.
+
+### Done
+
+- Added `cmd/af/jsonio.go` and switched `af status --json` /
+  `af info --json` to the ADR-068 envelope: `{ "schema": 1,
+  "data": ... }`. Existing JSON tests were updated to assert the
+  envelope.
+- Added `cmd/af/exit_codes.go` with sysexits-style constants and
+  `exitCodeForError`; `main` now exits with the mapped code. Tests
+  cover `EX_NOINPUT`, `EX_DATAERR`, `EX_INTERRUPTED`, `EX_USAGE`, and
+  fallback `EX_GENERAL`.
+- Added `cmd/af/session_lock.go` with a per-session `.af.lock` helper
+  and wired `af note --append` through it; tests assert the lock file is
+  created. PR refresh write paths already centralize state/ledger writes
+  through the shared ADR-071 helper.
+- Added completion sources for workstream names and lifecycle states.
+  Root `--session` and `[session]` positionals complete session names;
+  `af status --filter` completes active/suspended/completed/abandoned.
+- Advanced ADR-068 and `docs/adr/INDEX.md` to `implementation: complete`;
+  updated README, CHANGELOG, and TODO handover.
+
+### Verification
+
+- Red step: JSON tests failed against the old bare payloads; new
+  operational tests failed on missing exit-code constants, lock helper,
+  and completion source.
+- Green step: targeted cmd tests pass and full `make check` is green
+  (0 lint, all 24 packages pass `-race -count=1 -shuffle=on`).
+
+### Next
+
+Only ADR-072 remains pending. It should be a verification/doc close-out
+for the state.toml schema roll-up now that ADR-067 and ADR-071 fields
+have landed.

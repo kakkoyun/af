@@ -33,10 +33,12 @@ func newNoteCmd(_ *rootOptions) *cobra.Command {
 				return err
 			}
 			ledgerPath := filepath.Join(filepath.Dir(statePath), "ledger.jsonl")
-			err = session.AppendEvent(ledgerPath, session.Event{
-				Timestamp: time.Now().UTC(),
-				Type:      "note",
-				Fields:    map[string]any{"text": appendText},
+			err = withSessionLock(statePath, func() error {
+				return session.AppendEvent(ledgerPath, session.Event{
+					Timestamp: time.Now().UTC(),
+					Type:      "note",
+					Fields:    map[string]any{"text": appendText},
+				})
 			})
 			if err != nil {
 				return fmt.Errorf("note: %w", err)

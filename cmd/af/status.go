@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -30,6 +29,7 @@ func newStatusCmd(opts *rootOptions) *cobra.Command {
 	cmd.Flags().BoolVar(&sOpts.all, "all", false, "include completed and abandoned workstreams")
 	cmd.Flags().BoolVar(&sOpts.refresh, "refresh", false, "force-refresh cached PR state before rendering")
 	cmd.Flags().StringVar(&sOpts.filter, "filter", "", "show only workstreams in this lifecycle state (active|suspended|completed|abandoned)")
+	registerFlagCompletion(cmd, "filter", completeLifecycleStates)
 	return cmd
 }
 
@@ -89,15 +89,7 @@ func statusEmitJSON(cmd *cobra.Command, summaries []sessionSummary) error {
 		}
 		rows = append(rows, row)
 	}
-	data, err := json.MarshalIndent(rows, "", "  ")
-	if err != nil {
-		return fmt.Errorf("status json: %w", err)
-	}
-	_, err = fmt.Fprintln(cmd.OutOrStdout(), string(data))
-	if err != nil {
-		return fmt.Errorf("status json write: %w", err)
-	}
-	return nil
+	return writeJSONEnvelope(cmd, 1, rows)
 }
 
 func statusEmitText(cmd *cobra.Command, summaries []sessionSummary) error {

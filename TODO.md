@@ -19,9 +19,10 @@ Stages 12 + 14 complete and Stage 13 partial):
   also `complete`.
 - **ADR-070** (session selection & inference) and **ADR-071** (PR state
   TTL cache) are also `complete`.
-- `pending` ADRs: **068** (operational UX contract — flock + JSON
-  envelope + exit codes + completion) and **072** (state.toml schema
-  roll-up).
+- **ADR-068** (operational UX contract) is also `complete`: JSON
+  envelope, exit-code mapping, per-session lock helper, and completion
+  sources all shipped.
+- `pending` ADRs: **072** (state.toml schema roll-up).
 - Stage 12 + 14 + partial Stage 13 work landed in nine commits on this branch:
     - `c919db5` — I12.1 + I12.2 (doctor wt probe, editor lease test).
     - `7022de3` — I12.3 (ADR-066 sessiondata package + CLI).
@@ -35,6 +36,7 @@ Stages 12 + 14 complete and Stage 13 partial):
     - `<final-close-out>` — Stage 14 close-out.
     - `<adr-071-wire-up>` — ADR-071 multi-command refresh wire-up.
     - `<adr-070-resolver>` — ADR-070 session resolver + tmux AF_SESSION.
+    - `<adr-068-operational-ux>` — JSON envelope, exit codes, lock helper, completions.
 - ADR-032 is `implementation: n/a` (it is the conventions ADR itself).
 - `make check` is green: 0 lint, all 24 packages pass
   `-race -count=1 -shuffle=on`.
@@ -47,19 +49,14 @@ Stages 12 + 14 complete and Stage 13 partial):
 
 **Next session pickup options** (in roughly increasing effort):
 
-1. **Implement ADR-068** in four parts:
-    - §4 per-session flock at `<session>/.af.lock` (I13.3).
-    - §1 JSON envelope `{schema, data}` (I13.4).
-    - §2 sysexits exit-code table (I13.5).
-    - §5 tab-completion (I13.6).
-2. **Implement ADR-072** state.toml schema roll-up consolidation. The
+1. **Implement ADR-072** state.toml schema roll-up consolidation. The
    ADR is mostly documentation of existing behaviour; the two PROPOSED
    blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are now
    shipped, so this is essentially a frontmatter advance + verify
    pass.
-3. **Cut v1.0.0 release.** `goreleaser release --clean` after the
+2. **Cut v1.0.0 release.** `goreleaser release --clean` after the
    above land. The project is in release-ready shape modulo the
-   remaining 2 ADRs (068, 072) — none of them
+   remaining ADR (072) — none of them
    block existing functionality.
 
 **Stage 12 deferrals** (small, can land any time before v1.0.0):
@@ -127,9 +124,8 @@ working. Concrete impact on future code work:
   blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are forward
   pointers to ADR-067/ADR-071's implementation work.
 
-Good approach for the next implementor: finish ADR-068's formal flock /
-JSON / exit-code / completion pass, then ADR-072's schema-roll-up
-close-out. ADR-069, ADR-070, and ADR-071 are complete.
+Good approach for the next implementor: finish ADR-072's schema-roll-up
+close-out. ADR-068, ADR-069, ADR-070, and ADR-071 are complete.
 
 - **ADR-073 (`af review`).** New read-only command writing a Markdown
   PR review report to `.af/reviews/`. Uses ADR-071's completed PR state refresh path and landed in
@@ -656,21 +652,21 @@ the scope summary; see each ADR for the full contract.
       - Add `--refresh` flag to `af pr`, `af status`, `af info`.
       - Emit `pr_state_changed` ledger events on flips.
       - Map empty-PR `--refresh` to `EX_DATAERR` (65).
-- [ ] I13.3: ADR-068 §4 — lift per-file flock (ADR-037) to per-session
+- [x] I13.3: ADR-068 §4 — lift per-file flock (ADR-037) to per-session
       flock at `<session>/.af.lock`. Mutating ops acquire exclusive
       with 30s timeout → `EX_TEMPFAIL` on timeout. Read-only ops
       (`list`, `status`, `info`) don't lock. Audit existing mutating
       commands; testscript coverage in `concurrency.txt`.
-- [ ] I13.4: ADR-068 §1 — JSON envelope `{schema, data}` for every
+- [x] I13.4: ADR-068 §1 — JSON envelope `{schema, data}` for every
       `--json`-bearing command. Existing `af status --json`/`af
       info --json` schemas migrate; new commands plug into
       `internal/jsonio/`. Errors on `--json` writes go to stderr as a
       JSON error doc.
-- [ ] I13.5: ADR-068 §2 — sysexits exit-code table. Audit every
+- [x] I13.5: ADR-068 §2 — sysexits exit-code table. Audit every
       `return fmt.Errorf` / `os.Exit` for code mapping; centralise
       in `internal/exitcode/`. Wire into `main` so a returned
       `*ExitError` sets the right code.
-- [ ] I13.6: ADR-068 §5 — tab-completion. Audit each command in
+- [x] I13.6: ADR-068 §5 — tab-completion. Audit each command in
       `cmd/af/` for `cmd.RegisterFlagCompletionFunc` and arg
       completion. Session/slot/host/agent/sandbox completions per
       §5 table.

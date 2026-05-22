@@ -53,17 +53,28 @@ func TestStatus_JSONEmitsValidJSON(t *testing.T) {
 		t.Fatalf("status --json: %v", err)
 	}
 
-	var rows []map[string]any
-	err = json.Unmarshal([]byte(strings.TrimSpace(stdout)), &rows)
+	var envelope map[string]any
+	err = json.Unmarshal([]byte(strings.TrimSpace(stdout)), &envelope)
 	if err != nil {
 		t.Fatalf("status --json not valid JSON: %v\noutput:\n%s", err, stdout)
+	}
+	if envelope["schema"] != float64(1) {
+		t.Fatalf("schema = %v, want 1", envelope["schema"])
+	}
+	rows, ok := envelope["data"].([]any)
+	if !ok {
+		t.Fatalf("data is %T, want []any; envelope=%v", envelope["data"], envelope)
 	}
 	if len(rows) != 1 {
 		t.Fatalf("expected 1 row, got %d; output:\n%s", len(rows), stdout)
 	}
+	row, ok := rows[0].(map[string]any)
+	if !ok {
+		t.Fatalf("row is %T, want object", rows[0])
+	}
 	for _, key := range []string{"name", "status", "branch"} {
-		if _, ok := rows[0][key]; !ok {
-			t.Fatalf("JSON row missing key %q; row: %v", key, rows[0])
+		if _, ok := row[key]; !ok {
+			t.Fatalf("JSON row missing key %q; row: %v", key, row)
 		}
 	}
 }

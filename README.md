@@ -7,8 +7,8 @@ codex) — all tied together under a single durable state file. When the task is
 done, everything is cleaned up with one command.
 
 > **Status — v1 (single-user).** Stages 0–12 + Stage 14 are implemented;
-> ADRs 031–067, 069–071, and 073 are `implementation: complete`.
-> ADRs 068 and 072 remain `pending`. `make check` is
+> ADRs 031–071 and 073 are `implementation: complete`. ADR-072 remains
+> `pending`. `make check` is
 > green. The proxy commands (`af editor`, `af diff`, `af pr`, `af retro`),
 > suspend/resume lifecycle, stack-aware `af sync`, opinionated diff
 > rendering (hunk + diffity), repo-scoped `[control]` settings,
@@ -136,6 +136,17 @@ These commands run the user-configured executables from `[diff]`, `[pr]`, and
 | `af editor [session] [--terminal                                          | -t] [--visual]`                                                          | Open the configured editor at the workstream worktree path. |
 
 
+
+### Operational UX contracts (ADR-068)
+
+- `--json` commands emit a versioned envelope: `{ "schema": 1, "data": ... }`.
+- `af` maps common failure classes to sysexits-style exit codes
+  (`EX_DATAERR`, `EX_NOINPUT`, `EX_INTERRUPTED`, etc.).
+- Mutating commands can acquire a per-session `.af.lock`; `af note --append`
+  and PR refresh write paths use the shared lock helper.
+- Completions include workstream names for `[session]` / `--session` and
+  lifecycle states for `af status --filter`.
+
 ### Session resolution (ADR-070)
 
 Every command that accepts `[session]` resolves it in this order:
@@ -245,8 +256,7 @@ strictly verified; a tightening pass lands when slicer ships such an
 API. See `internal/sandbox/resources.go` (`// ADR-062 §Resolution step
 6`) for the exact deferral.
 
-**Pending ADRs.** ADRs 068 (operational UX contract: flock + JSON envelope +
-exit codes + completion) and 072 (state.toml schema roll-up) remain
+**Pending ADRs.** ADR-072 (state.toml schema roll-up) remains
 `implementation: pending`.
 
 **`af session-data sync --continue-host` is accepted but not yet wired.**

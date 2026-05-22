@@ -49,7 +49,7 @@ convention defined in [ADR-032](032-adr-conventions.md).
 | [065](065-slicer-worktree-transport.md)           | Slicer Worktree Transport (`slicer wt`)                                        | proposed | complete       | go, sandbox, slicer, worktree, git   |
 | [066](066-agent-session-export-from-slicer-vms.md) | Agent Session Export from Slicer VMs                                          | proposed | complete       | go, sandbox, slicer, session, export |
 | [067](067-automatic-agent-session-export.md)      | Automatic Agent Session Export and Sync State                                  | proposed | complete       | go, sandbox, slicer, session, state  |
-| [068](068-operational-ux-contract.md)             | Operational UX Contract (JSON, exit codes, TTY, concurrency, completion)       | proposed | pending        | go, ux, json, exit-codes             |
+| [068](068-operational-ux-contract.md)             | Operational UX Contract (JSON, exit codes, TTY, concurrency, completion)       | proposed | complete       | go, ux, json, exit-codes             |
 | [069](069-boundary-and-privacy.md)                | Boundary & Privacy — Telemetry, Multi-Machine, Name Collisions                  | proposed | complete       | go, privacy, multi-machine, naming   |
 | [070](070-session-selection-and-inference.md)     | Session Selection & Inference                                                  | proposed | complete       | go, ux, session, fzf                 |
 | [071](071-pr-state-lifecycle.md)                  | PR State Lifecycle — TTL-Cached Refresh                                        | proposed | complete       | go, pr, github, cache, lifecycle     |

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -86,15 +85,7 @@ func writeInfoJSON(cmd *cobra.Command, state session.State, events []session.Eve
 		"pr":        infoPRPayload(state, prRefreshFailed),
 		"events":    events,
 	}
-	data, err := json.MarshalIndent(payload, "", "  ")
-	if err != nil {
-		return fmt.Errorf("info json: %w", err)
-	}
-	_, err = fmt.Fprintln(cmd.OutOrStdout(), string(data))
-	if err != nil {
-		return fmt.Errorf("info json write: %w", err)
-	}
-	return nil
+	return writeJSONEnvelope(cmd, 1, payload)
 }
 
 func writeInfoText(cmd *cobra.Command, state session.State, events []session.Event, prRefreshFailed bool) error {
