@@ -16,8 +16,9 @@ import (
 var errDoneNoState = errors.New("no .af/state.toml in current directory")
 
 type doneOptions struct {
-	root  *rootOptions
-	force bool
+	root    *rootOptions
+	force   bool
+	discard bool
 }
 
 func newDoneCmd(opts *rootOptions) *cobra.Command {
@@ -36,6 +37,7 @@ func newDoneCmd(opts *rootOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dOpts.force, "force", false, "abandon rather than complete; skip safety checks")
+	cmd.Flags().BoolVar(&dOpts.discard, "discard", false, "discard agent session transcripts; skip ADR-067 automatic sync before VM teardown")
 	return cmd
 }
 
@@ -43,6 +45,14 @@ func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
 	statePath, err := resolveDoneStatePath(name)
 	if err != nil {
 		return err
+	}
+	preState, err := readStateForAutoSync(cmd.Context(), statePath)
+	if err != nil {
+		return fmt.Errorf("done: %w", err)
+	}
+	err = autoSyncBeforeTeardown(cmd, preState, statePath, opts.discard)
+	if err != nil {
+		return fmt.Errorf("done: %w", err)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {

@@ -15,7 +15,10 @@ import (
 var errLifecycleNoState = errors.New("no .af/state.toml in current directory")
 
 func newSuspendCmd(_ *rootOptions) *cobra.Command {
-	var force bool
+	var (
+		force   bool
+		discard bool
+	)
 	cmd := &cobra.Command{
 		Use:   "suspend [session]",
 		Short: "Suspend a workstream (state.toml records suspension; tmux stays alive)",
@@ -28,6 +31,14 @@ func newSuspendCmd(_ *rootOptions) *cobra.Command {
 			statePath, err := resolveLifecycleStatePath(name)
 			if err != nil {
 				return err
+			}
+			preState, err := readStateForAutoSync(cmd.Context(), statePath)
+			if err != nil {
+				return fmt.Errorf("suspend: %w", err)
+			}
+			err = autoSyncBeforeTeardown(cmd, preState, statePath, discard)
+			if err != nil {
+				return fmt.Errorf("suspend: %w", err)
 			}
 			state, err := lifecycle.SuspendWorkstream(cmd.Context(), lifecycle.SuspendOptions{
 				StatePath: statePath,
@@ -47,6 +58,7 @@ func newSuspendCmd(_ *rootOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "force suspend even when worktree is leased to a slicer VM (sets lease_state=discarded)")
+	cmd.Flags().BoolVar(&discard, "discard", false, "discard agent session transcripts; skip ADR-067 automatic sync before VM teardown")
 	return cmd
 }
 

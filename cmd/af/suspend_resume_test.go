@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kakkoyun/af/internal/lifecycle"
+	"github.com/kakkoyun/af/internal/sandbox/sessiondata"
 	"github.com/kakkoyun/af/internal/session"
 )
 
@@ -41,6 +42,7 @@ func TestSuspend_LeaseRefusal(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	writeTestSessionStateWithLease(t, home, "leased-ws", session.SlicerWTLeaseHeldByVM)
+	installNoopSlicerFactory(t)
 
 	_, _, err := executeCommand(t, newRootCmd(), "suspend", "leased-ws")
 	if err == nil {
@@ -55,9 +57,23 @@ func TestSuspend_ForceAllowsWithLease(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	writeTestSessionStateWithLease(t, home, "leased-ws2", session.SlicerWTLeaseHeldByVM)
+	installNoopSlicerFactory(t)
 
 	_, _, err := executeCommand(t, newRootCmd(), "suspend", "leased-ws2", "--force")
 	if err != nil {
 		t.Fatalf("suspend --force: %v", err)
 	}
+}
+
+// installNoopSlicerFactory replaces sessiondataSlicerFactory with a
+// FakeSlicer whose Source is an empty temp directory. The fake's
+// Inventory returns no entries, so the auto-sync runs to completion
+// with zero imports and no conflicts — the test can then exercise
+// ADR-065 lease behaviour without depending on a real slicer binary.
+func installNoopSlicerFactory(t *testing.T) {
+	t.Helper()
+	orig := sessiondataSlicerFactory
+	t.Cleanup(func() { sessiondataSlicerFactory = orig })
+	empty := t.TempDir()
+	sessiondataSlicerFactory = func() sessiondata.Slicer { return &sessiondata.FakeSlicer{Source: empty} }
 }
