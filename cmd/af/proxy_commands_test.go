@@ -230,3 +230,89 @@ func TestDiff_LeaseWarning(t *testing.T) {
 	// We cannot assert the exact warning in unit tests because git isn't available,
 	// but the build must succeed and the test must not panic.
 }
+
+// TestEditor_LeaseWarning verifies that when state.SlicerWT lease state is
+// `held_by_vm`, runEditor emits the "host worktree may be stale" warning to
+// stderr before invoking the editor. The editorCommandFunc seam is replaced
+// with a stub that runs /usr/bin/true so this test never spawns a real editor.
+//
+// This closes I12.2 (ADR-065 carry-over).
+func TestEditor_LeaseWarning(t *testing.T) {
+	orig := editorCommandFunc
+	t.Cleanup(func() { editorCommandFunc = orig })
+	var capturedTarget, capturedPath string
+	editorCommandFunc = func(ctx context.Context, target, worktreePath string) *exec.Cmd {
+		capturedTarget = target
+		capturedPath = worktreePath
+		return exec.CommandContext(ctx, "/usr/bin/true")
+	}
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionStateWithLease(t, home, "edit-leased", session.SlicerWTLeaseHeldByVM)
+
+	// Configure an editor target so runEditor reaches the seam (otherwise it
+	// short-circuits with errEditorNotConfigured before the warning could be
+	// reached — though the warning would already have been emitted above the
+	// configuration check, this exercises the full success path).
+	cfgDir := filepath.Join(home, ".config", "af")
+	err := os.MkdirAll(cfgDir, 0o750)
+	if err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	const cfgContent = "schema_version = 1\n\n[editor]\nvisual = \"editor-stub\"\n"
+	err = os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(cfgContent), 0o600)
+	if err != nil {
+		t.Fatalf("write editor test config: %v", err)
+	}
+
+	_, stderr, err := executeCommand(t, newRootCmd(), "editor", "edit-leased")
+	if err != nil {
+		t.Fatalf("editor: %v", err)
+	}
+	if !strings.Contains(stderr, "host worktree may be stale") {
+		t.Fatalf("stderr should contain lease warning; got: %q", stderr)
+	}
+	if !strings.Contains(stderr, "af pull edit-leased") {
+		t.Fatalf("stderr should mention the suggested `af pull <name>` remediation; got: %q", stderr)
+	}
+	if capturedTarget != "editor-stub" {
+		t.Errorf("seam captured target = %q, want %q", capturedTarget, "editor-stub")
+	}
+	if capturedPath == "" {
+		t.Errorf("seam captured empty worktree path")
+	}
+}
+
+// TestEditor_NoLeaseNoWarning verifies that when the lease state is unset
+// (no slicer-backed workstream), no warning appears on stderr.
+func TestEditor_NoLeaseNoWarning(t *testing.T) {
+	orig := editorCommandFunc
+	t.Cleanup(func() { editorCommandFunc = orig })
+	editorCommandFunc = func(ctx context.Context, _, _ string) *exec.Cmd {
+		return exec.CommandContext(ctx, "/usr/bin/true")
+	}
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionStateNoLease(t, home, "edit-no-lease")
+
+	cfgDir := filepath.Join(home, ".config", "af")
+	err := os.MkdirAll(cfgDir, 0o750)
+	if err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	const cfgContent = "schema_version = 1\n\n[editor]\nvisual = \"editor-stub\"\n"
+	err = os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(cfgContent), 0o600)
+	if err != nil {
+		t.Fatalf("write editor test config: %v", err)
+	}
+
+	_, stderr, err := executeCommand(t, newRootCmd(), "editor", "edit-no-lease")
+	if err != nil {
+		t.Fatalf("editor: %v", err)
+	}
+	if strings.Contains(stderr, "host worktree may be stale") {
+		t.Fatalf("stderr should NOT contain lease warning when lease is unset; got: %q", stderr)
+	}
+}

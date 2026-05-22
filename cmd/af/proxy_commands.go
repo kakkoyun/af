@@ -42,6 +42,19 @@ type prAIBodyFn func(ctx context.Context, st session.State, model string) (strin
 
 var prAIBodyFunc prAIBodyFn = defaultPRAIBody //nolint:gochecknoglobals // Test seam: replaced by tests to avoid spawning a real agent; same pattern as newAuthContextOverride.
 
+// editorCommandFn builds the *exec.Cmd that runEditor will Run() to open the
+// configured editor in the workstream worktree. Tests replace
+// editorCommandFunc with a stub that returns a fast no-op command so the
+// editor warning path (ADR-065 lease) can be asserted without spawning a
+// real editor.
+type editorCommandFn func(ctx context.Context, target, worktreePath string) *exec.Cmd
+
+var editorCommandFunc editorCommandFn = defaultEditorCommand //nolint:gochecknoglobals // Test seam: same pattern as prAIBodyFunc above.
+
+func defaultEditorCommand(ctx context.Context, target, worktreePath string) *exec.Cmd {
+	return exec.CommandContext(ctx, target, worktreePath)
+}
+
 func newEditorCmd(_ *rootOptions) *cobra.Command {
 	var (
 		terminal bool
@@ -156,7 +169,7 @@ func runEditor(cmd *cobra.Command, name string, terminal, visual bool) error {
 	if strings.HasPrefix(target, "$") {
 		target = os.Getenv(strings.TrimPrefix(target, "$"))
 	}
-	cmdExec := exec.CommandContext(cmd.Context(), target, state.Worktree.Path) //nolint:gosec // Editor name from config; workstream path from state.
+	cmdExec := editorCommandFunc(cmd.Context(), target, state.Worktree.Path)
 	cmdExec.Stdout = cmd.OutOrStdout()
 	cmdExec.Stderr = cmd.ErrOrStderr()
 	cmdExec.Stdin = cmd.InOrStdin()
