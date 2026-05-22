@@ -54,6 +54,64 @@ type SlicerWTState struct {
 	LeaseState SlicerWTLeaseState `toml:"lease_state,omitempty"`
 }
 
+// ExportSyncStatus describes the outcome of the most recent
+// session-data sync run for a workstream. Used by ADR-067 lifecycle
+// gating and by `af info` to surface stale or blocked syncs.
+type ExportSyncStatus string
+
+const (
+	// ExportSyncNever is the zero value (no sync has run yet).
+	ExportSyncNever ExportSyncStatus = "never"
+	// ExportSyncOK reports a successful sync with no conflicts.
+	ExportSyncOK ExportSyncStatus = "ok"
+	// ExportSyncBlocked reports a sync that produced conflicts and
+	// must not be followed by VM teardown without --discard.
+	ExportSyncBlocked ExportSyncStatus = "blocked"
+	// ExportSyncDiscarded reports a sync explicitly skipped by the
+	// user via --discard.
+	ExportSyncDiscarded ExportSyncStatus = "discarded"
+)
+
+// ExportSourceStatus is the per-file outcome of a sync.
+type ExportSourceStatus string
+
+const (
+	// SourceStatusOK reports a successful import/append/skip.
+	SourceStatusOK ExportSourceStatus = "ok"
+	// SourceStatusConflict reports a quarantined divergent file.
+	SourceStatusConflict ExportSourceStatus = "conflict"
+	// SourceStatusSkipped reports an unchanged file (hash matched).
+	SourceStatusSkipped ExportSourceStatus = "skipped"
+	// SourceStatusBlocked reports a file that could not be processed.
+	SourceStatusBlocked ExportSourceStatus = "blocked"
+)
+
+// ExportSource is one VM source file's cursor (ADR-067 §State schema).
+// `mode` is "copy" for one-shot files, "append-jsonl" for byte-prefix-
+// appendable transcripts, or "directory" for tree imports.
+type ExportSource struct {
+	MTime      time.Time          `toml:"mtime,omitempty"`
+	Agent      string             `toml:"agent"`
+	VM         string             `toml:"vm"`
+	SourcePath string             `toml:"source_path"`
+	DestPath   string             `toml:"dest_path"`
+	Mode       string             `toml:"mode"`
+	Hash       string             `toml:"hash,omitempty"`
+	Status     ExportSourceStatus `toml:"status"`
+	Size       int64              `toml:"size,omitempty"`
+	LastOffset int64              `toml:"last_offset,omitempty"`
+}
+
+// ExportState records the workstream's agent session-data sync
+// state per ADR-067. The section is omitted entirely when no sync has
+// ever run.
+type ExportState struct {
+	LastSyncAt     *time.Time       `toml:"last_sync_at,omitempty"`
+	LastSyncStatus ExportSyncStatus `toml:"last_sync_status,omitempty"`
+	LastManifest   string           `toml:"last_manifest,omitempty"`
+	Sources        []ExportSource   `toml:"sources,omitempty"`
+}
+
 // State is the v1 state.toml schema for one workstream.
 type State struct {
 	Session       Info           `toml:"session"`
@@ -63,6 +121,7 @@ type State struct {
 	Worktree      WorktreeState  `toml:"worktree"`
 	PR            PRState        `toml:"pr"`
 	SlicerWT      SlicerWTState  `toml:"slicer_wt"`
+	SessionExport ExportState    `toml:"session_export,omitempty"`
 	Agents        []AgentState   `toml:"agents"`
 	SchemaVersion int            `toml:"schema_version"`
 }

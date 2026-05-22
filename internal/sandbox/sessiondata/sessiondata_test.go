@@ -156,7 +156,7 @@ func TestPull_DryRunDoesNotCopy(t *testing.T) {
 	hostHome := t.TempDir()
 	fake := &sessiondata.FakeSlicer{Source: home}
 
-	res, err := sessiondata.Pull(context.Background(), fake, sessiondata.PullOptions{
+	res, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
 		Session: "s1", VM: "vm1", HomeDir: hostHome,
 		Kinds:  []sessiondata.AgentKind{sessiondata.KindCodex},
 		DryRun: true,
@@ -196,7 +196,7 @@ func TestPull_NewFileIsImported(t *testing.T) {
 	hostHome := t.TempDir()
 	fake := &sessiondata.FakeSlicer{Source: home}
 
-	res, err := sessiondata.Pull(context.Background(), fake, sessiondata.PullOptions{
+	res, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
 		Session: "s1", VM: "vm1", HomeDir: hostHome,
 		Kinds: []sessiondata.AgentKind{sessiondata.KindCodex},
 		Now:   fixedTime,
@@ -246,7 +246,7 @@ func TestPull_IdenticalContentIsSkipped(t *testing.T) {
 	}
 
 	fake := &sessiondata.FakeSlicer{Source: home}
-	res, err := sessiondata.Pull(context.Background(), fake, sessiondata.PullOptions{
+	res, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
 		Session: "s1", VM: "vm1", HomeDir: hostHome,
 		Kinds: []sessiondata.AgentKind{sessiondata.KindCodex},
 		Now:   fixedTime,
@@ -279,7 +279,7 @@ func TestPull_DifferentContentIsQuarantined(t *testing.T) {
 	}
 
 	fake := &sessiondata.FakeSlicer{Source: home}
-	res, err := sessiondata.Pull(context.Background(), fake, sessiondata.PullOptions{
+	res, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
 		Session: "s1", VM: "vm1", HomeDir: hostHome,
 		Kinds: []sessiondata.AgentKind{sessiondata.KindCodex},
 		Now:   fixedTime,
@@ -317,7 +317,7 @@ func TestPull_StagingPathHasExpectedShape(t *testing.T) {
 	hostHome := t.TempDir()
 	fake := &sessiondata.FakeSlicer{Source: home}
 
-	res, err := sessiondata.Pull(context.Background(), fake, sessiondata.PullOptions{
+	res, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
 		Session: "alpha", VM: "vmZ", HomeDir: hostHome,
 		Kinds: []sessiondata.AgentKind{sessiondata.KindCodex},
 		Now:   fixedTime,
@@ -336,29 +336,29 @@ func TestPull_PropagatesInventoryError(t *testing.T) {
 	hostHome := t.TempDir()
 	fake := &sessiondata.FakeSlicer{InventoryErr: errTestBoom}
 
-	_, err := sessiondata.Pull(context.Background(), fake, sessiondata.PullOptions{
+	_, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
 		Session: "s", VM: "v", HomeDir: hostHome,
 	})
 	if !errors.Is(err, errTestBoom) {
 		t.Errorf("want wrapped %v, got %v", errTestBoom, err)
 	}
-	if !errors.Is(err, sessiondata.ErrPullFailed) {
-		t.Errorf("want ErrPullFailed wrap, got %v", err)
+	if !errors.Is(err, sessiondata.ErrSyncFailed) {
+		t.Errorf("want ErrSyncFailed wrap, got %v", err)
 	}
 }
 
 func TestPull_RejectsEmptyArgs(t *testing.T) {
 	t.Parallel()
 	fake := &sessiondata.FakeSlicer{}
-	cases := []sessiondata.PullOptions{
+	cases := []sessiondata.SyncOptions{
 		{Session: "", VM: "v", HomeDir: "/h"},
 		{Session: "s", VM: "", HomeDir: "/h"},
 		{Session: "s", VM: "v", HomeDir: ""},
 	}
 	for _, opts := range cases {
-		_, err := sessiondata.Pull(context.Background(), fake, opts)
-		if !errors.Is(err, sessiondata.ErrPullFailed) {
-			t.Errorf("Pull(%+v): want ErrPullFailed, got %v", opts, err)
+		_, err := sessiondata.Sync(context.Background(), fake, opts)
+		if !errors.Is(err, sessiondata.ErrSyncFailed) {
+			t.Errorf("Pull(%+v): want ErrSyncFailed, got %v", opts, err)
 		}
 	}
 }
@@ -434,4 +434,66 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// TestSync_RecordsSourceCursors asserts that Sync populates per-file
+// SourceRecords with kind, dest path, size, hash, mtime, and status.
+// Required by ADR-067 for state.toml writeback.
+func TestSync_RecordsSourceCursors(t *testing.T) { //nolint:cyclop // Test asserts per-status fields across three records; splitting hurts coverage of the per-record invariants.
+	t.Parallel()
+	home := fakeVM(t, map[string]string{
+		".codex/sessions/2026/05/22/r-fresh.jsonl": "FRESH",
+		".codex/sessions/2026/05/22/r-same.jsonl":  "SAME",
+		".pi/agent/sessions/conflict.jsonl":        "VM-VERSION",
+	})
+	hostHome := t.TempDir()
+	// Pre-populate one identical-content host file (Skipped).
+	sameDest := filepath.Join(hostHome, ".codex", "sessions", "2026", "05", "22", "r-same.jsonl")
+	err := os.MkdirAll(filepath.Dir(sameDest), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(sameDest, []byte("SAME"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Pre-populate one different-content host file (Conflict).
+	confDest := filepath.Join(hostHome, ".pi", "agent", "sessions", "conflict.jsonl")
+	err = os.MkdirAll(filepath.Dir(confDest), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(confDest, []byte("HOST-VERSION"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fake := &sessiondata.FakeSlicer{Source: home}
+	res, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
+		Session: "src-test", VM: "vm1", HomeDir: hostHome,
+		Now: fixedTime,
+	})
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	// One imported, one skipped, one conflict → three source records.
+	if got := len(res.Merge.Sources); got != 3 {
+		t.Fatalf("len(Sources) = %d, want 3; report=%+v", got, res.Merge)
+	}
+	byStatus := map[sessiondata.SourceStatus]int{}
+	for _, src := range res.Merge.Sources {
+		byStatus[src.Status]++
+		if src.Hash == "" || !strings.HasPrefix(src.Hash, "sha256:") {
+			t.Errorf("Source %s missing sha256 hash; got %q", src.VMRelPath, src.Hash)
+		}
+		if src.Mode != "copy" {
+			t.Errorf("Source %s Mode = %q, want copy", src.VMRelPath, src.Mode)
+		}
+		if src.Size == 0 {
+			t.Errorf("Source %s Size = 0", src.VMRelPath)
+		}
+	}
+	if byStatus[sessiondata.SourceStatusOK] != 1 || byStatus[sessiondata.SourceStatusSkipped] != 1 || byStatus[sessiondata.SourceStatusConflict] != 1 {
+		t.Errorf("status histogram %v, want ok=1 skipped=1 conflict=1", byStatus)
+	}
 }

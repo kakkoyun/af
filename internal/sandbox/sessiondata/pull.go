@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// PullOptions configures Pull.
+// SyncOptions configures Pull.
 //
 // Session is the af workstream name; it appears in staging paths and
 // in any emitted ledger event. VM identifies the slicer VM. HomeDir is
@@ -26,7 +26,7 @@ import (
 //
 // Now is the clock used for staging timestamps; defaults to time.Now
 // when nil.
-type PullOptions struct {
+type SyncOptions struct {
 	// Now overrides the clock for staging timestamps. Defaults to time.Now.
 	Now func() time.Time
 	// Session is the af workstream name. Required.
@@ -50,11 +50,44 @@ type PullOptions struct {
 	ContinueHost bool
 }
 
-// MergeReport summarises a Pull's merge step.
+// SourceStatus mirrors session.SessionExportSourceStatus values. The
+// sessiondata package emits free-form strings; the CLI layer maps them
+// onto the typed state constants.
+type SourceStatus string
+
+const (
+	// SourceStatusOK reports a successful import.
+	SourceStatusOK SourceStatus = "ok"
+	// SourceStatusSkipped reports an unchanged file (hash matched).
+	SourceStatusSkipped SourceStatus = "skipped"
+	// SourceStatusConflict reports a quarantined divergent file.
+	SourceStatusConflict SourceStatus = "conflict"
+)
+
+// SourceRecord captures one per-file outcome of a Sync. The CLI layer
+// maps this onto session.SessionExportSource for state writeback per
+// ADR-067 §State schema.
+type SourceRecord struct {
+	MTime      time.Time
+	Agent      AgentKind
+	VMRelPath  string
+	DestPath   string
+	Mode       string
+	Hash       string
+	Status     SourceStatus
+	Size       int64
+	LastOffset int64
+}
+
+// MergeReport summarises a Sync's merge step.
 type MergeReport struct {
 	// ConflictPaths lists host-relative paths quarantined under
 	// <staging>/conflicts/; useful for surfacing in CLI output.
 	ConflictPaths []string
+	// Sources is the per-file cursor list, one entry per merged file
+	// across every kind. Used by the CLI to populate
+	// state.toml.[session_export.sources] per ADR-067.
+	Sources []SourceRecord
 	// Imported counts files newly written into the host destination.
 	Imported int
 	// Skipped counts files already present with byte-identical content.
@@ -64,33 +97,33 @@ type MergeReport struct {
 	Conflicts int
 }
 
-// PullResult is what Pull returns to callers.
-type PullResult struct {
+// SyncResult is what Pull returns to callers.
+type SyncResult struct {
 	// Manifest is the inventory captured at the start of the pull.
 	Manifest Manifest
 	// StagingPath is the absolute path to the per-pull staging dir.
 	StagingPath string
 	// Merge is the per-kind aggregate of the merge step.
 	Merge MergeReport
-	// DryRun mirrors PullOptions.DryRun for callers that print
+	// DryRun mirrors SyncOptions.DryRun for callers that print
 	// dry-run-only diagnostics.
 	DryRun bool
 }
 
-// ErrPullFailed reports a non-recoverable error during Pull.
-var ErrPullFailed = errors.New("sessiondata: pull failed")
+// ErrSyncFailed reports a non-recoverable error during Sync.
+var ErrSyncFailed = errors.New("sessiondata: sync failed")
 
-// Pull copies allowlisted session data out of the VM, stages it under
+// Sync copies allowlisted session data out of the VM, stages it under
 // HomeDir/.local/share/af/v1/session-import/<session>/<vm>/<ts>/, then
 // merges from staging into the host agent directories per ADR-066.
 //
 // On DryRun, Pull stops after the manifest step and returns. No
 // staging directory is created; the caller is expected to print the
 // manifest summary for the user.
-func Pull(ctx context.Context, s Slicer, opts PullOptions) (PullResult, error) {
-	err := validatePullOpts(opts)
+func Sync(ctx context.Context, s Slicer, opts SyncOptions) (SyncResult, error) {
+	err := validateSyncOpts(opts)
 	if err != nil {
-		return PullResult{}, err
+		return SyncResult{}, err
 	}
 	kinds := opts.Kinds
 	if len(kinds) == 0 {
@@ -99,42 +132,42 @@ func Pull(ctx context.Context, s Slicer, opts PullOptions) (PullResult, error) {
 
 	manifest, err := FetchManifest(ctx, s, opts.VM, kinds)
 	if err != nil {
-		return PullResult{}, fmt.Errorf("%w: %w", ErrPullFailed, err)
+		return SyncResult{}, fmt.Errorf("%w: %w", ErrSyncFailed, err)
 	}
 	if opts.DryRun {
-		return PullResult{Manifest: manifest, DryRun: true}, nil
+		return SyncResult{Manifest: manifest, DryRun: true}, nil
 	}
 
 	stagingPath, err := makeStaging(opts)
 	if err != nil {
-		return PullResult{}, err
+		return SyncResult{}, err
 	}
 
 	err = stageKinds(ctx, s, opts.VM, manifest, stagingPath)
 	if err != nil {
-		return PullResult{Manifest: manifest, StagingPath: stagingPath}, err
+		return SyncResult{Manifest: manifest, StagingPath: stagingPath}, err
 	}
 
 	report, mergeErr := mergeStagingIntoHome(stagingPath, opts.HomeDir, manifest)
 	if mergeErr != nil {
-		return PullResult{Manifest: manifest, StagingPath: stagingPath, Merge: report}, fmt.Errorf("%w: %w", ErrPullFailed, mergeErr)
+		return SyncResult{Manifest: manifest, StagingPath: stagingPath, Merge: report}, fmt.Errorf("%w: %w", ErrSyncFailed, mergeErr)
 	}
-	return PullResult{Manifest: manifest, StagingPath: stagingPath, Merge: report}, nil
+	return SyncResult{Manifest: manifest, StagingPath: stagingPath, Merge: report}, nil
 }
 
-func validatePullOpts(opts PullOptions) error {
+func validateSyncOpts(opts SyncOptions) error {
 	switch {
 	case opts.Session == "":
-		return fmt.Errorf("%w: empty session name", ErrPullFailed)
+		return fmt.Errorf("%w: empty session name", ErrSyncFailed)
 	case opts.VM == "":
-		return fmt.Errorf("%w: empty vm name", ErrPullFailed)
+		return fmt.Errorf("%w: empty vm name", ErrSyncFailed)
 	case opts.HomeDir == "":
-		return fmt.Errorf("%w: empty home directory", ErrPullFailed)
+		return fmt.Errorf("%w: empty home directory", ErrSyncFailed)
 	}
 	return nil
 }
 
-func makeStaging(opts PullOptions) (string, error) {
+func makeStaging(opts SyncOptions) (string, error) {
 	now := opts.Now
 	if now == nil {
 		now = time.Now
@@ -143,7 +176,7 @@ func makeStaging(opts PullOptions) (string, error) {
 	stagingPath := filepath.Join(opts.stagingRoot(), opts.Session, opts.VM, stamp)
 	err := os.MkdirAll(stagingPath, dirPerm)
 	if err != nil {
-		return "", fmt.Errorf("%w: mkdir staging: %w", ErrPullFailed, err)
+		return "", fmt.Errorf("%w: mkdir staging: %w", ErrSyncFailed, err)
 	}
 	return stagingPath, nil
 }
@@ -152,14 +185,14 @@ func stageKinds(ctx context.Context, s Slicer, vm string, manifest Manifest, sta
 	for _, kind := range manifest.NonEmptyKinds() {
 		err := copyKindToStaging(ctx, s, vm, kind, stagingPath)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrPullFailed, err)
+			return fmt.Errorf("%w: %w", ErrSyncFailed, err)
 		}
 	}
 	return nil
 }
 
 // stagingRoot returns the resolved staging directory.
-func (opts PullOptions) stagingRoot() string {
+func (opts SyncOptions) stagingRoot() string {
 	if opts.StagingRoot != "" {
 		return opts.StagingRoot
 	}
@@ -194,7 +227,7 @@ func mergeStagingIntoHome(stagingPath, homeDir string, manifest Manifest) (Merge
 
 	for _, kind := range manifest.NonEmptyKinds() {
 		for _, root := range SourceRoots(kind) {
-			err := mergeStagedRoot(stagingPath, homeDir, conflictsRoot, root, &report)
+			err := mergeStagedRoot(stagingPath, homeDir, conflictsRoot, root, kind, &report)
 			if err != nil {
 				return report, err
 			}
@@ -206,7 +239,7 @@ func mergeStagingIntoHome(stagingPath, homeDir string, manifest Manifest) (Merge
 	return report, nil
 }
 
-func mergeStagedRoot(stagingPath, homeDir, conflictsRoot, root string, report *MergeReport) error {
+func mergeStagedRoot(stagingPath, homeDir, conflictsRoot, root string, kind AgentKind, report *MergeReport) error {
 	stagedRoot := filepath.Join(stagingPath, root)
 	info, err := os.Stat(stagedRoot)
 	if err != nil {
@@ -230,7 +263,7 @@ func mergeStagedRoot(stagingPath, homeDir, conflictsRoot, root string, report *M
 			return fmt.Errorf("rel %s: %w", path, relErr)
 		}
 		dest := filepath.Join(homeDir, rel)
-		return mergeOneFile(path, dest, conflictsRoot, rel, report)
+		return mergeOneFile(path, dest, conflictsRoot, rel, kind, report)
 	})
 	if walkErr != nil {
 		return fmt.Errorf("merge %s: %w", root, walkErr)
@@ -238,24 +271,29 @@ func mergeStagedRoot(stagingPath, homeDir, conflictsRoot, root string, report *M
 	return nil
 }
 
-func mergeOneFile(src, dest, conflictsRoot, rel string, report *MergeReport) error {
+func mergeOneFile(src, dest, conflictsRoot, rel string, kind AgentKind, report *MergeReport) error {
 	srcSum, err := fileSHA256(src)
 	if err != nil {
 		return fmt.Errorf("hash source %s: %w", src, err)
 	}
-	destInfo, statErr := os.Stat(dest)
+	srcInfo, srcStatErr := os.Stat(src)
+	if srcStatErr != nil {
+		return fmt.Errorf("stat staged %s: %w", src, srcStatErr)
+	}
+	destInfo, destStatErr := os.Stat(dest)
 	switch {
-	case statErr != nil && errors.Is(statErr, fs.ErrNotExist):
+	case destStatErr != nil && errors.Is(destStatErr, fs.ErrNotExist):
 		err = installFile(src, dest)
 		if err != nil {
 			return err
 		}
 		report.Imported++
+		report.Sources = append(report.Sources, sourceRecord(kind, rel, dest, srcInfo, srcSum, "copy", SourceStatusOK))
 		return nil
-	case statErr != nil:
-		return fmt.Errorf("stat dest %s: %w", dest, statErr)
+	case destStatErr != nil:
+		return fmt.Errorf("stat dest %s: %w", dest, destStatErr)
 	case destInfo.IsDir():
-		return quarantine(src, conflictsRoot, rel, report)
+		return quarantineFile(src, conflictsRoot, rel, kind, srcInfo, srcSum, report)
 	}
 	destSum, err := fileSHA256(dest)
 	if err != nil {
@@ -263,12 +301,26 @@ func mergeOneFile(src, dest, conflictsRoot, rel string, report *MergeReport) err
 	}
 	if srcSum == destSum {
 		report.Skipped++
+		report.Sources = append(report.Sources, sourceRecord(kind, rel, dest, srcInfo, srcSum, "copy", SourceStatusSkipped))
 		return nil
 	}
-	return quarantine(src, conflictsRoot, rel, report)
+	return quarantineFile(src, conflictsRoot, rel, kind, srcInfo, srcSum, report)
 }
 
-func quarantine(src, conflictsRoot, rel string, report *MergeReport) error {
+func sourceRecord(kind AgentKind, rel, dest string, info os.FileInfo, hash, mode string, status SourceStatus) SourceRecord {
+	return SourceRecord{
+		Agent:     kind,
+		VMRelPath: filepath.ToSlash(rel),
+		DestPath:  dest,
+		Mode:      mode,
+		Hash:      "sha256:" + hash,
+		Status:    status,
+		Size:      info.Size(),
+		MTime:     info.ModTime().UTC(),
+	}
+}
+
+func quarantineFile(src, conflictsRoot, rel string, kind AgentKind, info os.FileInfo, srcSum string, report *MergeReport) error {
 	target := filepath.Join(conflictsRoot, rel)
 	err := installFile(src, target)
 	if err != nil {
@@ -276,6 +328,7 @@ func quarantine(src, conflictsRoot, rel string, report *MergeReport) error {
 	}
 	report.Conflicts++
 	report.ConflictPaths = append(report.ConflictPaths, rel)
+	report.Sources = append(report.Sources, sourceRecord(kind, rel, target, info, srcSum, "copy", SourceStatusConflict))
 	return nil
 }
 

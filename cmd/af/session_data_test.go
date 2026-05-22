@@ -80,7 +80,7 @@ func withSessionDataSlicer(t *testing.T, fake *sessiondata.FakeSlicer) {
 	sessiondataSlicerFactory = func() sessiondata.Slicer { return fake }
 }
 
-func TestSessionDataPull_ListsAndPullsSlicerBacked(t *testing.T) {
+func TestSessionDataSync_ListsAndPullsSlicerBacked(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	writeSlicerBackedState(t, home, "sd-pull", "sbox-aaa")
@@ -97,9 +97,9 @@ func TestSessionDataPull_ListsAndPullsSlicerBacked(t *testing.T) {
 	}
 	withSessionDataSlicer(t, &sessiondata.FakeSlicer{Source: vmHome})
 
-	stdout, stderr, err := executeCommand(t, newRootCmd(), "session-data", "pull", "--agent", "codex", "sd-pull")
+	stdout, stderr, err := executeCommand(t, newRootCmd(), "session-data", "sync", "--agent", "codex", "sd-pull")
 	if err != nil {
-		t.Fatalf("session-data pull: %v\nstdout: %s\nstderr: %s", err, stdout, stderr)
+		t.Fatalf("session-data sync: %v\nstdout: %s\nstderr: %s", err, stdout, stderr)
 	}
 	if !strings.Contains(stdout, "imported 1") {
 		t.Errorf("stdout should report imported=1; got: %s", stdout)
@@ -122,12 +122,12 @@ func TestSessionDataPull_ListsAndPullsSlicerBacked(t *testing.T) {
 	if len(events) == 0 {
 		t.Fatalf("ledger should contain agent_sessions_pulled event; got 0 events")
 	}
-	if events[len(events)-1].Type != "agent_sessions_pulled" {
-		t.Errorf("last event type = %q, want agent_sessions_pulled", events[len(events)-1].Type)
+	if events[len(events)-1].Type != "agent_sessions_synced" {
+		t.Errorf("last event type = %q, want agent_sessions_synced", events[len(events)-1].Type)
 	}
 }
 
-func TestSessionDataPull_DryRunDoesNotImport(t *testing.T) {
+func TestSessionDataSync_DryRunDoesNotImport(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	writeSlicerBackedState(t, home, "sd-dry", "sbox-bbb")
@@ -143,9 +143,9 @@ func TestSessionDataPull_DryRunDoesNotImport(t *testing.T) {
 	}
 	withSessionDataSlicer(t, &sessiondata.FakeSlicer{Source: vmHome})
 
-	stdout, _, err := executeCommand(t, newRootCmd(), "session-data", "pull", "--dry-run", "--agent", "codex", "sd-dry")
+	stdout, _, err := executeCommand(t, newRootCmd(), "session-data", "sync", "--dry-run", "--agent", "codex", "sd-dry")
 	if err != nil {
-		t.Fatalf("session-data pull --dry-run: %v", err)
+		t.Fatalf("session-data sync --dry-run: %v", err)
 	}
 	if !strings.Contains(stdout, "dry-run") {
 		t.Errorf("stdout should mention dry-run; got: %s", stdout)
@@ -157,13 +157,13 @@ func TestSessionDataPull_DryRunDoesNotImport(t *testing.T) {
 	}
 }
 
-func TestSessionDataPull_RejectsNonSlicerSession(t *testing.T) {
+func TestSessionDataSync_RejectsNonSlicerSession(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	writeNonSlicerState(t, home, "sd-local")
 	withSessionDataSlicer(t, &sessiondata.FakeSlicer{Source: t.TempDir()})
 
-	_, _, err := executeCommand(t, newRootCmd(), "session-data", "pull", "sd-local")
+	_, _, err := executeCommand(t, newRootCmd(), "session-data", "sync", "sd-local")
 	if !errors.Is(err, errSessionDataNoLease) {
 		t.Errorf("want errSessionDataNoLease, got %v", err)
 	}
@@ -200,13 +200,13 @@ func TestSessionDataList_ShowsManifest(t *testing.T) {
 	}
 }
 
-func TestSessionDataPull_BadAgentFlagRejected(t *testing.T) {
+func TestSessionDataSync_BadAgentFlagRejected(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	writeSlicerBackedState(t, home, "sd-bad", "sbox-ddd")
 	withSessionDataSlicer(t, &sessiondata.FakeSlicer{Source: t.TempDir()})
 
-	_, _, err := executeCommand(t, newRootCmd(), "session-data", "pull", "--agent", "nope", "sd-bad")
+	_, _, err := executeCommand(t, newRootCmd(), "session-data", "sync", "--agent", "nope", "sd-bad")
 	if !errors.Is(err, sessiondata.ErrUnknownAgent) {
 		t.Errorf("want ErrUnknownAgent, got %v", err)
 	}
@@ -214,7 +214,7 @@ func TestSessionDataPull_BadAgentFlagRejected(t *testing.T) {
 
 // Sanity check: ensure context.Background-based test helpers do not
 // invoke the real slicer binary when the factory is replaced.
-func TestSessionDataPull_FactoryReplaceableByTest(t *testing.T) {
+func TestSessionDataSync_FactoryReplaceableByTest(t *testing.T) {
 	orig := sessiondataSlicerFactory
 	t.Cleanup(func() { sessiondataSlicerFactory = orig })
 	called := 0
@@ -227,4 +227,60 @@ func TestSessionDataPull_FactoryReplaceableByTest(t *testing.T) {
 		t.Errorf("factory should be called once; got %d", called)
 	}
 	_ = context.Background() // silence import.
+}
+
+// TestSessionDataSync_WritebackPopulatesStateExport asserts that a
+// successful sync writes the [session_export] section into state.toml
+// per ADR-067 §State schema, including per-source cursors.
+func TestSessionDataSync_WritebackPopulatesStateExport(t *testing.T) { //nolint:cyclop // Test asserts multiple invariants of a single sync outcome; splitting hurts readability.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeSlicerBackedState(t, home, "sd-write", "sbox-write")
+
+	vmHome := t.TempDir()
+	err := os.MkdirAll(filepath.Join(vmHome, ".pi", "agent", "sessions"), 0o750)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(filepath.Join(vmHome, ".pi", "agent", "sessions", "abc.jsonl"), []byte(`{"ok":true}`), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	withSessionDataSlicer(t, &sessiondata.FakeSlicer{Source: vmHome})
+
+	_, _, err = executeCommand(t, newRootCmd(), "session-data", "sync", "--agent", "pi", "sd-write")
+	if err != nil {
+		t.Fatalf("session-data sync: %v", err)
+	}
+
+	statePath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "sd-write", "state.toml")
+	state, err := session.ReadState(statePath)
+	if err != nil {
+		t.Fatalf("ReadState: %v", err)
+	}
+	if state.SessionExport.LastSyncStatus != session.ExportSyncOK {
+		t.Errorf("LastSyncStatus = %q, want ok", state.SessionExport.LastSyncStatus)
+	}
+	if state.SessionExport.LastSyncAt == nil {
+		t.Fatal("LastSyncAt is nil after sync")
+	}
+	if state.SessionExport.LastManifest == "" {
+		t.Error("LastManifest is empty")
+	}
+	if len(state.SessionExport.Sources) != 1 {
+		t.Fatalf("len(Sources) = %d, want 1", len(state.SessionExport.Sources))
+	}
+	src := state.SessionExport.Sources[0]
+	if src.Agent != "pi" {
+		t.Errorf("Source.Agent = %q, want pi", src.Agent)
+	}
+	if src.VM != "sbox-write" {
+		t.Errorf("Source.VM = %q, want sbox-write", src.VM)
+	}
+	if src.Status != session.SourceStatusOK {
+		t.Errorf("Source.Status = %q, want ok", src.Status)
+	}
+	if src.Hash == "" {
+		t.Errorf("Source.Hash is empty")
+	}
 }

@@ -7,7 +7,7 @@ import "context"
 //
 // Equivalent to `Pull` with DryRun=true, but exposed separately so
 // `af session-data list` can call it without constructing a full
-// PullOptions value.
+// SyncOptions value.
 func List(ctx context.Context, s Slicer, vm string, kinds []AgentKind) (Manifest, error) {
 	if len(kinds) == 0 {
 		kinds = AllKinds()
