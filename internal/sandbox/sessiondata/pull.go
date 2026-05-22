@@ -113,6 +113,10 @@ type SyncResult struct {
 // ErrSyncFailed reports a non-recoverable error during Sync.
 var ErrSyncFailed = errors.New("sessiondata: sync failed")
 
+// errShortAppend is wrapped into the append-tail failure path when
+// io.CopyN writes fewer bytes than expected.
+var errShortAppend = errors.New("sessiondata: short append")
+
 // Sync copies allowlisted session data out of the VM, stages it under
 // HomeDir/.local/share/af/v1/session-import/<session>/<vm>/<ts>/, then
 // merges from staging into the host agent directories per ADR-066.
@@ -271,7 +275,7 @@ func mergeStagedRoot(stagingPath, homeDir, conflictsRoot, root string, kind Agen
 	return nil
 }
 
-func mergeOneFile(src, dest, conflictsRoot, rel string, kind AgentKind, report *MergeReport) error {
+func mergeOneFile(src, dest, conflictsRoot, rel string, kind AgentKind, report *MergeReport) error { //nolint:cyclop // Cleanly handling new/skipped/conflict + JSONL append in one function reads better than 4 helpers.
 	srcSum, err := fileSHA256(src)
 	if err != nil {
 		return fmt.Errorf("hash source %s: %w", src, err)
@@ -304,7 +308,126 @@ func mergeOneFile(src, dest, conflictsRoot, rel string, kind AgentKind, report *
 		report.Sources = append(report.Sources, sourceRecord(kind, rel, dest, srcInfo, srcSum, "copy", SourceStatusSkipped))
 		return nil
 	}
+	handled, err := tryAppendJSONLMerge(src, dest, rel, kind, srcInfo, destInfo.Size(), report)
+	if err != nil {
+		return err
+	}
+	if handled {
+		return nil
+	}
 	return quarantineFile(src, conflictsRoot, rel, kind, srcInfo, srcSum, report)
+}
+
+// tryAppendJSONLMerge attempts the ADR-067 append-aware merge for
+// *.jsonl files when dest is a byte-prefix of src. Returns
+// (handled=true, nil) when the merge succeeded; (false, nil) when the
+// file is not a candidate (non-jsonl) or dest is not a prefix; (_, err)
+// on IO error. On success the SourceRecord is appended to report.
+func tryAppendJSONLMerge(src, dest, rel string, kind AgentKind, srcInfo os.FileInfo, destSize int64, report *MergeReport) (bool, error) {
+	if !isJSONLFile(src) {
+		return false, nil
+	}
+	ok, offset, err := tryAppendJSONLTail(src, dest, destSize)
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return false, nil
+	}
+	sum, hashErr := fileSHA256(dest)
+	if hashErr != nil {
+		return false, fmt.Errorf("hash dest after append %s: %w", dest, hashErr)
+	}
+	report.Imported++
+	rec := sourceRecord(kind, rel, dest, srcInfo, sum, "append-jsonl", SourceStatusOK)
+	rec.LastOffset = offset
+	report.Sources = append(report.Sources, rec)
+	return true, nil
+}
+
+// isJSONLFile returns true when path ends in .jsonl. The append-aware
+// merge path is gated on this extension because non-JSONL files have
+// no append semantics that af understands.
+func isJSONLFile(path string) bool {
+	return strings.HasSuffix(strings.ToLower(path), ".jsonl")
+}
+
+// tryAppendJSONLTail attempts the prefix-append merge per ADR-067:
+// if dest's existing bytes are a byte-for-byte prefix of src, append
+// only the missing tail (src[destSize:]) to dest and report (true, destSize, nil).
+// If dest is not a prefix of src (divergence), (false, 0, nil) is
+// returned and the caller falls back to quarantine. IO errors return
+// (false, 0, err).
+func tryAppendJSONLTail(src, dest string, destSize int64) (bool, int64, error) {
+	srcFile, err := os.Open(src) //nolint:gosec // src is bounded to staging.
+	if err != nil {
+		return false, 0, fmt.Errorf("open staged %s: %w", src, err)
+	}
+	defer func() { _ = srcFile.Close() }() //nolint:errcheck // Best-effort close on a read-only source.
+
+	srcInfo, statErr := srcFile.Stat()
+	if statErr != nil {
+		return false, 0, fmt.Errorf("stat staged %s: %w", src, statErr)
+	}
+	// If src is smaller than dest, dest cannot be a prefix; quarantine.
+	if srcInfo.Size() < destSize {
+		return false, 0, nil
+	}
+	prefix := make([]byte, destSize)
+	_, err = io.ReadFull(srcFile, prefix)
+	if err != nil {
+		return false, 0, fmt.Errorf("read src prefix %s: %w", src, err)
+	}
+
+	destBytes, err := os.ReadFile(dest) //nolint:gosec // dest is rooted in host home / conflicts.
+	if err != nil {
+		return false, 0, fmt.Errorf("read dest %s: %w", dest, err)
+	}
+	if !bytesEqual(prefix, destBytes) {
+		return false, 0, nil
+	}
+
+	// Atomically append the tail.
+	err = appendTail(srcFile, dest, srcInfo.Size()-destSize)
+	if err != nil {
+		return false, 0, err
+	}
+	return true, destSize, nil
+}
+
+func bytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// appendTail copies remaining bytes from srcFile (already advanced
+// past the verified prefix) onto dest using append+sync. The dest
+// file is opened with O_APPEND|O_WRONLY; the destination's existing
+// content is left untouched.
+func appendTail(srcFile io.Reader, dest string, tailLen int64) error {
+	out, err := os.OpenFile(dest, os.O_APPEND|os.O_WRONLY, filePerm) //nolint:gosec // dest is rooted in host home.
+	if err != nil {
+		return fmt.Errorf("open dest for append %s: %w", dest, err)
+	}
+	n, copyErr := io.CopyN(out, srcFile, tailLen)
+	closeErr := out.Close()
+	if copyErr != nil {
+		return fmt.Errorf("append tail to %s: %w", dest, copyErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close dest after append %s: %w", dest, closeErr)
+	}
+	if n != tailLen {
+		return fmt.Errorf("%w: %s: wrote %d of %d bytes", errShortAppend, dest, n, tailLen)
+	}
+	return nil
 }
 
 func sourceRecord(kind AgentKind, rel, dest string, info os.FileInfo, hash, mode string, status SourceStatus) SourceRecord {

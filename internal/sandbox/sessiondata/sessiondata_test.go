@@ -497,3 +497,141 @@ func TestSync_RecordsSourceCursors(t *testing.T) { //nolint:cyclop // Test asser
 		t.Errorf("status histogram %v, want ok=1 skipped=1 conflict=1", byStatus)
 	}
 }
+
+// TestSync_AppendJSONLAppendsTailWhenDestIsPrefix asserts that for .jsonl
+// destinations that are a byte-prefix of the VM source, only the tail
+// bytes are appended to the existing host file (no quarantine).
+func TestSync_AppendJSONLAppendsTailWhenDestIsPrefix(t *testing.T) { //nolint:cyclop // Test asserts pre/post-append invariants on a single file in one sync.
+	t.Parallel()
+	home := fakeVM(t, map[string]string{
+		".pi/agent/sessions/transcript.jsonl": `{"line":1}` + "\n" + `{"line":2}` + "\n" + `{"line":3}` + "\n",
+	})
+	hostHome := t.TempDir()
+	// Pre-populate host with the first two lines — a true prefix.
+	hostDest := filepath.Join(hostHome, ".pi", "agent", "sessions", "transcript.jsonl")
+	err := os.MkdirAll(filepath.Dir(hostDest), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(hostDest, []byte(`{"line":1}`+"\n"+`{"line":2}`+"\n"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fake := &sessiondata.FakeSlicer{Source: home}
+	res, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
+		Session: "append-test", VM: "vm1", HomeDir: hostHome,
+		Now: fixedTime,
+	})
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if res.Merge.Conflicts != 0 {
+		t.Errorf("Conflicts = %d, want 0 (append should not quarantine)", res.Merge.Conflicts)
+	}
+	if res.Merge.Imported != 1 {
+		t.Errorf("Imported = %d, want 1 (tail appended counts as import)", res.Merge.Imported)
+	}
+	// Host file must now contain all three lines.
+	got, err := os.ReadFile(hostDest) //nolint:gosec // test path.
+	if err != nil {
+		t.Fatalf("read host dest: %v", err)
+	}
+	want := `{"line":1}` + "\n" + `{"line":2}` + "\n" + `{"line":3}` + "\n"
+	if string(got) != want {
+		t.Errorf("dest after sync = %q, want %q", got, want)
+	}
+	// The SourceRecord should reflect append-jsonl mode with the
+	// pre-append offset.
+	if len(res.Merge.Sources) != 1 {
+		t.Fatalf("len(Sources) = %d, want 1", len(res.Merge.Sources))
+	}
+	srcRec := res.Merge.Sources[0]
+	if srcRec.Mode != "append-jsonl" {
+		t.Errorf("Source.Mode = %q, want append-jsonl", srcRec.Mode)
+	}
+	preAppendSize := int64(len(`{"line":1}` + "\n" + `{"line":2}` + "\n"))
+	if srcRec.LastOffset != preAppendSize {
+		t.Errorf("Source.LastOffset = %d, want %d (pre-append dest size)", srcRec.LastOffset, preAppendSize)
+	}
+}
+
+// TestSync_JSONLDivergenceQuarantines asserts that when the dest is NOT
+// a byte-prefix of the VM source, the file is quarantined (no append)
+// even though both are .jsonl.
+func TestSync_JSONLDivergenceQuarantines(t *testing.T) {
+	t.Parallel()
+	home := fakeVM(t, map[string]string{
+		".pi/agent/sessions/divergent.jsonl": `{"vm":1}` + "\n" + `{"vm":2}` + "\n",
+	})
+	hostHome := t.TempDir()
+	hostDest := filepath.Join(hostHome, ".pi", "agent", "sessions", "divergent.jsonl")
+	err := os.MkdirAll(filepath.Dir(hostDest), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Host has different content (not a prefix).
+	err = os.WriteFile(hostDest, []byte(`{"host":1}`+"\n"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fake := &sessiondata.FakeSlicer{Source: home}
+	res, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
+		Session: "diverge", VM: "vm1", HomeDir: hostHome,
+		Now: fixedTime,
+	})
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if res.Merge.Conflicts != 1 {
+		t.Errorf("Conflicts = %d, want 1; report=%+v", res.Merge.Conflicts, res.Merge)
+	}
+	if res.Merge.Imported != 0 {
+		t.Errorf("Imported = %d, want 0", res.Merge.Imported)
+	}
+	// Host file must remain untouched.
+	got, _ := os.ReadFile(hostDest) //nolint:gosec,errcheck // test inspection.
+	if string(got) != `{"host":1}`+"\n" {
+		t.Errorf("host file was mutated: got %q", got)
+	}
+}
+
+// TestSync_JSONLSmallerVMQuarantines asserts that when VM source is
+// smaller than host destination (a shrinking transcript — should never
+// happen but is theoretically possible after a manual rollback), the
+// file is quarantined rather than truncating the host.
+func TestSync_JSONLSmallerVMQuarantines(t *testing.T) {
+	t.Parallel()
+	home := fakeVM(t, map[string]string{
+		".pi/agent/sessions/short.jsonl": `{"line":1}` + "\n",
+	})
+	hostHome := t.TempDir()
+	hostDest := filepath.Join(hostHome, ".pi", "agent", "sessions", "short.jsonl")
+	err := os.MkdirAll(filepath.Dir(hostDest), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Host has two lines, VM has one.
+	err = os.WriteFile(hostDest, []byte(`{"line":1}`+"\n"+`{"line":2}`+"\n"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fake := &sessiondata.FakeSlicer{Source: home}
+	res, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
+		Session: "shrink", VM: "vm1", HomeDir: hostHome,
+		Now: fixedTime,
+	})
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if res.Merge.Conflicts != 1 {
+		t.Errorf("Conflicts = %d, want 1 when VM is smaller than host", res.Merge.Conflicts)
+	}
+	// Host file must remain intact (two lines).
+	got, _ := os.ReadFile(hostDest) //nolint:gosec,errcheck // test inspection.
+	if !strings.Contains(string(got), `"line":1`) || !strings.Contains(string(got), `"line":2`) {
+		t.Errorf("host file lost content: %q", got)
+	}
+}
