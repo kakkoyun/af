@@ -55,13 +55,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or `archive/`. New `lifecycle.ErrNameCollision` sentinel.
   `CreateOptions.ArchiveDir` controls the archive check (empty
   disables for back-compat).
-- **ADR-071 core + `af pr --refresh`**: new `internal/pr` package
+- **ADR-071 TTL refresh complete**: new `internal/pr` package
   with `Refresh(ctx, *PRState, Options) (Result, error)`. Honours
   TTL + Force + 5-second context timeout, maps `gh pr view --json`
   to af labels (`open`/`draft`/`closed`/`merged`), records
   `last_refreshed_at` + `last_refresh_error`, detects state flips.
   New `[pr].refresh_ttl` config (default `10m`). New
-  `pr_state_changed` ledger event emitted on flips.
+  `pr_state_changed` ledger event emitted on flips. `af status` and
+  `af info` refresh outside TTL (or with `--refresh`) and render `?` on
+  refresh failures; `af clean`, `af sync`, and `af done` force-refresh
+  correctness-critical PR state and fail loudly on refresh errors.
 - `state.toml.[pr]` gains `last_refreshed_at` and `last_refresh_error`
   fields (omitempty; existing files round-trip cleanly).
 
@@ -70,8 +73,6 @@ Deferred Stage 13 follow-ups (called out in TODO/PROGRESS):
 - ADR-068 (operational UX contract: flock + JSON envelope + exit codes
   + completion).
 - ADR-070 (session resolution chain + fzf picker).
-- ADR-071 multi-command wire-up (`af status` / `af info` / `af clean`
-  / `af sync` / `af done`).
 - ADR-072 state.toml schema roll-up.
 
 #### Stage 12 — ADR-066 + ADR-067 slicer VM agent-session sync

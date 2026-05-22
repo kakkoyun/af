@@ -117,9 +117,18 @@ func runSync(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("sync: %w", errSyncNoParent)
 	}
 
-	parentState, _, err := loadStackState(state.Stack.ParentSession)
+	parentState, parentStatePath, err := loadStackState(state.Stack.ParentSession)
 	if err != nil {
 		return fmt.Errorf("sync: read parent state: %w", err)
+	}
+	if parentState.PR.Number != 0 {
+		err = refreshPRCacheForState(cmd.Context(), parentStatePath, &parentState, prCacheRefreshOptions{
+			Command: "sync",
+			Force:   true,
+		})
+		if err != nil {
+			return fmt.Errorf("sync: refresh parent PR state for %s: %w", parentState.Session.Name, err)
+		}
 	}
 
 	result, err := lifecycle.Sync(

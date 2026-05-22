@@ -15,8 +15,9 @@ import (
 
 type infoOptions struct {
 	root     *rootOptions
-	jsonMode bool
 	ledgerN  int
+	jsonMode bool
+	refresh  bool
 }
 
 var errInfoMissingSession = errors.New("workstream not found")
@@ -38,6 +39,7 @@ func newInfoCmd(opts *rootOptions) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&iOpts.jsonMode, "json", false, "emit the info payload as JSON")
 	cmd.Flags().IntVar(&iOpts.ledgerN, "ledger", 0, "include the last N ledger events")
+	cmd.Flags().BoolVar(&iOpts.refresh, "refresh", false, "force-refresh cached PR state before rendering")
 	return cmd
 }
 
@@ -56,6 +58,18 @@ func runInfo(cmd *cobra.Command, opts *infoOptions, name string) error {
 	if err != nil {
 		return fmt.Errorf("info: read state %s: %w", statePath, err)
 	}
+	prRefreshFailed := false
+	if state.PR.Number != 0 {
+		refreshErr := refreshPRCacheForState(cmd.Context(), statePath, &state, prCacheRefreshOptions{
+			Command: "info",
+			Force:   opts.refresh,
+		})
+		if refreshErr != nil {
+			prRefreshFailed = true
+			warned := false
+			warnPRRefreshOnce(cmd.Context(), &warned, "info", refreshErr)
+		}
+	}
 
 	ledgerPath := filepath.Join(filepath.Dir(statePath), "ledger.jsonl")
 	var events []session.Event
@@ -67,9 +81,9 @@ func runInfo(cmd *cobra.Command, opts *infoOptions, name string) error {
 	}
 
 	if opts.jsonMode {
-		return writeInfoJSON(cmd, state, events)
+		return writeInfoJSON(cmd, state, events, prRefreshFailed)
 	}
-	return writeInfoText(cmd, state, events)
+	return writeInfoText(cmd, state, events, prRefreshFailed)
 }
 
 func locateInfoState(stateDir, name string, root *rootOptions) (string, error) {
@@ -94,12 +108,13 @@ func locateInfoState(stateDir, name string, root *rootOptions) (string, error) {
 	return discovered, nil
 }
 
-func writeInfoJSON(cmd *cobra.Command, state session.State, events []session.Event) error {
+func writeInfoJSON(cmd *cobra.Command, state session.State, events []session.Event, prRefreshFailed bool) error {
 	payload := map[string]any{
 		"session":   state.Session,
 		"worktree":  state.Worktree,
 		"slicer_wt": state.SlicerWT,
 		"agents":    state.Agents,
+		"pr":        infoPRPayload(state, prRefreshFailed),
 		"events":    events,
 	}
 	data, err := json.MarshalIndent(payload, "", "  ")
@@ -113,9 +128,9 @@ func writeInfoJSON(cmd *cobra.Command, state session.State, events []session.Eve
 	return nil
 }
 
-func writeInfoText(cmd *cobra.Command, state session.State, events []session.Event) error {
+func writeInfoText(cmd *cobra.Command, state session.State, events []session.Event, prRefreshFailed bool) error {
 	w := cmd.OutOrStdout()
-	err := writeInfoCore(w, state)
+	err := writeInfoCore(w, state, prRefreshFailed)
 	if err != nil {
 		return err
 	}
@@ -126,7 +141,7 @@ func writeInfoText(cmd *cobra.Command, state session.State, events []session.Eve
 	return writeInfoEvents(w, events)
 }
 
-func writeInfoCore(w io.Writer, state session.State) error {
+func writeInfoCore(w io.Writer, state session.State, prRefreshFailed bool) error {
 	lines := []string{
 		"Session:   " + state.Session.Name,
 		"Status:    " + state.Session.Status,
@@ -135,6 +150,23 @@ func writeInfoCore(w io.Writer, state session.State) error {
 		"Worktree:  " + state.Worktree.Path,
 		"Repo:      " + state.Worktree.RepoSlug,
 		"Created:   " + state.Session.CreatedAt.Format("2006-01-02 15:04:05 MST"),
+	}
+	if state.PR.Number != 0 {
+		stateLabel := state.PR.State
+		if prRefreshFailed || stateLabel == "" {
+			stateLabel = "?"
+		}
+		prLines := []string{
+			"",
+			"PR:",
+			fmt.Sprintf("  Number:    %d", state.PR.Number),
+			"  URL:       " + state.PR.URL,
+			"  State:     " + stateLabel,
+		}
+		if state.PR.LastRefreshError != "" {
+			prLines = append(prLines, "  Refresh error: "+state.PR.LastRefreshError)
+		}
+		lines = append(lines, prLines...)
 	}
 	if state.SlicerWT.VM != "" {
 		wtLines := []string{
@@ -191,4 +223,21 @@ func writeInfoEvents(w io.Writer, events []session.Event) error {
 		}
 	}
 	return nil
+}
+
+func infoPRPayload(state session.State, refreshFailed bool) map[string]any {
+	if state.PR.Number == 0 {
+		return nil
+	}
+	stateLabel := state.PR.State
+	if refreshFailed || stateLabel == "" {
+		stateLabel = "?"
+	}
+	return map[string]any{
+		"number":             state.PR.Number,
+		"url":                state.PR.URL,
+		"state":              stateLabel,
+		"last_refreshed_at":  state.PR.LastRefreshedAt,
+		"last_refresh_error": state.PR.LastRefreshError,
+	}
 }

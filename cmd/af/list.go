@@ -53,8 +53,9 @@ func defaultSessionsDir() (string, error) {
 }
 
 type sessionSummary struct { //nolint:govet // Field grouping prioritises readability.
-	state     session.State
-	statePath string
+	state           session.State
+	statePath       string
+	prRefreshFailed bool
 }
 
 func readAllStates(stateDir string) ([]sessionSummary, error) {

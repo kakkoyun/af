@@ -7,9 +7,8 @@ codex) — all tied together under a single durable state file. When the task is
 done, everything is cleaned up with one command.
 
 > **Status — v1 (single-user).** Stages 0–12 + Stage 14 are implemented;
-> ADRs 031–067, 069, and 073 are `implementation: complete`. ADR-071 is
-> `in-progress` (engine landed; multi-cmd wire-up deferred). ADRs 068,
-> 070, and 072 remain `pending`. `make check` is
+> ADRs 031–067, 069, 071, and 073 are `implementation: complete`.
+> ADRs 068, 070, and 072 remain `pending`. `make check` is
 > green. The proxy commands (`af editor`, `af diff`, `af pr`, `af retro`),
 > suspend/resume lifecycle, stack-aware `af sync`, opinionated diff
 > rendering (hunk + diffity), repo-scoped `[control]` settings,
@@ -144,10 +143,13 @@ These commands run the user-configured executables from `[diff]`, `[pr]`, and
 
 ### `af pr --refresh` (ADR-071)
 
-`af pr --refresh [session]` force-refreshes the cached PR state via
-`gh pr view --json` without opening anything. Updates `[pr].state`,
-`[pr].last_refreshed_at`, and emits a `pr_state_changed` ledger event
-on a flip. Empty PR exits with `EX_DATAERR`-style error.
+`af status --refresh`, `af info --refresh`, and `af pr --refresh [session]`
+force-refresh cached PR state via `gh pr view --json` without opening
+anything. `af status` / `af info` otherwise refresh outside the configured
+`[pr].refresh_ttl` window. Correctness-critical commands (`af clean`,
+`af sync`, `af done`) always force-refresh before acting. Updates
+`[pr].state`, `[pr].last_refreshed_at`, and emits `pr_state_changed` on a
+flip. `af pr --refresh` with no PR exits with `EX_DATAERR`-style error.
 
 ### Slicer VM session sync (ADR-066 + ADR-067)
 
@@ -233,10 +235,7 @@ API. See `internal/sandbox/resources.go` (`// ADR-062 §Resolution step
 
 **Pending ADRs.** ADRs 068 (operational UX contract: flock + JSON envelope +
 exit codes + completion), 070 (session resolution + fzf picker), and 072
-(state.toml schema roll-up) remain `implementation: pending`. ADR-071 (PR
-state TTL cache) is `in-progress`: the core engine and `af pr --refresh`
-shipped; the TTL-aware wire-up into `af status` / `af info` / `af clean` /
-`af sync` / `af done` is deferred to a follow-up pass.
+(state.toml schema roll-up) remain `implementation: pending`.
 
 **`af session-data sync --continue-host` is accepted but not yet wired.**
 The ADR-066 host-continuation path normalization (rewriting transcript

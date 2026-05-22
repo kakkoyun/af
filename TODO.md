@@ -17,10 +17,9 @@ Stages 12 + 14 complete and Stage 13 partial):
 - Every numbered ADR from **031 to 067** is `implementation: complete`.
 - **ADR-069** (boundary & privacy) and **ADR-073** (`af review`) are
   also `complete`.
-- **ADR-071** (PR state TTL cache) is `in-progress`: the core
-  refresh engine and `af pr --refresh` shipped (I13.2). The
-  TTL-aware wire-up into `af status` / `af info` / `af clean` /
-  `af sync` / `af done` is deferred.
+- **ADR-071** (PR state TTL cache) is also `complete`: core refresh,
+  `af pr --refresh`, status/info TTL refresh, and clean/sync/done
+  force-refresh wire-up all shipped.
 - `pending` ADRs: **068** (operational UX contract — flock + JSON
   envelope + exit codes + completion), **070** (session selection &
   inference), **072** (state.toml schema roll-up).
@@ -34,7 +33,8 @@ Stages 12 + 14 complete and Stage 13 partial):
     - `eee79fa` — I13.2 (ADR-071 PR TTL refresh core + af pr --refresh).
     - `f7521e9` — I13.7 + I13.8 (ADR-069 name collision + depguard).
     - `<stage-14-impl>` — I14.1–I14.5 (ADR-073 af review end-to-end).
-    - `<final-close-out>` — Stage 14 close-out (this commit).
+    - `<final-close-out>` — Stage 14 close-out.
+    - `<adr-071-wire-up>` — ADR-071 multi-command refresh wire-up.
 - ADR-032 is `implementation: n/a` (it is the conventions ADR itself).
 - `make check` is green: 0 lint, all 24 packages pass
   `-race -count=1 -shuffle=on`.
@@ -47,31 +47,25 @@ Stages 12 + 14 complete and Stage 13 partial):
 
 **Next session pickup options** (in roughly increasing effort):
 
-1. **Finish ADR-071's multi-cmd wire-up.** The core refresh engine
-   exists in `internal/pr`. Wire TTL-aware refresh into `af status`
-   (per-row) and `af info`, plus force-refresh into `af clean`,
-   `af sync`, and `af done`. Each needs an audit of the existing
-   merge-detection path and per-command tests. ADR-071 §"Refresh
-   behaviour by command" is the spec.
-2. **Implement ADR-070** (session resolution + fzf picker). Affects
+1. **Implement ADR-070** (session resolution + fzf picker). Affects
    every `[session]`-taking command. New `internal/session/resolve.go`
    with the resolution chain (arg → flag → AF_SESSION → cwd → fzf →
    EX_NOINPUT) plus `tmux setenv AF_SESSION` in `af create`. ~6
    commands need to swap `resolveLifecycleStatePath` for the new
    resolver.
-3. **Implement ADR-068** in four parts:
+2. **Implement ADR-068** in four parts:
     - §4 per-session flock at `<session>/.af.lock` (I13.3).
     - §1 JSON envelope `{schema, data}` (I13.4).
     - §2 sysexits exit-code table (I13.5).
     - §5 tab-completion (I13.6).
-4. **Implement ADR-072** state.toml schema roll-up consolidation. The
+3. **Implement ADR-072** state.toml schema roll-up consolidation. The
    ADR is mostly documentation of existing behaviour; the two PROPOSED
    blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are now
    shipped, so this is essentially a frontmatter advance + verify
    pass.
-5. **Cut v1.0.0 release.** `goreleaser release --clean` after the
+4. **Cut v1.0.0 release.** `goreleaser release --clean` after the
    above land. The project is in release-ready shape modulo the
-   remaining 5 ADRs (068, 070, 071 wire-up, 072) — none of them
+   remaining 3 ADRs (068, 070, 072) — none of them
    block existing functionality.
 
 **Stage 12 deferrals** (small, can land any time before v1.0.0):
@@ -139,16 +133,14 @@ working. Concrete impact on future code work:
   blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are forward
   pointers to ADR-067/ADR-071's implementation work.
 
-Good approach for the next implementor: pick ADR-070 + ADR-071
-first (they're new-behaviour ADRs and unblock other work like
-`af list` performance and the dashboard freshness story). ADR-068's
-formal flock lift can come with whatever ADR adds the next mutating
-command. ADR-069 is mostly tests.
+Good approach for the next implementor: pick ADR-070 first (it is the
+remaining new-behaviour UX ADR and removes most `[session]` friction),
+then ADR-068's formal flock / JSON / exit-code / completion pass, then
+ADR-072's schema-roll-up close-out. ADR-069 and ADR-071 are complete.
 
 - **ADR-073 (`af review`).** New read-only command writing a Markdown
-  PR review report to `.af/reviews/`. Depends on ADR-071's PR state
-  refresh path landing first (it uses the cached PR metadata).
-  Implementation plan is Stage 14 below (I14.1–I14.6). Stack: embed
+  PR review report to `.af/reviews/`. Uses ADR-071's completed PR state refresh path and landed in
+  Stage 14 (I14.1–I14.6). Stack: embed
   immutable system prompt via `//go:embed`, four-layer prompt-append
   resolution (user config, repo config, repo file, CLI flag), new
   `[review]` config table, new `internal/gh` helpers wrapping
@@ -158,7 +150,7 @@ command. ADR-069 is mostly tests.
 **Where to look first**:
 
 - `PROGRESS.md` Session 29 has the full Stage 11 narrative + deferrals.
-- Stage 12 plan below (the only remaining `[ ]` items in this file).
+- Stage 13 plan below (the only remaining `[ ]` items in this file).
 - For ADR scope: `docs/adr/066-*.md` and `docs/adr/067-*.md`.
 - For the slicer-wt code path that just landed: `internal/sandbox/
 slicerwt.go`, `internal/lifecycle/pull.go`, `cmd/af/pull.go`,
@@ -660,7 +652,7 @@ the scope summary; see each ADR for the full contract.
       propagation via `tmux setenv` in `af create` / `af resume`.
       `internal/session/resolve.go` is the natural home; testscript
       coverage in `session-resolve.txt`.
-- [x] I13.2: ADR-071 — TTL-bounded PR cache (partial: core engine + af pr --refresh shipped; multi-cmd wire-up into status/info/clean/sync/done deferred):
+- [x] I13.2: ADR-071 — TTL-bounded PR cache:
       - Add `last_refreshed_at` and `last_refresh_error` to
         `PRState` (omitempty).
       - Add `[pr].refresh_ttl` to config schema (default `10m`,

@@ -2012,3 +2012,49 @@ Two options:
 Recommend option 1 — landing ADR-070 alone removes the only major UX
 friction (no `[session]` arg + no cwd inference currently errors loudly
 rather than picking interactively).
+
+
+## 2026-05-22 — Session 34: ADR-071 multi-command PR refresh wire-up
+
+### Goal
+
+Finish the remaining ADR-071 work after the Stage 14 close-out: wire the
+TTL-backed PR refresh cache into every command named in the ADR.
+
+### Done
+
+- Added shared `cmd/af/pr_refresh_cache.go` helper for ADR-071 consumers.
+  It loads layered `[pr].refresh_ttl` config using the worktree as repo
+  context, calls the existing `prRefreshFunc` seam, writes `state.toml`
+  on successful refresh or `last_refresh_error` update, and emits
+  `pr_state_changed` on state flips.
+- `af status` gains `--refresh`, PR state rendering, JSON PR fields,
+  default TTL refresh outside the cache window, and soft failure rendering
+  (`?` + one `slog.WarnContext`).
+- `af info` gains `--refresh`, a PR section in text output, a `pr` JSON
+  payload, default TTL refresh outside the cache window, and soft failure
+  rendering (`?` + persisted `last_refresh_error`).
+- `af clean` force-refreshes PR state for clean targets before reaping and
+  treats refresh failure as a hard error.
+- `af sync` force-refreshes the parent workstream PR before rebasing and
+  treats refresh failure as a hard error.
+- `af done` force-refreshes the workstream PR before lifecycle teardown and
+  treats refresh failure as a hard error.
+- Added cmd-level tests for all five consumers plus status/info rendering
+  and refresh failure persistence.
+- Advanced ADR-071 and `docs/adr/INDEX.md` to `implementation: complete`;
+  updated README, CHANGELOG, and TODO handover.
+
+### Verification
+
+- Red step: new cmd tests failed on missing `--refresh` flags and missing
+  force-refresh hooks for clean/sync/done.
+- Green step: targeted cmd tests pass, `go test ./cmd/af -count=1` passes.
+- Full `make check` is green: 0 lint, all 24 packages pass
+  `-race -count=1 -shuffle=on`.
+
+### Next
+
+ADR-070 is now the highest-leverage remaining ADR. After that, finish
+ADR-068 (flock, JSON envelope, exit codes, completion) and ADR-072
+(schema roll-up).

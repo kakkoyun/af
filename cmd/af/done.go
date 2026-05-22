@@ -54,6 +54,19 @@ func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
 	if err != nil {
 		return fmt.Errorf("done: %w", err)
 	}
+	stateForRefresh, err := readStateForAutoSync(cmd.Context(), statePath)
+	if err != nil {
+		return fmt.Errorf("done: %w", err)
+	}
+	if stateForRefresh.PR.Number != 0 {
+		err = refreshPRCacheForState(cmd.Context(), statePath, &stateForRefresh, prCacheRefreshOptions{
+			Command: "done",
+			Force:   true,
+		})
+		if err != nil {
+			return fmt.Errorf("done: refresh PR state: %w", err)
+		}
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = ""

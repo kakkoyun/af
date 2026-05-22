@@ -54,6 +54,10 @@ func runClean(cmd *cobra.Command, opts *cleanOptions) error {
 	}
 
 	targets := selectCleanTargets(summaries, opts, cutoff)
+	err = refreshCleanTargetPRs(cmd, targets)
+	if err != nil {
+		return err
+	}
 	return executeClean(cmd, targets, opts.dryRun)
 }
 
@@ -120,6 +124,22 @@ func executeClean(cmd *cobra.Command, targets []sessionSummary, dryRun bool) err
 		_, err = fmt.Fprintf(w, "removed %s\n", name)
 		if err != nil {
 			return fmt.Errorf("clean write: %w", err)
+		}
+	}
+	return nil
+}
+
+func refreshCleanTargetPRs(cmd *cobra.Command, targets []sessionSummary) error {
+	for i := range targets {
+		if targets[i].state.PR.Number == 0 {
+			continue
+		}
+		err := refreshPRCacheForState(cmd.Context(), targets[i].statePath, &targets[i].state, prCacheRefreshOptions{
+			Command: "clean",
+			Force:   true,
+		})
+		if err != nil {
+			return fmt.Errorf("clean: refresh PR state for %s: %w", targets[i].state.Session.Name, err)
 		}
 	}
 	return nil
