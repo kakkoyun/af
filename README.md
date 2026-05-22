@@ -6,8 +6,10 @@ dedicated worktree, a tmux session, and launches a primary agent (pi, claude, or
 codex) — all tied together under a single durable state file. When the task is
 done, everything is cleaned up with one command.
 
-> **Status — v1 (single-user).** Stages 0–12 are implemented; every ADR
-> from 031 to 067 is marked `implementation: complete`. `make check` is
+> **Status — v1 (single-user).** Stages 0–12 + Stage 14 are implemented;
+> ADRs 031–067, 069, and 073 are `implementation: complete`. ADR-071 is
+> `in-progress` (engine landed; multi-cmd wire-up deferred). ADRs 068,
+> 070, and 072 remain `pending`. `make check` is
 > green. The proxy commands (`af editor`, `af diff`, `af pr`, `af retro`),
 > suspend/resume lifecycle, stack-aware `af sync`, opinionated diff
 > rendering (hunk + diffity), repo-scoped `[control]` settings,
@@ -134,6 +136,19 @@ These commands run the user-configured executables from `[diff]`, `[pr]`, and
 | `af pr [session] [--title T] [--draft] [--web] [--ai] [--ai-model MODEL]` | Run the PR-create command; `--ai` builds the body from the worktree diff via `agent.BodyCmd` (rejects `--ai` + `--web`). |
 | `af editor [session] [--terminal                                          | -t] [--visual]`                                                          | Open the configured editor at the workstream worktree path. |
 
+### Review (ADR-073)
+
+| Command                                                                            | Description                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `af review [session] [--pr N] [--agent X] [--model Y] [--append-prompt T] [--skill S] [--stdout] [--out PATH]` | Generate a draft PR review report. Read-only; never posts. Embedded immutable af system prompt + four-layer append (user / repo / file / CLI) + suggested skills + PR diff. Writes `<worktree>/.af/reviews/<UTC>-pr<n>.md`. |
+
+### `af pr --refresh` (ADR-071)
+
+`af pr --refresh [session]` force-refreshes the cached PR state via
+`gh pr view --json` without opening anything. Updates `[pr].state`,
+`[pr].last_refreshed_at`, and emits a `pr_state_changed` ledger event
+on a flip. Empty PR exits with `EX_DATAERR`-style error.
+
 ### Slicer VM session sync (ADR-066 + ADR-067)
 
 | Command                                                                            | Description                                                                                                                  |
@@ -216,10 +231,12 @@ strictly verified; a tightening pass lands when slicer ships such an
 API. See `internal/sandbox/resources.go` (`// ADR-062 §Resolution step
 6`) for the exact deferral.
 
-**Pending draft ADRs.** ADRs 068–073 (operational UX contract, boundary
-& privacy, session resolution + fzf, PR TTL cache, state.toml roll-up,
-`af review` repo-aware PR review) are `status: proposed, implementation:
-pending`. They are the Stage 13/14 work targeting v1.0.0.
+**Pending ADRs.** ADRs 068 (operational UX contract: flock + JSON envelope +
+exit codes + completion), 070 (session resolution + fzf picker), and 072
+(state.toml schema roll-up) remain `implementation: pending`. ADR-071 (PR
+state TTL cache) is `in-progress`: the core engine and `af pr --refresh`
+shipped; the TTL-aware wire-up into `af status` / `af info` / `af clean` /
+`af sync` / `af done` is deferred to a follow-up pass.
 
 **`af session-data sync --continue-host` is accepted but not yet wired.**
 The ADR-066 host-continuation path normalization (rewriting transcript

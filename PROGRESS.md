@@ -1865,3 +1865,150 @@ ADRs and unblock dashboard freshness + the `af review` work in
 Stage 14. ADR-068's per-session flock lift can come alongside the next
 mutating command. The pickup ladder is in `TODO.md`'s Handover
 snapshot.
+
+## 2026-05-22 — Session 33: Stages 13 (partial) + 14 complete — af review
+
+### Goal
+
+Continue from the Session 32 handover. Push as far as practical into
+Stage 13 and Stage 14 in a single session.
+
+Branch unchanged: `stage-12-followups-066-067`. Final state of this
+branch covers everything from Session 32 plus the work below.
+
+### Done
+
+**Stage 13 partial** — three of nine items landed:
+
+- **I13.2 (ADR-071 PR TTL refresh — partial)** in commit `eee79fa`:
+  - `internal/session/state.go` PRState gains `LastRefreshedAt`
+    (*time.Time, omitempty) and `LastRefreshError` (string, omitempty).
+  - `internal/config/config.go` PRConfig gains `RefreshTTL`
+    (time.Duration, default 10m via `defaultPRRefreshTTL`).
+    New `[pr].refresh_ttl` TOML key parsed via the new
+    `durationPointer` helper. Layer + parser + merge updated.
+  - New `internal/pr` package with `Refresh(ctx, *PRState, Options)`.
+    Honours TTL + Force + 5-second `context.WithTimeout`; runs
+    `gh pr view --json state,isDraft,mergedAt,closedAt`; maps the
+    response per ADR-071 §"Refresh implementation". On failure
+    preserves `State` + `LastRefreshedAt` and populates
+    `LastRefreshError` (truncated to 120 chars). 10 unit tests cover
+    skip/expired/force/zero-ttl/never-refreshed/gh-failure/clear-on-success/
+    closed-with-mergedAt branches.
+  - New `af pr --refresh` CLI path. Refuses with `errPRRefreshNoPR`
+    when `state.PR.Number == 0`. On success writes state.toml back
+    and emits a `pr_state_changed` ledger event on a flip. Three
+    cmd-level tests using a new `prRefreshFunc` test seam.
+  - **Pre-existing bug uncovered**: `writeTestSessionStateWithWorktree`
+    had a redundant `status string` parameter (every caller passed
+    "active"). Dropped via unparam-driven cleanup.
+
+  Deferred to follow-up (called out in commit + TODO): TTL-aware
+  refresh wire-up into `af status` (per-row), `af info`,
+  `af clean`/`af sync`/`af done` (force-refresh paths). Each command
+  needs its own audit pass. ADR-071 frontmatter therefore stays at
+  `in-progress`, not `complete`.
+
+- **I13.7 + I13.8 (ADR-069 §3 + §1)** in commit `f7521e9`:
+  - `internal/lifecycle/create.go` gains `checkNameCollision` plus
+    `lifecycle.ErrNameCollision`. `CreateOptions.ArchiveDir` is new;
+    `cmd/af/create.go` wires it via `resolveArchiveDir()`. Three
+    new tests cover active + archived + empty-archive paths.
+  - `.golangci.yml` re-enables depguard with a `no-outbound-net`
+    rule denying `net/http` imports outside `internal/sandbox/`,
+    `internal/remote/`, and `internal/pr/`. Today no package imports
+    net/http, so the rule is purely preventative.
+  - ADR-069 frontmatter advanced to `complete`.
+
+**Stage 14** — full ADR-073 `af review` implementation in commit
+`<stage-14-impl>`:
+
+- **I14.1 + I14.2** — `internal/review/system_prompt.md` embedded
+  via `//go:embed`; `SystemPrompt()` returns the immutable af-owned
+  prefix. `BuildPrompt(opts PromptOpts)` assembles the four-layer
+  append (user → repo → file → CLI) under a `# Repo-specific review
+  notes` heading, then a `# Suggested skills` block (only when
+  non-empty), then the PR header + diff. Six unit tests cover the
+  required tone constraints (no severity tags, no emoji, no verdict
+  line) and every append branch.
+- **I14.3** — `internal/config` `ReviewConfig` five-touchpoint:
+  struct (Agent / Model / SystemPromptAppend /
+  SystemPromptAppendFile / SuggestedSkills), `reviewLayer` pointer
+  variant, `parseReviewSection`, `mergeReview`, and defaults
+  (`SuggestedSkills = ["/review", "/go-review", "/simplify"]`).
+- **I14.4** — `internal/gh` package: `ViewPR(runner, n)` and
+  `DiffPR(runner, n)`. Wraps `gh pr view --json` and `gh pr diff`.
+  `ErrNoPR` on "could not resolve" / `number=0`; `ErrEmptyDiff` on
+  whitespace-only output. 8 tests cover every branch incl. a fake
+  runner that matches by argv prefix.
+- **I14.5** — `cmd/af/review.go` + tests. `af review [session]`
+  with `--pr`, `--agent`, `--model`, `--out`, `--append-prompt`,
+  `--skill` (repeatable; `""` suppresses), `--stdout` flags.
+  Pipeline: load state + config → `gh.ViewPR` → `gh.DiffPR` →
+  `review.BuildPrompt` → agent `BodyCmd` via `reviewBodyFunc` seam
+  → atomic write to `<worktree>/.af/reviews/<UTC>-pr<n>.md` (0o600
+  file in 0o750 dir, `.tmp` + rename) → `review.report.written`
+  ledger event. Three test seams: `reviewGhFactory`,
+  `reviewBodyFunc`, plus the existing `resolveBodyAgent` pattern.
+  Six cmd-level tests cover golden path (file + ledger), named
+  failure modes, `--stdout`, and `--append-prompt` threading.
+- **I14.6** — ADR-073 frontmatter advanced to `complete`;
+  `docs/adr/INDEX.md` updated. README banner + Caveats + command
+  tables (af review, af pr --refresh, af session-data) refreshed.
+  CHANGELOG `[Unreleased]` gains "Stage 14 — ADR-073 `af review`"
+  and "Stage 13 (partial)" sections. TODO check-offs for I13.2,
+  I13.7, I13.8, I14.1–I14.5 and the Stage 14 close-out. Handover
+  snapshot rewritten for the new ADR state.
+
+Deferrals carried forward (called out in TODO + this PROGRESS):
+
+- ADR-071 multi-command wire-up (5 commands).
+- ADR-068 four sub-items (flock, JSON envelope, exit codes,
+  completion).
+- ADR-070 session-resolution chain + fzf picker.
+- ADR-072 state.toml schema roll-up consolidation (mostly a doc
+  pass — the two `PROPOSED` blocks are now shipped).
+- ADR-073 `--print-system-prompt` debugging flag (~10 LoC).
+
+### Verification
+
+- `make check` is green throughout: 0 lint, all 24 packages pass
+  `-race -count=1 -shuffle=on`. Up from 22 packages at Session 32 —
+  new packages `internal/pr`, `internal/gh`, `internal/review` were
+  added.
+- Test count grew by ~35 functions across new files in
+  `internal/pr`, `internal/gh`, `internal/review`, and `cmd/af`.
+- ADR count: 43 files. Status: 38 `complete` (031 + 033–067 + 069 +
+  073), 1 `n/a` (032), 1 `in-progress` (071), 3 `pending` (068, 070,
+  072).
+- TODO checks: 139 `[x]` / 7 `[ ]`. The 7 unchecked items are
+  I13.1 (ADR-070), I13.3–I13.6 (ADR-068 sub-items), I13.9 (Stage 13
+  close-out for the remaining items), and I14.6 (this commit will
+  close it).
+
+### Release readiness
+
+The project is in **release-ready shape modulo the deferrals**.
+`af create`, `af list`, `af info`, `af status`, `af note`,
+`af suspend`, `af resume`, `af clean`, `af stack`/`unstack`/`sync`,
+`af pr` (including `--ai` and `--refresh`), `af editor`, `af diff`,
+`af retro` (including `--ai`), `af control up/down/status`,
+`af pull`, `af session-data sync|list`, `af review`, and
+`af doctor`/`af setup`/`af config`/`af auth`/`af completions` all
+work end-to-end. `goreleaser release --clean` is the path for v1.0.0
+when the owner decides the deferred items can land post-1.0.
+
+### Next
+
+Two options:
+
+1. **Land remaining Stage 13 items**, then cut v1.0.0. Most impactful
+   are ADR-070 (session resolution + fzf) and ADR-071 multi-cmd
+   wire-up. ADR-068 is mostly UX polish that can ship after 1.0.
+2. **Cut v1.0.0 now** with the deferrals documented. The deferred
+   items are additive improvements, not bug fixes; nothing currently
+   shipped is broken.
+
+Recommend option 1 — landing ADR-070 alone removes the only major UX
+friction (no `[session]` arg + no cwd inference currently errors loudly
+rather than picking interactively).

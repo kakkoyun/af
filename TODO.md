@@ -12,21 +12,31 @@ for the narrative log and [`docs/adr/`](docs/adr/) for accepted decisions.
 ## Handover snapshot (read this first)
 
 **Status at branch `stage-12-followups-066-067`** (2026-05-22, after
-Stage 12 complete):
+Stages 12 + 14 complete and Stage 13 partial):
 
 - Every numbered ADR from **031 to 067** is `implementation: complete`.
-- `pending` ADRs: **068** (operational UX contract), **069** (boundary
-  & privacy), **070** (session selection & inference), **071** (PR
-  state TTL cache), **072** (state.toml schema roll-up), **073**
-  (`af review` repo-aware PR review).
-- Stage 12 work landed in five commits on this branch:
+- **ADR-069** (boundary & privacy) and **ADR-073** (`af review`) are
+  also `complete`.
+- **ADR-071** (PR state TTL cache) is `in-progress`: the core
+  refresh engine and `af pr --refresh` shipped (I13.2). The
+  TTL-aware wire-up into `af status` / `af info` / `af clean` /
+  `af sync` / `af done` is deferred.
+- `pending` ADRs: **068** (operational UX contract — flock + JSON
+  envelope + exit codes + completion), **070** (session selection &
+  inference), **072** (state.toml schema roll-up).
+- Stage 12 + 14 + partial Stage 13 work landed in nine commits on this branch:
     - `c919db5` — I12.1 + I12.2 (doctor wt probe, editor lease test).
     - `7022de3` — I12.3 (ADR-066 sessiondata package + CLI).
     - `e4cbd34` — I12.4a (ADR-067 state schema + pull→sync rename).
     - `258bc5b` — I12.4b (append-aware JSONL merge).
-    - `<stage-12-close-out>` — I12.4c + I12.5 (lifecycle hooks + docs).
+    - `b8b2fa2` — I12.4c (auto-sync hooks for suspend + done).
+    - `a742579` — I12.5 (Stage 12 close-out).
+    - `eee79fa` — I13.2 (ADR-071 PR TTL refresh core + af pr --refresh).
+    - `f7521e9` — I13.7 + I13.8 (ADR-069 name collision + depguard).
+    - `<stage-14-impl>` — I14.1–I14.5 (ADR-073 af review end-to-end).
+    - `<final-close-out>` — Stage 14 close-out (this commit).
 - ADR-032 is `implementation: n/a` (it is the conventions ADR itself).
-- `make check` is green: 0 lint, all 22 packages pass
+- `make check` is green: 0 lint, all 24 packages pass
   `-race -count=1 -shuffle=on`.
 - ADRs 068–073 are the **gap-analysis batch + ADR-073** — cross-cutting
   contracts plus the new `af review` command. They were drafted to
@@ -37,15 +47,32 @@ Stage 12 complete):
 
 **Next session pickup options** (in roughly increasing effort):
 
-1. **Implement ADRs 068–072** (gap-analysis batch) in Stage 13. New
-   cross-cutting contracts that need to land before v1.0.0. See
-   §"Stage 13 reading list" below and Stage 13 task list (I13.1–
-   I13.9).
-2. **Implement ADR-073 `af review`** in Stage 14 (I14.1–I14.6). Depends
-   on Stage 13 PR state work (ADR-071); otherwise self-contained.
-3. **Cut v1.0.0 release.** `goreleaser release --clean` after a
-   dry-run validation; tag, push, GitHub release. Out of scope until
-   Stages 13 + 14 land.
+1. **Finish ADR-071's multi-cmd wire-up.** The core refresh engine
+   exists in `internal/pr`. Wire TTL-aware refresh into `af status`
+   (per-row) and `af info`, plus force-refresh into `af clean`,
+   `af sync`, and `af done`. Each needs an audit of the existing
+   merge-detection path and per-command tests. ADR-071 §"Refresh
+   behaviour by command" is the spec.
+2. **Implement ADR-070** (session resolution + fzf picker). Affects
+   every `[session]`-taking command. New `internal/session/resolve.go`
+   with the resolution chain (arg → flag → AF_SESSION → cwd → fzf →
+   EX_NOINPUT) plus `tmux setenv AF_SESSION` in `af create`. ~6
+   commands need to swap `resolveLifecycleStatePath` for the new
+   resolver.
+3. **Implement ADR-068** in four parts:
+    - §4 per-session flock at `<session>/.af.lock` (I13.3).
+    - §1 JSON envelope `{schema, data}` (I13.4).
+    - §2 sysexits exit-code table (I13.5).
+    - §5 tab-completion (I13.6).
+4. **Implement ADR-072** state.toml schema roll-up consolidation. The
+   ADR is mostly documentation of existing behaviour; the two PROPOSED
+   blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are now
+   shipped, so this is essentially a frontmatter advance + verify
+   pass.
+5. **Cut v1.0.0 release.** `goreleaser release --clean` after the
+   above land. The project is in release-ready shape modulo the
+   remaining 5 ADRs (068, 070, 071 wire-up, 072) — none of them
+   block existing functionality.
 
 **Stage 12 deferrals** (small, can land any time before v1.0.0):
 
@@ -633,7 +660,7 @@ the scope summary; see each ADR for the full contract.
       propagation via `tmux setenv` in `af create` / `af resume`.
       `internal/session/resolve.go` is the natural home; testscript
       coverage in `session-resolve.txt`.
-- [ ] I13.2: ADR-071 — TTL-bounded PR cache:
+- [x] I13.2: ADR-071 — TTL-bounded PR cache (partial: core engine + af pr --refresh shipped; multi-cmd wire-up into status/info/clean/sync/done deferred):
       - Add `last_refreshed_at` and `last_refresh_error` to
         `PRState` (omitempty).
       - Add `[pr].refresh_ttl` to config schema (default `10m`,
@@ -662,11 +689,11 @@ the scope summary; see each ADR for the full contract.
       `cmd/af/` for `cmd.RegisterFlagCompletionFunc` and arg
       completion. Session/slot/host/agent/sandbox completions per
       §5 table.
-- [ ] I13.7: ADR-069 §3 — strict name-collision check in `af
+- [x] I13.7: ADR-069 §3 — strict name-collision check in `af
       create` covering active + suspended + archived. Verify the
       friendly error message + `EX_DATAERR`. Likely already
       in place against `sessions/`; verify against `archive/`.
-- [ ] I13.8: ADR-069 §1 — add a CI/lint rule that rejects
+- [x] I13.8: ADR-069 §1 — add a CI/lint rule that rejects
       `net/http` imports outside `internal/sandbox/`, `internal/
       remote/`, etc. `golangci-lint` `depguard` config.
 - [ ] I13.9: Wave 3 close-out for Stage 13 — advance ADR-068
@@ -679,34 +706,34 @@ ADR-073 defines `af review`: a read-only, repo-aware PR review report written
 to `.af/reviews/`. This stage implements the command end-to-end. Depends on
 Stage 7 (proxy commands + `BodyCmd`) and a green Stage 12/13 baseline.
 
-- [ ] I14.1: `internal/review/system_prompt.md` — create the embedded system
+- [x] I14.1: `internal/review/system_prompt.md` — create the embedded system
       prompt file (verbatim text from ADR-073 §1). Add
       `internal/review/prompt.go` with `SystemPrompt() string` using
       `//go:embed`. Write a test that verifies the embedded string is non-empty
       and contains the key tone constraints ("do not use severity tags",
       "do not use emoji").
 
-- [ ] I14.2: `internal/review/prompt.go` — add `BuildPrompt(opts PromptOpts)
+- [x] I14.2: `internal/review/prompt.go` — add `BuildPrompt(opts PromptOpts)
       string` to assemble the full stdin payload: system prompt →
       repo-specific append (four-layer resolution: user config, repo config,
       repo file, CLI flag) → suggested skills block → PR context block →
       diff. Table tests covering: no appends, all four append layers, empty
       suggested-skills list, `--skill ""` suppression.
 
-- [ ] I14.3: `internal/config/config.go` — add the `[review]` table following
+- [x] I14.3: `internal/config/config.go` — add the `[review]` table following
       the existing five-touchpoint pattern: `ReviewConfig` struct,
       `defaultReviewConfig()`, `mergeReview`, TOML parsing, `Config.Review`
       field. Fields: `agent`, `model`, `system_prompt_append`,
       `system_prompt_append_file`, `suggested_skills`. Tests for merge
       precedence (repo > user > defaults).
 
-- [ ] I14.4: `internal/gh/gh.go` + `_test.go` — `PRMeta(ctx, n)` wrapping
+- [x] I14.4: `internal/gh/gh.go` + `_test.go` — `PRMeta(ctx, n)` wrapping
       `gh pr view --json number,title,headRefName,baseRefName` and
       `PRDiff(ctx, n)` wrapping `gh pr diff <n>`. Return `errReviewNoPR` on
       no PR detected, `errReviewEmptyDiff` on empty diff. Tests use a fake
       `gh` shadow binary via the existing testscript fake-path pattern.
 
-- [ ] I14.5: `cmd/af/review.go` + `_test.go` — `newReviewCmd()` wiring PR
+- [x] I14.5: `cmd/af/review.go` + `_test.go` — `newReviewCmd()` wiring PR
       resolution, diff fetch, prompt build, agent `BodyCmd` call, atomic
       report write to `.af/reviews/<UTC-ts>-pr<n>.md` (`0o600` file, `.tmp`
       + rename), and ledger event. Register in `cmd/af/root.go`. Add
@@ -714,7 +741,7 @@ Stage 7 (proxy commands + `BodyCmd`) and a green Stage 12/13 baseline.
       `gh` + fake `claude`) and each named failure mode (`errReviewNoPR`,
       `errReviewEmptyDiff`, `errReviewEmptyBody`).
 
-- [ ] I14.6: Stage 14 close-out — advance ADR-073 frontmatter to
+- [x] I14.6: Stage 14 close-out — advance ADR-073 frontmatter to
       `implementation: complete`, update README (add `af review` to command
       table), CHANGELOG (Stage 14 section), PROGRESS (session entry). Add
       `.af/reviews/` line to `.gitignore`. Check off I14.1–I14.6.

@@ -15,6 +15,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Stage 14 — ADR-073 `af review`
+
+- **`af review [session]`** (ADR-073): new read-only command that
+  generates a draft PR review report. Never posts; never modifies
+  files outside `.af/reviews/`. Pipeline: load state + config →
+  `gh.ViewPR` + `gh.DiffPR` → `review.BuildPrompt` (af system prompt +
+  user/repo/file/CLI append layers + suggested skills + PR header +
+  diff) → agent `BodyCmd` → atomic write to
+  `<worktree>/.af/reviews/<UTC>-pr<n>.md` (0o600 file in 0o750 dir,
+  `.tmp` + rename) → `review.report.written` ledger event.
+- **Embedded immutable system prompt** at
+  `internal/review/system_prompt.md` via `//go:embed`. ADR-073 §1
+  contract: no severity tags, no emoji, no verdict line; config can
+  only append after the af prefix, never replace it.
+- **`[review]` config section**: `agent`, `model`,
+  `system_prompt_append`, `system_prompt_append_file`,
+  `suggested_skills`. Default suggested skills =
+  `["/review", "/go-review", "/simplify"]`.
+- **Flags**: `--pr N`, `--agent X`, `--model Y`, `--out PATH`,
+  `--append-prompt TEXT`, `--skill S` (repeatable; `--skill ""`
+  suppresses), `--stdout` (skip file write, print to stdout).
+- **New packages**: `internal/review` (system prompt + builder),
+  `internal/gh` (ViewPR + DiffPR helpers wrapping `gh pr view` and
+  `gh pr diff`). Three test seams: `reviewGhFactory`,
+  `reviewBodyFunc`, and the existing `resolveBodyAgent` pattern.
+- **Failure modes** (with named sentinels): `errReviewNoPR` when gh
+  cannot resolve a PR, `errReviewEmptyDiff` when the diff is empty,
+  `errReviewEmptyBody` when the agent returns whitespace.
+
+#### Stage 13 (partial) — ADR-069 + ADR-071 core
+
+- **ADR-069 §1 depguard rule**: `.golangci.yml` re-enables depguard
+  with a `no-outbound-net` rule denying `net/http` imports outside
+  `internal/sandbox/`, `internal/remote/`, and `internal/pr/`.
+  Preventative — no package imports `net/http` today.
+- **ADR-069 §3 strict name collision**: `af create` now refuses to
+  reuse a name that exists in either `sessions/` (active/suspended)
+  or `archive/`. New `lifecycle.ErrNameCollision` sentinel.
+  `CreateOptions.ArchiveDir` controls the archive check (empty
+  disables for back-compat).
+- **ADR-071 core + `af pr --refresh`**: new `internal/pr` package
+  with `Refresh(ctx, *PRState, Options) (Result, error)`. Honours
+  TTL + Force + 5-second context timeout, maps `gh pr view --json`
+  to af labels (`open`/`draft`/`closed`/`merged`), records
+  `last_refreshed_at` + `last_refresh_error`, detects state flips.
+  New `[pr].refresh_ttl` config (default `10m`). New
+  `pr_state_changed` ledger event emitted on flips.
+- `state.toml.[pr]` gains `last_refreshed_at` and `last_refresh_error`
+  fields (omitempty; existing files round-trip cleanly).
+
+Deferred Stage 13 follow-ups (called out in TODO/PROGRESS):
+
+- ADR-068 (operational UX contract: flock + JSON envelope + exit codes
+  + completion).
+- ADR-070 (session resolution chain + fzf picker).
+- ADR-071 multi-command wire-up (`af status` / `af info` / `af clean`
+  / `af sync` / `af done`).
+- ADR-072 state.toml schema roll-up.
+
 #### Stage 12 — ADR-066 + ADR-067 slicer VM agent-session sync
 
 - **ADR-066** (VM agent-session export): new `af session-data sync
