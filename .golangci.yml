@@ -8,8 +8,7 @@ linters:
   default: all
   disable:
     # Justified disables — each has a reason here per ADR-050.
-    # Dependency policy is enforced by ADR review, not import allowlists.
-    - depguard
+    # depguard is enabled with ADR-069 §1 forbid rules; see settings.depguard below.
     # Too noisy: Go literals do not always initialize every field.
     - exhaustruct
     # gofumpt handles wrapping where Go syntax benefits from it.
@@ -29,6 +28,22 @@ linters:
     # Conflicts with gofumpt's formatting model.
     - wsl_v5
   settings:
+    depguard:
+      # ADR-069 §1 — af does not make outbound HTTP requests from its own code.
+      # The slicer / gh / ssh subprocesses we shell out to may do so on their
+      # own. Direct net/http use from within af is forbidden outside the
+      # sandbox transport layer, where future enhancements may need it.
+      rules:
+        no-outbound-net:
+          list-mode: lax
+          files:
+            - $all
+            - "!**/internal/sandbox/**"
+            - "!**/internal/remote/**"
+            - "!**/internal/pr/**"
+          deny:
+            - pkg: net/http
+              desc: "ADR-069 §1: af does not make outbound HTTP calls; shell out to gh/slicer/ssh subprocesses instead."
     errcheck:
       check-blank: true
       check-type-assertions: true

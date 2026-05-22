@@ -2,6 +2,7 @@ package lifecycle_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -208,5 +209,96 @@ func TestCreate_PreservesSlicerResourcesInState(t *testing.T) {
 	}
 	if ex.SandboxManagedGroup != "af-owner-repo-tight" {
 		t.Errorf("SandboxManagedGroup = %q, want af-owner-repo-tight", ex.SandboxManagedGroup)
+	}
+}
+
+// TestCreate_RejectsActiveNameCollision verifies the ADR-069 §3 strict
+// name collision check fires when a sessions/<name> dir already
+// exists.
+func TestCreate_RejectsActiveNameCollision(t *testing.T) {
+	home := t.TempDir()
+	gitRoot := filepath.Join(home, "repo")
+	mkdirT(t, gitRoot)
+	stateDir := filepath.Join(home, "sessions")
+	// Pre-create the colliding active dir.
+	mkdirT(t, filepath.Join(stateDir, "dup"))
+
+	_, err := lifecycle.Create(context.Background(), lifecycle.CreateDeps{
+		Git:   git.NewFakeRunner(),
+		Mux:   mux.NewFakeMultiplexer(),
+		Agent: agent.NewFake("pi"),
+		Notes: obsidian.NewMemoryStore(),
+	}, lifecycle.CreateOptions{
+		Name:         "dup",
+		FromBranch:   "main",
+		GitRoot:      gitRoot,
+		RepoSlug:     repoSlug(),
+		WorktreeRoot: filepath.Join(home, "wt"),
+		StateDir:     stateDir,
+		AgentName:    "pi",
+		Now:          time.Date(2026, 5, 22, 0, 0, 0, 0, time.UTC),
+	})
+	if !errors.Is(err, lifecycle.ErrNameCollision) {
+		t.Fatalf("want ErrNameCollision, got %v", err)
+	}
+}
+
+// TestCreate_RejectsArchivedNameCollision verifies the collision check
+// also rejects names that exist only under the archive directory.
+func TestCreate_RejectsArchivedNameCollision(t *testing.T) {
+	home := t.TempDir()
+	gitRoot := filepath.Join(home, "repo")
+	mkdirT(t, gitRoot)
+	stateDir := filepath.Join(home, "sessions")
+	archiveDir := filepath.Join(home, "archive")
+	// Pre-create the colliding archived dir.
+	mkdirT(t, filepath.Join(archiveDir, "old"))
+
+	_, err := lifecycle.Create(context.Background(), lifecycle.CreateDeps{
+		Git:   git.NewFakeRunner(),
+		Mux:   mux.NewFakeMultiplexer(),
+		Agent: agent.NewFake("pi"),
+		Notes: obsidian.NewMemoryStore(),
+	}, lifecycle.CreateOptions{
+		Name:         "old",
+		FromBranch:   "main",
+		GitRoot:      gitRoot,
+		RepoSlug:     repoSlug(),
+		WorktreeRoot: filepath.Join(home, "wt"),
+		StateDir:     stateDir,
+		ArchiveDir:   archiveDir,
+		AgentName:    "pi",
+		Now:          time.Date(2026, 5, 22, 0, 0, 0, 0, time.UTC),
+	})
+	if !errors.Is(err, lifecycle.ErrNameCollision) {
+		t.Fatalf("want ErrNameCollision, got %v", err)
+	}
+}
+
+// TestCreate_AllowsFreshNameWithEmptyArchiveDir verifies an empty
+// ArchiveDir disables the archive check (back-compat).
+func TestCreate_AllowsFreshNameWithEmptyArchiveDir(t *testing.T) {
+	home := t.TempDir()
+	gitRoot := filepath.Join(home, "repo")
+	mkdirT(t, gitRoot)
+
+	_, err := lifecycle.Create(context.Background(), lifecycle.CreateDeps{
+		Git:   git.NewFakeRunner(),
+		Mux:   mux.NewFakeMultiplexer(),
+		Agent: agent.NewFake("pi"),
+		Notes: obsidian.NewMemoryStore(),
+	}, lifecycle.CreateOptions{
+		Name:         "fresh-name",
+		FromBranch:   "main",
+		GitRoot:      gitRoot,
+		RepoSlug:     repoSlug(),
+		WorktreeRoot: filepath.Join(home, "wt"),
+		StateDir:     filepath.Join(home, "sessions"),
+		// ArchiveDir intentionally empty.
+		AgentName: "pi",
+		Now:       time.Date(2026, 5, 22, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("Create with empty ArchiveDir: %v", err)
 	}
 }

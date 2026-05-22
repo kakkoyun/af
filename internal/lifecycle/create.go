@@ -40,6 +40,7 @@ type CreateOptions struct { //nolint:govet // Field grouping by semantic domain 
 	RepoSlug     string // logical repo identifier (e.g. github.com/kakkoyun/af)
 	WorktreeRoot string // expanded ~/Workspace/.worktrees
 	StateDir     string // ~/.local/share/af/v1/sessions
+	ArchiveDir   string // ~/.local/share/af/v1/archive; ADR-069 §3 collision check
 	NotesDir     string // optional; if non-empty, write an Obsidian note
 	// Identity rules.
 	BranchPrefix string
@@ -105,6 +106,11 @@ func Create(ctx context.Context, deps CreateDeps, opts CreateOptions) (CreateRes
 	}
 
 	resolved := resolveCreateNames(opts)
+
+	err = checkNameCollision(opts.StateDir, opts.ArchiveDir, resolved.name)
+	if err != nil {
+		return CreateResult{}, err
+	}
 
 	plan, err := git.PlanPrimaryWorktree(git.WorktreeOptions{
 		Root:   resolved.worktreeRoot,
@@ -235,6 +241,31 @@ func ensureGitWorktree(ctx context.Context, runner git.Runner, gitRoot string, p
 	_, err = runner.Run(ctx, gitRoot, "worktree", "add", "-b", plan.Branch, plan.Path, fromBranch)
 	if err != nil {
 		return fmt.Errorf("git worktree add: %w", err)
+	}
+	return nil
+}
+
+// ErrNameCollision reports that the requested session name is already
+// in use by an active, suspended, or archived workstream. ADR-069 §3
+// requires strict collision across all three.
+var ErrNameCollision = errors.New("session name already in use (active, suspended, or archived)")
+
+// checkNameCollision returns ErrNameCollision when name already exists
+// in stateDir (active/suspended) or archiveDir (archived). Empty
+// archiveDir disables the archive check.
+func checkNameCollision(stateDir, archiveDir, name string) error {
+	if name == "" {
+		return nil
+	}
+	for _, root := range []string{stateDir, archiveDir} {
+		if root == "" {
+			continue
+		}
+		candidate := filepath.Join(root, name)
+		info, err := os.Stat(candidate)
+		if err == nil && info.IsDir() {
+			return fmt.Errorf("%w: %q already exists at %s", ErrNameCollision, name, candidate)
+		}
 	}
 	return nil
 }

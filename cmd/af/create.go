@@ -75,7 +75,7 @@ func newCreateCmd(opts *rootOptions) *cobra.Command {
 	return cmd
 }
 
-func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, name string) error {
+func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, name string) error { //nolint:funlen // Pipeline orchestration; further splitting hurts readability.
 	cfg, err := loadCreateConfig(ctx, opts.root)
 	if err != nil {
 		return err
@@ -119,6 +119,7 @@ func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, nam
 		RepoSlug:         repoSlug,
 		WorktreeRoot:     cfg.General.WorktreeRoot,
 		StateDir:         resolveStateDir(cc),
+		ArchiveDir:       resolveArchiveDir(),
 		NotesDir:         resolveNotesDir(cfg),
 		BranchPrefix:     cfg.Branch.Prefix,
 		PrefixOnForkOnly: cfg.Branch.PrefixOnForkOnly,
@@ -392,4 +393,16 @@ func printCreateResult(cmd *cobra.Command, res lifecycle.CreateResult) error {
 		}
 	}
 	return nil
+}
+
+// resolveArchiveDir returns the canonical archive directory used to
+// detect ADR-069 §3 name collisions with archived workstreams. A
+// missing $HOME silently returns "" so collision checking is skipped
+// rather than failing the create call.
+func resolveArchiveDir() string {
+	dir, err := defaultArchiveDir()
+	if err != nil {
+		return ""
+	}
+	return dir
 }
