@@ -73,6 +73,7 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 	cmd.AddCommand(newRetroCmd(opts))
 	cmd.AddCommand(newPullCmd(opts))
 	cmd.AddCommand(newControlCmd(opts))
+	cmd.AddCommand(newSessionDataCmd(opts))
 
 	return cmd
 }

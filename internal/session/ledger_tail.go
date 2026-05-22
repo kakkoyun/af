@@ -59,7 +59,10 @@ func parseLedgerLine(line []byte) (Event, error) {
 	event := Event{Fields: make(map[string]any)}
 	for key, value := range raw {
 		switch key {
-		case "type":
+		// "event" is the canonical key written by marshalEvent; "type" is
+		// accepted for forward compatibility with future writers and for
+		// hand-written ledger fixtures.
+		case "event", "type":
 			if s, ok := value.(string); ok {
 				event.Type = s
 			}

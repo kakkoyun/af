@@ -82,6 +82,41 @@ func TestLedgerAppendAndLastTouchedAt(t *testing.T) {
 	}
 }
 
+// TestLedger_EventTypeRoundTrip asserts that AppendEvent + ReadLedgerTail
+// preserve the Event.Type field. Regression test for a parser/writer key
+// mismatch (writer used "event", parser only looked at "type").
+func TestLedger_EventTypeRoundTrip(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "ledger.jsonl")
+	ts := time.Date(2026, time.May, 22, 12, 0, 0, 0, time.UTC)
+
+	err := session.AppendEvent(path, session.Event{
+		Timestamp: ts,
+		Type:      "agent_sessions_pulled",
+		Fields:    map[string]any{"vm": "sbox-abc", "imported": 3},
+	})
+	if err != nil {
+		t.Fatalf("AppendEvent: %v", err)
+	}
+
+	events, err := session.ReadLedgerTail(path, 0)
+	if err != nil {
+		t.Fatalf("ReadLedgerTail: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("len(events) = %d, want 1", len(events))
+	}
+	if events[0].Type != "agent_sessions_pulled" {
+		t.Errorf("Type = %q, want agent_sessions_pulled", events[0].Type)
+	}
+	if !events[0].Timestamp.Equal(ts) {
+		t.Errorf("Timestamp = %v, want %v", events[0].Timestamp, ts)
+	}
+	if events[0].Fields["vm"] != "sbox-abc" {
+		t.Errorf("Fields[vm] = %v, want sbox-abc", events[0].Fields["vm"])
+	}
+}
+
 func TestRepoSlugFromRemote(t *testing.T) {
 	tests := map[string]string{
 		"git@github.com:kakkoyun/af.git":       "kakkoyun/af",
