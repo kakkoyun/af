@@ -83,7 +83,7 @@ func newReviewCmd(_ *rootOptions) *cobra.Command {
 }
 
 func runReview(cmd *cobra.Command, name string, opts reviewOptions) error {
-	state, statePath, cfg, err := loadReviewContext(cmd.Context(), name)
+	state, statePath, cfg, err := loadReviewContext(cmd, name)
 	if err != nil {
 		return err
 	}
@@ -132,8 +132,9 @@ func runReview(cmd *cobra.Command, name string, opts reviewOptions) error {
 // effective config. af review works without a workstream when --pr is
 // passed; statePath is empty in that case and no ledger event is
 // emitted.
-func loadReviewContext(ctx context.Context, name string) (session.State, string, config.Config, error) {
-	statePath, err := resolveLifecycleStatePath(name)
+func loadReviewContext(cmd *cobra.Command, name string) (session.State, string, config.Config, error) {
+	ctx := cmd.Context()
+	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
 		// No state file → run anyway; the caller must pass --pr.
 		cfg, cfgErr := loadConfigForRefresh(ctx)

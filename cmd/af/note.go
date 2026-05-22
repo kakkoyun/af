@@ -28,7 +28,7 @@ func newNoteCmd(_ *rootOptions) *cobra.Command {
 			if appendText == "" {
 				return fmt.Errorf("note: %w", errNoteAppendRequired)
 			}
-			statePath, err := resolveLifecycleStatePath(name)
+			statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 			if err != nil {
 				return err
 			}

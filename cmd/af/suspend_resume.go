@@ -1,18 +1,13 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"github.com/kakkoyun/af/internal/lifecycle"
 	"github.com/kakkoyun/af/internal/mux"
 )
-
-var errLifecycleNoState = errors.New("no .af/state.toml in current directory")
 
 func newSuspendCmd(_ *rootOptions) *cobra.Command {
 	var (
@@ -28,7 +23,7 @@ func newSuspendCmd(_ *rootOptions) *cobra.Command {
 			if len(args) == 1 {
 				name = args[0]
 			}
-			statePath, err := resolveLifecycleStatePath(name)
+			statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 			if err != nil {
 				return err
 			}
@@ -73,7 +68,7 @@ func newResumeCmd(_ *rootOptions) *cobra.Command {
 			if len(args) == 1 {
 				name = args[0]
 			}
-			statePath, err := resolveLifecycleStatePath(name)
+			statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 			if err != nil {
 				return err
 			}
@@ -93,24 +88,4 @@ func newResumeCmd(_ *rootOptions) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&bare, "bare", false, "skip tmux respawn")
 	return cmd
-}
-
-func resolveLifecycleStatePath(name string) (string, error) {
-	stateDir, err := defaultSessionsDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve state path: %w", err)
-	}
-	if name != "" {
-		return filepath.Join(stateDir, name, "state.toml"), nil
-	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("resolve state path: getwd: %w", err)
-	}
-	statePath := filepath.Join(cwd, ".af", "state.toml")
-	_, err = os.Stat(statePath)
-	if err != nil {
-		return "", fmt.Errorf("resolve state path: %w (cwd=%s)", errLifecycleNoState, cwd)
-	}
-	return statePath, nil
 }

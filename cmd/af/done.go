@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,8 +11,6 @@ import (
 	"github.com/kakkoyun/af/internal/lifecycle"
 	"github.com/kakkoyun/af/internal/mux"
 )
-
-var errDoneNoState = errors.New("no .af/state.toml in current directory")
 
 type doneOptions struct {
 	root    *rootOptions
@@ -42,7 +39,7 @@ func newDoneCmd(opts *rootOptions) *cobra.Command {
 }
 
 func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
-	statePath, err := resolveDoneStatePath(name)
+	statePath, err := resolveDoneStatePath(cmd, name)
 	if err != nil {
 		return err
 	}
@@ -92,22 +89,15 @@ func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
 	return nil
 }
 
-func resolveDoneStatePath(name string) (string, error) {
+func resolveDoneStatePath(cmd *cobra.Command, name string) (string, error) {
 	stateDir, err := defaultSessionsDir()
 	if err != nil {
 		return "", fmt.Errorf("done: %w", err)
 	}
-	if name != "" {
-		return filepath.Join(stateDir, name, "state.toml"), nil
-	}
-	cwd, err := os.Getwd()
+	_ = stateDir
+	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
-		return "", fmt.Errorf("done: getwd: %w", err)
-	}
-	statePath := filepath.Join(cwd, ".af", "state.toml")
-	_, err = os.Stat(statePath)
-	if err != nil {
-		return "", fmt.Errorf("done: %w (cwd=%s)", errDoneNoState, cwd)
+		return "", fmt.Errorf("done: %w", err)
 	}
 	return statePath, nil
 }

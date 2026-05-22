@@ -17,12 +17,11 @@ Stages 12 + 14 complete and Stage 13 partial):
 - Every numbered ADR from **031 to 067** is `implementation: complete`.
 - **ADR-069** (boundary & privacy) and **ADR-073** (`af review`) are
   also `complete`.
-- **ADR-071** (PR state TTL cache) is also `complete`: core refresh,
-  `af pr --refresh`, status/info TTL refresh, and clean/sync/done
-  force-refresh wire-up all shipped.
+- **ADR-070** (session selection & inference) and **ADR-071** (PR state
+  TTL cache) are also `complete`.
 - `pending` ADRs: **068** (operational UX contract — flock + JSON
-  envelope + exit codes + completion), **070** (session selection &
-  inference), **072** (state.toml schema roll-up).
+  envelope + exit codes + completion) and **072** (state.toml schema
+  roll-up).
 - Stage 12 + 14 + partial Stage 13 work landed in nine commits on this branch:
     - `c919db5` — I12.1 + I12.2 (doctor wt probe, editor lease test).
     - `7022de3` — I12.3 (ADR-066 sessiondata package + CLI).
@@ -35,6 +34,7 @@ Stages 12 + 14 complete and Stage 13 partial):
     - `<stage-14-impl>` — I14.1–I14.5 (ADR-073 af review end-to-end).
     - `<final-close-out>` — Stage 14 close-out.
     - `<adr-071-wire-up>` — ADR-071 multi-command refresh wire-up.
+    - `<adr-070-resolver>` — ADR-070 session resolver + tmux AF_SESSION.
 - ADR-032 is `implementation: n/a` (it is the conventions ADR itself).
 - `make check` is green: 0 lint, all 24 packages pass
   `-race -count=1 -shuffle=on`.
@@ -47,25 +47,19 @@ Stages 12 + 14 complete and Stage 13 partial):
 
 **Next session pickup options** (in roughly increasing effort):
 
-1. **Implement ADR-070** (session resolution + fzf picker). Affects
-   every `[session]`-taking command. New `internal/session/resolve.go`
-   with the resolution chain (arg → flag → AF_SESSION → cwd → fzf →
-   EX_NOINPUT) plus `tmux setenv AF_SESSION` in `af create`. ~6
-   commands need to swap `resolveLifecycleStatePath` for the new
-   resolver.
-2. **Implement ADR-068** in four parts:
+1. **Implement ADR-068** in four parts:
     - §4 per-session flock at `<session>/.af.lock` (I13.3).
     - §1 JSON envelope `{schema, data}` (I13.4).
     - §2 sysexits exit-code table (I13.5).
     - §5 tab-completion (I13.6).
-3. **Implement ADR-072** state.toml schema roll-up consolidation. The
+2. **Implement ADR-072** state.toml schema roll-up consolidation. The
    ADR is mostly documentation of existing behaviour; the two PROPOSED
    blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are now
    shipped, so this is essentially a frontmatter advance + verify
    pass.
-4. **Cut v1.0.0 release.** `goreleaser release --clean` after the
+3. **Cut v1.0.0 release.** `goreleaser release --clean` after the
    above land. The project is in release-ready shape modulo the
-   remaining 3 ADRs (068, 070, 072) — none of them
+   remaining 2 ADRs (068, 072) — none of them
    block existing functionality.
 
 **Stage 12 deferrals** (small, can land any time before v1.0.0):
@@ -133,10 +127,9 @@ working. Concrete impact on future code work:
   blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are forward
   pointers to ADR-067/ADR-071's implementation work.
 
-Good approach for the next implementor: pick ADR-070 first (it is the
-remaining new-behaviour UX ADR and removes most `[session]` friction),
-then ADR-068's formal flock / JSON / exit-code / completion pass, then
-ADR-072's schema-roll-up close-out. ADR-069 and ADR-071 are complete.
+Good approach for the next implementor: finish ADR-068's formal flock /
+JSON / exit-code / completion pass, then ADR-072's schema-roll-up
+close-out. ADR-069, ADR-070, and ADR-071 are complete.
 
 - **ADR-073 (`af review`).** New read-only command writing a Markdown
   PR review report to `.af/reviews/`. Uses ADR-071's completed PR state refresh path and landed in
@@ -646,7 +639,7 @@ The five ADRs added by the gap-analysis pass on branch
 `docs/gap-analysis-v1`. See the Stage 13 reading list above for
 the scope summary; see each ADR for the full contract.
 
-- [ ] I13.1: ADR-070 — implement the session-resolution chain:
+- [x] I13.1: ADR-070 — implement the session-resolution chain:
       `arg` → `--session` flag → `AF_SESSION` env → cwd symlink →
       fzf picker (stderr, TTY-only) → `EX_NOINPUT`. Add `AF_SESSION`
       propagation via `tmux setenv` in `af create` / `af resume`.

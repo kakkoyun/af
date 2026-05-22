@@ -7,8 +7,8 @@ codex) — all tied together under a single durable state file. When the task is
 done, everything is cleaned up with one command.
 
 > **Status — v1 (single-user).** Stages 0–12 + Stage 14 are implemented;
-> ADRs 031–067, 069, 071, and 073 are `implementation: complete`.
-> ADRs 068, 070, and 072 remain `pending`. `make check` is
+> ADRs 031–067, 069–071, and 073 are `implementation: complete`.
+> ADRs 068 and 072 remain `pending`. `make check` is
 > green. The proxy commands (`af editor`, `af diff`, `af pr`, `af retro`),
 > suspend/resume lifecycle, stack-aware `af sync`, opinionated diff
 > rendering (hunk + diffity), repo-scoped `[control]` settings,
@@ -135,6 +135,18 @@ These commands run the user-configured executables from `[diff]`, `[pr]`, and
 | `af pr [session] [--title T] [--draft] [--web] [--ai] [--ai-model MODEL]` | Run the PR-create command; `--ai` builds the body from the worktree diff via `agent.BodyCmd` (rejects `--ai` + `--web`). |
 | `af editor [session] [--terminal                                          | -t] [--visual]`                                                          | Open the configured editor at the workstream worktree path. |
 
+
+### Session resolution (ADR-070)
+
+Every command that accepts `[session]` resolves it in this order:
+positional arg → root `--session NAME` (warns when overriding a
+positional arg) → `AF_SESSION` → cwd `.af/state.toml` discovery symlink
+(walking up parent directories) → interactive `fzf` picker when stdin and
+stderr are TTYs → a deterministic `EX_NOINPUT`-style error with recovery
+hints. `af create` sets `AF_SESSION` in the tmux session environment so
+agents launched inside af panes can run commands like `af note --append`
+without repeating the session name.
+
 ### Review (ADR-073)
 
 | Command                                                                            | Description                                                                                                                                                                                                                |
@@ -234,8 +246,8 @@ API. See `internal/sandbox/resources.go` (`// ADR-062 §Resolution step
 6`) for the exact deferral.
 
 **Pending ADRs.** ADRs 068 (operational UX contract: flock + JSON envelope +
-exit codes + completion), 070 (session resolution + fzf picker), and 072
-(state.toml schema roll-up) remain `implementation: pending`.
+exit codes + completion) and 072 (state.toml schema roll-up) remain
+`implementation: pending`.
 
 **`af session-data sync --continue-host` is accepted but not yet wired.**
 The ADR-066 host-continuation path normalization (rewriting transcript

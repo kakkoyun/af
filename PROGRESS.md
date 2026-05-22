@@ -2058,3 +2058,46 @@ TTL-backed PR refresh cache into every command named in the ADR.
 ADR-070 is now the highest-leverage remaining ADR. After that, finish
 ADR-068 (flock, JSON envelope, exit codes, completion) and ADR-072
 (schema roll-up).
+
+
+## 2026-05-22 — Session 35: ADR-070 session selection and inference
+
+### Goal
+
+Implement ADR-070 now that ADR-071 is complete, so every session-taking
+command has one shared resolution contract.
+
+### Done
+
+- Added `cmd/af/session_resolve.go` with the ADR-070 resolution chain:
+  positional arg → root `--session` flag (stderr warning when both are
+  present and `--session` wins) → `AF_SESSION` → cwd `.af/state.toml`
+  discovery via `session.DiscoverStatePath` → interactive `fzf` picker
+  only when stdin and stderr are TTYs and fzf is installed →
+  deterministic no-input error with recovery hints.
+- Swapped every `[session]`-taking command path to the shared resolver:
+  suspend, resume, done, info, note, pull, session-data sync/list,
+  stack/unstack/sync (target session), editor, diff, pr/refresh, retro,
+  and review. Parent stack lookups remain exact-by-name.
+- `af create` now sets `AF_SESSION=<session>` in the tmux session
+  environment after creating the tmux session and before launching the
+  agent.
+- Added tests for root `--session` overriding a positional arg,
+  `AF_SESSION`, nested cwd symlink discovery, no-input errors, and tmux
+  `AF_SESSION` propagation.
+- Advanced ADR-070 and `docs/adr/INDEX.md` to `implementation: complete`;
+  updated README, CHANGELOG, and TODO handover.
+
+### Verification
+
+- Red step: new tests failed on missing `errSessionResolutionNoInput`,
+  ignored root `--session`, ignored `AF_SESSION`, note failing from nested
+  cwd, and missing tmux `AF_SESSION`.
+- Green step: targeted cmd/lifecycle tests pass, then full `make check`
+  is green (0 lint, all 24 packages pass `-race -count=1 -shuffle=on`).
+
+### Next
+
+Only ADR-068 and ADR-072 remain pending. ADR-068 is the last behaviour
+work (session-level flock, JSON envelope, exit codes, completion);
+ADR-072 is a schema-roll-up verification/doc close-out.

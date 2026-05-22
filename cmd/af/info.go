@@ -2,10 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -19,8 +17,6 @@ type infoOptions struct {
 	jsonMode bool
 	refresh  bool
 }
-
-var errInfoMissingSession = errors.New("workstream not found")
 
 func newInfoCmd(opts *rootOptions) *cobra.Command {
 	iOpts := &infoOptions{root: opts}
@@ -44,12 +40,7 @@ func newInfoCmd(opts *rootOptions) *cobra.Command {
 }
 
 func runInfo(cmd *cobra.Command, opts *infoOptions, name string) error {
-	stateDir, err := defaultSessionsDir()
-	if err != nil {
-		return fmt.Errorf("info: %w", err)
-	}
-
-	statePath, err := locateInfoState(stateDir, name, opts.root)
+	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
 		return err
 	}
@@ -84,28 +75,6 @@ func runInfo(cmd *cobra.Command, opts *infoOptions, name string) error {
 		return writeInfoJSON(cmd, state, events, prRefreshFailed)
 	}
 	return writeInfoText(cmd, state, events, prRefreshFailed)
-}
-
-func locateInfoState(stateDir, name string, root *rootOptions) (string, error) {
-	if name != "" {
-		return filepath.Join(stateDir, name, "state.toml"), nil
-	}
-	_ = root
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("info: getwd: %w", err)
-	}
-	discovered, err := session.DiscoverStatePath(session.DiscoverOptions{
-		Cwd:         cwd,
-		SessionsDir: stateDir,
-	})
-	if err != nil {
-		return "", fmt.Errorf("info: discover session: %w", err)
-	}
-	if discovered == "" {
-		return "", fmt.Errorf("info: %w", errInfoMissingSession)
-	}
-	return discovered, nil
 }
 
 func writeInfoJSON(cmd *cobra.Command, state session.State, events []session.Event, prRefreshFailed bool) error {

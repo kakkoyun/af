@@ -406,6 +406,10 @@ func launchTmuxAndAgent(ctx context.Context, deps CreateDeps, resolved resolvedN
 	if err != nil {
 		return "", fmt.Errorf("tmux create-session: %w", err)
 	}
+	err = deps.Mux.SetEnv(ctx, resolved.tmuxSession, "AF_SESSION", resolved.name)
+	if err != nil {
+		return "", fmt.Errorf("tmux set AF_SESSION: %w", err)
+	}
 
 	if deps.Agent == nil {
 		return resolved.tmuxSession, nil

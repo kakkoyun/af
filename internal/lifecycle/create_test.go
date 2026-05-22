@@ -106,7 +106,7 @@ func assertCreateResultState(t *testing.T, res lifecycle.CreateResult, gitRoot s
 	}
 }
 
-func assertCreateResultEffects(t *testing.T, _ lifecycle.CreateResult, runner *git.FakeRunner, muxFake *mux.FakeMultiplexer) {
+func assertCreateResultEffects(t *testing.T, res lifecycle.CreateResult, runner *git.FakeRunner, muxFake *mux.FakeMultiplexer) {
 	t.Helper()
 	gotCommands := strings.Join(runner.CommandStrings(), "\n")
 	if !strings.Contains(gotCommands, "worktree add -b") {
@@ -119,6 +119,13 @@ func assertCreateResultEffects(t *testing.T, _ lifecycle.CreateResult, runner *g
 	}
 	if len(sessions) != 1 {
 		t.Fatalf("len(sessions) = %d, want 1", len(sessions))
+	}
+	gotSession, err := muxFake.GetEnv(context.Background(), res.TmuxSession, "AF_SESSION")
+	if err != nil {
+		t.Fatalf("GetEnv(AF_SESSION): %v", err)
+	}
+	if gotSession != res.SessionName {
+		t.Fatalf("AF_SESSION = %q, want %q", gotSession, res.SessionName)
 	}
 }
 

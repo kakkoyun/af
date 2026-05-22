@@ -44,6 +44,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cannot resolve a PR, `errReviewEmptyDiff` when the diff is empty,
   `errReviewEmptyBody` when the agent returns whitespace.
 
+#### Stage 13 — ADR-070 session selection
+
+- **ADR-070 session resolution**: every `[session]` command now uses
+  the shared resolution chain: positional arg → root `--session` flag
+  (with stderr warning when it overrides a positional arg) →
+  `AF_SESSION` → cwd `.af/state.toml` discovery (walking parent
+  directories) → interactive `fzf` picker when stdin/stderr are TTYs →
+  deterministic `EX_NOINPUT`-style error with hints.
+- **Tmux propagation**: `af create` now sets `AF_SESSION=<session>` in
+  the tmux session environment, so agent panes inherit the session
+  identity automatically.
+- New tests cover root `--session` override, `AF_SESSION`, nested cwd
+  symlink discovery, no-input error hints, and tmux `AF_SESSION`
+  propagation.
+
 #### Stage 13 (partial) — ADR-069 + ADR-071 core
 
 - **ADR-069 §1 depguard rule**: `.golangci.yml` re-enables depguard

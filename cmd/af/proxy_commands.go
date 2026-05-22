@@ -156,7 +156,7 @@ type prOptions struct {
 }
 
 func runEditor(cmd *cobra.Command, name string, terminal, visual bool) error {
-	state, cfg, err := loadProxyState(cmd.Context(), name)
+	state, cfg, err := loadProxyState(cmd, name)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func runEditor(cmd *cobra.Command, name string, terminal, visual bool) error {
 }
 
 func runDiff(cmd *cobra.Command, name, baseOverride string, web, forceInteractive bool) error {
-	state, _, err := loadProxyState(cmd.Context(), name)
+	state, _, err := loadProxyState(cmd, name)
 	if err != nil {
 		return err
 	}
@@ -245,11 +245,11 @@ func runPR(cmd *cobra.Command, name string, opts prOptions) error {
 	}
 	// Check lease before loading full state; if held_by_vm the host branch
 	// may not contain the VM's commits, making the PR misleading.
-	stateEarly, stateEarlyErr := loadProxyStateOnly(cmd.Context(), name)
+	stateEarly, stateEarlyErr := loadProxyStateOnly(cmd, name)
 	if stateEarlyErr == nil && stateEarly.IsLeasedToVM() {
 		return fmt.Errorf("%w (vm=%s); run `af pull %s` first", errPRWorktreeLeasedToVM, stateEarly.SlicerWT.VM, stateEarly.Session.Name)
 	}
-	state, cfg, err := loadProxyState(cmd.Context(), name)
+	state, cfg, err := loadProxyState(cmd, name)
 	if err != nil {
 		return err
 	}
@@ -399,8 +399,8 @@ func buildProxyInvocation(cfgCmd config.ProxyCommandConfig, tokens proxy.Tokens,
 	return command, nil
 }
 
-func loadProxyStateOnly(_ context.Context, name string) (session.State, error) {
-	statePath, err := resolveLifecycleStatePath(name)
+func loadProxyStateOnly(cmd *cobra.Command, name string) (session.State, error) {
+	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
 		return session.State{}, err
 	}
@@ -411,8 +411,8 @@ func loadProxyStateOnly(_ context.Context, name string) (session.State, error) {
 	return state, nil
 }
 
-func loadProxyState(ctx context.Context, name string) (session.State, config.Config, error) {
-	statePath, err := resolveLifecycleStatePath(name)
+func loadProxyState(cmd *cobra.Command, name string) (session.State, config.Config, error) {
+	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
 		return session.State{}, config.Config{}, err
 	}
@@ -420,7 +420,7 @@ func loadProxyState(ctx context.Context, name string) (session.State, config.Con
 	if err != nil {
 		return session.State{}, config.Config{}, fmt.Errorf("proxy: %w: %w", errProxyNoState, err)
 	}
-	cfg, err := config.LoadWithOptions(ctx, config.LoadOptions{RepoDir: state.Worktree.Path})
+	cfg, err := config.LoadWithOptions(cmd.Context(), config.LoadOptions{RepoDir: state.Worktree.Path})
 	if err != nil {
 		return state, config.Config{}, fmt.Errorf("proxy: load config: %w", err)
 	}
@@ -446,7 +446,7 @@ var errPRRefreshNoPR = errors.New("pr: --refresh requires an open PR; create one
 // the updated state.toml and emits a pr_state_changed ledger event on
 // a flip.
 func runPRRefresh(cmd *cobra.Command, name string) error {
-	statePath, err := resolveLifecycleStatePath(name)
+	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
 		return fmt.Errorf("pr --refresh: %w", err)
 	}

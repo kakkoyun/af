@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -91,7 +90,7 @@ func newSessionDataListCmd() *cobra.Command {
 }
 
 func runSessionDataSync(cmd *cobra.Command, name string, opts sessionDataSyncOptions) error {
-	state, statePath, err := loadSessionDataState(cmd.Context(), name)
+	state, statePath, err := loadSessionDataState(cmd, name)
 	if err != nil {
 		return fmt.Errorf("session-data sync: %w", err)
 	}
@@ -135,7 +134,7 @@ func runSessionDataSync(cmd *cobra.Command, name string, opts sessionDataSyncOpt
 }
 
 func runSessionDataList(cmd *cobra.Command, name string, opts sessionDataListOptions) error {
-	state, _, err := loadSessionDataState(cmd.Context(), name)
+	state, _, err := loadSessionDataState(cmd, name)
 	if err != nil {
 		return fmt.Errorf("session-data list: %w", err)
 	}
@@ -163,8 +162,8 @@ func runSessionDataList(cmd *cobra.Command, name string, opts sessionDataListOpt
 // session is backed by a slicer VM. session-data only makes sense for
 // slicer-backed sessions. Returns the state, its on-disk path (for
 // post-sync writeback), and any error.
-func loadSessionDataState(_ context.Context, name string) (session.State, string, error) {
-	statePath, err := resolveLifecycleStatePath(name)
+func loadSessionDataState(cmd *cobra.Command, name string) (session.State, string, error) {
+	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
 		return session.State{}, "", err
 	}
