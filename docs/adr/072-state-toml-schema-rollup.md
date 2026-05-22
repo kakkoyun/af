@@ -2,9 +2,9 @@
 adr: 072
 title: "state.toml Schema Amendments Roll-up"
 status: proposed
-implementation: pending
+implementation: complete
 date: 2026-05-21
-last_modified: 2026-05-21
+last_modified: 2026-05-22
 supersedes: []
 superseded_by: null
 related: ["037", "059", "061", "062", "065", "067", "071"]
@@ -42,14 +42,13 @@ blocks. ADR-072 just adds the deltas.
 
 ### Canonical state.toml as of ADR-072
 
-This schema reflects the **as-implemented** shape after Stage 11.
+This schema reflects the **as-implemented** shape after Stage 13.
 ADRs 061 and 062 chose to flatten their state capture into the
 existing `[execution]` block (one field per concept, prefixed with
 `sandbox_resource_` or `remote_control`) instead of nested blocks.
-ADR-065 added a top-level `[slicer_wt]` block. ADRs 067 (session
-sync) and 071 (PR cache) are still `implementation: pending`; their
-fields are marked **PROPOSED** below and will land on first
-implementation.
+ADR-065 added a top-level `[slicer_wt]` block. ADR-067 shipped the
+`[session_export]` section with per-source cursors, and ADR-071 shipped
+PR cache refresh fields.
 
 ```toml
 schema_version = 1
@@ -105,8 +104,7 @@ created_at      = 2026-05-06T12:00:00Z
 number              = 0
 url                 = ""
 state               = ""           # "" | open | draft | closed | merged   (ADR-071)
-# PROPOSED (ADR-071, implementation pending):
-last_refreshed_at   = ""           # ISO; "" = never refreshed
+last_refreshed_at   = ""           # ISO; omitted/nil = never refreshed
 last_refresh_error  = ""           # truncated 120-char error; cleared on success
 
 [stack]                            # ADR-059 — present even when empty
@@ -121,12 +119,22 @@ pushed_at    = 2026-05-21T15:00:00Z
 pulled_at    = ""                  # ISO; set after `slicer wt pull`
 lease_state  = ""                  # held_by_vm | pulled | discarded
 
-[[session_sync]]                   # PROPOSED (ADR-067, implementation pending)
-agent           = "claude"         # claude | codex | pi | harness
-source_root     = "/home/agent/.claude/sessions"
-last_synced_at  = ""
-last_hash       = ""               # sha256 of last imported tail, hex
-last_offset     = 0                # byte offset for resumable JSONL appends
+[session_export]                   # ADR-067 — omitted until first sync/discard
+last_sync_at     = ""              # ISO; omitted until first sync
+last_sync_status = ""              # never | ok | blocked | discarded
+last_manifest    = ""              # staging manifest path for latest sync
+
+[[session_export.sources]]
+agent       = "claude"             # claude | codex | pi | harness
+vm          = "sbox-abc"
+source_path = "/home/agent/.claude/sessions/..."
+dest_path   = "/Users/me/.claude/sessions/..."
+mode        = "append-jsonl"       # copy | append-jsonl | directory
+status      = "ok"                 # ok | conflict | skipped | blocked
+hash        = ""                   # sha256 of imported content/tail, hex
+size        = 0
+last_offset = 0                    # byte offset for resumable JSONL appends
+mtime       = ""                   # source mtime when known
 
 [versions]
 af             = "1.0.0"
@@ -146,7 +154,7 @@ PROPOSED ADR-067 `[[session_sync]]`) is intentional:
 - **Top-level block** when the state has its own lifecycle and may
   acquire fields independently of execution metadata
   (`[slicer_wt]` tracks a lease that grows `pulled_at` later;
-  `[[session_sync]]` is an array — one entry per agent harvested).
+  `[session_export]` owns sync status and `[[session_export.sources]]` is an array — one entry per harvested source).
 
 Future additions follow this convention.
 
@@ -159,9 +167,10 @@ Future additions follow this convention.
 | `execution.sandbox_resource_*`             | `execution.sandbox_provider == "slicer"` **and** the corresponding resource field is non-default. Else omitted. |
 | `execution.sandbox_managed_group`          | `execution.sandbox_provider == "slicer"` and a managed group was resolved. Else omitted. |
 | `[slicer_wt]`                              | `execution.sandbox_provider == "slicer"` **and** a `slicer wt push` has occurred (i.e. `vm != ""`). Else omitted. |
-| `[[session_sync]]` (PROPOSED)              | At least one successful `af session-data sync` has imported data for that agent (per ADR-067 once it lands). |
-| `[pr].last_refreshed_at` (PROPOSED)        | First refresh attempt has occurred (per ADR-071 once it lands).      |
-| `[pr].last_refresh_error` (PROPOSED)       | Last refresh failed. Cleared on next successful refresh.             |
+| `[session_export]`                         | First `af session-data sync`/auto-sync/discard has recorded export status. |
+| `[[session_export.sources]]`               | At least one source was imported, skipped, blocked, or quarantined by session-data sync. |
+| `[pr].last_refreshed_at`                   | First successful refresh has occurred (ADR-071).                     |
+| `[pr].last_refresh_error`                  | Last refresh failed. Cleared on next successful refresh.             |
 
 Writers use Go `omitempty` tags for all of the above.
 
@@ -179,7 +188,7 @@ Writers use Go `omitempty` tags for all of the above.
   `"abandoned"`}.
 - Each `[[agents]].status` ∈ {`"running"`, `"stopped"`, `"crashed"`,
   `"suspended"`}.
-- `[[session_sync]].agent` (PROPOSED) ∈ {`"claude"`, `"codex"`,
+- `[[session_export.sources]].agent` ∈ {`"claude"`, `"codex"`,
   `"pi"`, `"harness"`}.
 - Numeric fields (`sandbox_resource_vcpu`, `sandbox_resource_ram_gb`,
   `sandbox_resource_gpu_count`, `max_agents`, `last_offset`,

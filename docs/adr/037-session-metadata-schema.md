@@ -51,6 +51,10 @@ absolute path of the canonical `state.toml`.
 
 ### `state.toml` schema (`schema_version = 1`)
 
+> **Schema delta:** ADRs 059, 061, 062, 065, 067, 071, and 072 add
+> blocks/fields to this schema. ADR-072 holds the canonical consolidated
+> dump for v1.
+
 ```toml
 schema_version = 1
 

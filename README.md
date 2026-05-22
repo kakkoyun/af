@@ -7,8 +7,8 @@ codex) — all tied together under a single durable state file. When the task is
 done, everything is cleaned up with one command.
 
 > **Status — v1 (single-user).** Stages 0–12 + Stage 14 are implemented;
-> ADRs 031–071 and 073 are `implementation: complete`. ADR-072 remains
-> `pending`. `make check` is
+> ADRs 031–073 are `implementation: complete` (ADR-032 is
+> `implementation: n/a`). `make check` is
 > green. The proxy commands (`af editor`, `af diff`, `af pr`, `af retro`),
 > suspend/resume lifecycle, stack-aware `af sync`, opinionated diff
 > rendering (hunk + diffity), repo-scoped `[control]` settings,
@@ -137,6 +137,15 @@ These commands run the user-configured executables from `[diff]`, `[pr]`, and
 
 
 
+
+### State schema roll-up (ADR-072)
+
+`state.toml` remains `schema_version = 1`. The canonical consolidated
+schema is in ADR-072 and includes the Stage 12/13 additions:
+`[session_export]` with `[[session_export.sources]]`, PR cache fields
+`last_refreshed_at` / `last_refresh_error`, `[slicer_wt]`, stack,
+control, and slicer resource capture fields.
+
 ### Operational UX contracts (ADR-068)
 
 - `--json` commands emit a versioned envelope: `{ "schema": 1, "data": ... }`.
@@ -256,8 +265,8 @@ strictly verified; a tightening pass lands when slicer ships such an
 API. See `internal/sandbox/resources.go` (`// ADR-062 §Resolution step
 6`) for the exact deferral.
 
-**Pending ADRs.** ADR-072 (state.toml schema roll-up) remains
-`implementation: pending`.
+**ADR status.** ADRs 031–073 are closed for v1 (`implementation: complete`,
+except ADR-032 which is `n/a`).
 
 **`af session-data sync --continue-host` is accepted but not yet wired.**
 The ADR-066 host-continuation path normalization (rewriting transcript

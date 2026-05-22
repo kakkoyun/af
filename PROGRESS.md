@@ -2143,3 +2143,38 @@ vocabulary, session lock helper, and completion sources.
 Only ADR-072 remains pending. It should be a verification/doc close-out
 for the state.toml schema roll-up now that ADR-067 and ADR-071 fields
 have landed.
+
+
+## 2026-05-22 — Session 37: ADR-072 schema roll-up and all ADRs closed
+
+### Goal
+
+Close the final pending ADR by aligning the canonical state schema docs
+with the implementation after ADR-067 and ADR-071.
+
+### Done
+
+- Advanced ADR-072 and `docs/adr/INDEX.md` to `implementation: complete`.
+- Updated ADR-072's canonical schema dump: removed the old PROPOSED
+  markers, replaced the planned `[[session_sync]]` shape with the
+  shipped `[session_export]` + `[[session_export.sources]]` schema,
+  and treated `[pr].last_refreshed_at` / `[pr].last_refresh_error` as
+  shipped fields.
+- Added the ADR-037 forward-link amendment pointing readers to ADR-072
+  for the consolidated v1 schema dump.
+- Updated `docs/SPEC.md` section 5.2 so the spec matches ADR-072 and
+  the Go structs/tests.
+- Updated README, CHANGELOG, and TODO. I13.9 is now checked; TODO's
+  handover says no ADRs remain pending.
+
+### Verification
+
+- Existing `internal/session` round-trip tests already cover the shipped
+  `[session_export]` and PR cache fields.
+- Full `make check` remains green (0 lint, all 24 packages pass
+  `-race -count=1 -shuffle=on`).
+
+### Next
+
+All v1 ADRs are closed. Run release-readiness checks (`goreleaser check`
+and a snapshot build) before deciding whether to tag v1.0.0.

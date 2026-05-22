@@ -19,10 +19,9 @@ Stages 12 + 14 complete and Stage 13 partial):
   also `complete`.
 - **ADR-070** (session selection & inference) and **ADR-071** (PR state
   TTL cache) are also `complete`.
-- **ADR-068** (operational UX contract) is also `complete`: JSON
-  envelope, exit-code mapping, per-session lock helper, and completion
-  sources all shipped.
-- `pending` ADRs: **072** (state.toml schema roll-up).
+- **ADR-068** (operational UX contract) and **ADR-072** (state.toml
+  schema roll-up) are also `complete`.
+- No ADRs remain `implementation: pending`.
 - Stage 12 + 14 + partial Stage 13 work landed in nine commits on this branch:
     - `c919db5` — I12.1 + I12.2 (doctor wt probe, editor lease test).
     - `7022de3` — I12.3 (ADR-066 sessiondata package + CLI).
@@ -37,6 +36,7 @@ Stages 12 + 14 complete and Stage 13 partial):
     - `<adr-071-wire-up>` — ADR-071 multi-command refresh wire-up.
     - `<adr-070-resolver>` — ADR-070 session resolver + tmux AF_SESSION.
     - `<adr-068-operational-ux>` — JSON envelope, exit codes, lock helper, completions.
+    - `<adr-072-schema-rollup>` — canonical state.toml schema docs + SPEC alignment.
 - ADR-032 is `implementation: n/a` (it is the conventions ADR itself).
 - `make check` is green: 0 lint, all 24 packages pass
   `-race -count=1 -shuffle=on`.
@@ -49,15 +49,8 @@ Stages 12 + 14 complete and Stage 13 partial):
 
 **Next session pickup options** (in roughly increasing effort):
 
-1. **Implement ADR-072** state.toml schema roll-up consolidation. The
-   ADR is mostly documentation of existing behaviour; the two PROPOSED
-   blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are now
-   shipped, so this is essentially a frontmatter advance + verify
-   pass.
-2. **Cut v1.0.0 release.** `goreleaser release --clean` after the
-   above land. The project is in release-ready shape modulo the
-   remaining ADR (072) — none of them
-   block existing functionality.
+1. **Cut v1.0.0 release.** `goreleaser release --clean` after the
+   above land. The project is in release-ready shape; no ADRs remain pending.
 
 **Stage 12 deferrals** (small, can land any time before v1.0.0):
 
@@ -124,8 +117,9 @@ working. Concrete impact on future code work:
   blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are forward
   pointers to ADR-067/ADR-071's implementation work.
 
-Good approach for the next implementor: finish ADR-072's schema-roll-up
-close-out. ADR-068, ADR-069, ADR-070, and ADR-071 are complete.
+Good approach for the next implementor: run release-readiness checks
+(`make check`, `goreleaser check`, `goreleaser release --snapshot --clean`)
+and then decide whether to tag v1.0.0.
 
 - **ADR-073 (`af review`).** New read-only command writing a Markdown
   PR review report to `.af/reviews/`. Uses ADR-071's completed PR state refresh path and landed in
@@ -677,7 +671,7 @@ the scope summary; see each ADR for the full contract.
 - [x] I13.8: ADR-069 §1 — add a CI/lint rule that rejects
       `net/http` imports outside `internal/sandbox/`, `internal/
       remote/`, etc. `golangci-lint` `depguard` config.
-- [ ] I13.9: Wave 3 close-out for Stage 13 — advance ADR-068
+- [x] I13.9: Wave 3 close-out for Stage 13 — advance ADR-068
       through ADR-072 frontmatter to `implementation: complete`,
       update README/CHANGELOG/PROGRESS, check off I13.1–I13.9.
 

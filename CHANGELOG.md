@@ -44,6 +44,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cannot resolve a PR, `errReviewEmptyDiff` when the diff is empty,
   `errReviewEmptyBody` when the agent returns whitespace.
 
+#### Stage 13 — ADR-072 state.toml schema roll-up
+
+- **ADR-072 complete**: canonical schema docs now reflect the shipped
+  state shape after ADR-067 and ADR-071. The former proposed blocks are
+  now concrete: `[session_export]` with `[[session_export.sources]]`,
+  plus `[pr].last_refreshed_at` and `[pr].last_refresh_error`.
+- **ADR-037 forward link**: foundational schema ADR now points to
+  ADR-072 as the consolidated v1 schema dump.
+- **SPEC alignment**: `docs/SPEC.md` state schema now matches the
+  implementation and ADR-072.
+
 #### Stage 13 — ADR-068 operational UX contract
 
 - **JSON envelope**: `af status --json` and `af info --json` now emit
