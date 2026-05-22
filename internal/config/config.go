@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -18,6 +19,7 @@ const (
 	defaultMaxSessions   = 10
 	defaultMaxParallel   = 8
 	defaultRetentionDays = 90
+	defaultPRRefreshTTL  = 10 * time.Minute
 )
 
 const (
@@ -124,6 +126,10 @@ type PRConfig struct {
 	Template     string
 	AIModel      string
 	Command      ProxyCommandConfig
+	// RefreshTTL bounds how stale the cached PR state may be before
+	// af status / af info trigger a gh pr view refresh (ADR-071).
+	// Default 10m. Set to 0 to force always-refresh on read.
+	RefreshTTL time.Duration
 }
 
 // RemoteConfig contains SSH remote defaults.
@@ -270,6 +276,7 @@ func Defaults() Config {
 				"web":   {"--web"},
 				"body":  {"--body", "{body}"},
 			},
+			RefreshTTL: defaultPRRefreshTTL,
 		},
 		Remote: RemoteConfig{
 			SSHOptions: []string{"-o", "ServerAliveInterval=60"},
@@ -340,6 +347,7 @@ type prLayer struct {
 	FlagTemplate map[string][]string
 	Template     *string
 	AIModel      *string
+	RefreshTTL   *time.Duration
 }
 
 type remoteLayer struct {
@@ -587,6 +595,10 @@ func parsePRSection(table map[string]any, path string, _ bool, _ *slog.Logger, l
 		return err
 	}
 	layer.PR.FlagTemplate, err = stringSliceMap(table, "flag_template", path)
+	if err != nil {
+		return err
+	}
+	layer.PR.RefreshTTL, err = durationPointer(table, "refresh_ttl", path)
 	if err != nil {
 		return err
 	}
@@ -1032,6 +1044,9 @@ func mergePR(cfg *PRConfig, layer prLayer) {
 	}
 	assignString(&cfg.Template, layer.Template)
 	assignString(&cfg.AIModel, layer.AIModel)
+	if layer.RefreshTTL != nil {
+		cfg.RefreshTTL = *layer.RefreshTTL
+	}
 }
 
 func mergeRemote(cfg *RemoteConfig, layer remoteLayer) {
@@ -1232,6 +1247,25 @@ func intPointer(raw map[string]any, key, path string) (*int, error) {
 	integer := int(result)
 
 	return &integer, nil
+}
+
+// durationPointer parses a TOML string ("10m", "1h30m") via time.ParseDuration.
+// Returns (nil, nil) when the key is absent; an error for non-string or
+// unparseable values.
+func durationPointer(raw map[string]any, key, path string) (*time.Duration, error) {
+	value, ok := raw[key]
+	if !ok {
+		return nil, nil //nolint:nilnil // Nil pointer plus nil error means the optional TOML key is absent.
+	}
+	s, ok := value.(string)
+	if !ok {
+		return nil, typeError(path, key, value, "duration string")
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s.%s: invalid duration %q: %w", path, sectionPR, key, s, err)
+	}
+	return &d, nil
 }
 
 func stringSlicePointer(raw map[string]any, key, path string) (*[]string, error) {

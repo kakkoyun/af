@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -15,7 +16,9 @@ import (
 	"github.com/kakkoyun/af/internal/config"
 	"github.com/kakkoyun/af/internal/diff"
 	"github.com/kakkoyun/af/internal/git"
+	"github.com/kakkoyun/af/internal/pr"
 	"github.com/kakkoyun/af/internal/proxy"
+	"github.com/kakkoyun/af/internal/sandbox"
 	"github.com/kakkoyun/af/internal/session"
 )
 
@@ -104,12 +107,13 @@ func newDiffCmd(_ *rootOptions) *cobra.Command {
 
 func newPRCmd(_ *rootOptions) *cobra.Command {
 	var (
-		title string
-		body  string
-		draft bool
-		web   bool
-		ai    bool
-		model string
+		title   string
+		body    string
+		draft   bool
+		web     bool
+		ai      bool
+		model   string
+		refresh bool
 	)
 	cmd := &cobra.Command{
 		Use:   "pr [session]",
@@ -121,12 +125,13 @@ func newPRCmd(_ *rootOptions) *cobra.Command {
 				name = args[0]
 			}
 			return runPR(cmd, name, prOptions{
-				title: title,
-				body:  body,
-				draft: draft,
-				web:   web,
-				ai:    ai,
-				model: model,
+				title:   title,
+				body:    body,
+				draft:   draft,
+				web:     web,
+				ai:      ai,
+				model:   model,
+				refresh: refresh,
 			})
 		},
 	}
@@ -136,16 +141,18 @@ func newPRCmd(_ *rootOptions) *cobra.Command {
 	cmd.Flags().BoolVar(&web, "web", false, "open the PR creation page in the browser")
 	cmd.Flags().BoolVar(&ai, "ai", false, "ask the primary agent to author the PR body (ADR-057)")
 	cmd.Flags().StringVar(&model, "ai-model", "", "override the agent model used by --ai")
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "force-refresh the cached PR state via gh pr view (ADR-071); no PR is opened")
 	return cmd
 }
 
 type prOptions struct {
-	title string
-	body  string
-	model string
-	draft bool
-	web   bool
-	ai    bool
+	title   string
+	body    string
+	model   string
+	draft   bool
+	web     bool
+	ai      bool
+	refresh bool
 }
 
 func runEditor(cmd *cobra.Command, name string, terminal, visual bool) error {
@@ -230,6 +237,9 @@ func isInteractiveStdout(cmd *cobra.Command) bool {
 }
 
 func runPR(cmd *cobra.Command, name string, opts prOptions) error {
+	if opts.refresh {
+		return runPRRefresh(cmd, name)
+	}
 	if opts.ai && opts.web {
 		return fmt.Errorf("%w", errPRAIWebIncompatible)
 	}
@@ -424,4 +434,107 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// errPRRefreshNoPR is exposed for tests asserting EX_DATAERR-style exit
+// when --refresh is invoked but no PR has been opened yet (ADR-071 §"PR
+// open new" row).
+var errPRRefreshNoPR = errors.New("pr: --refresh requires an open PR; create one with `af pr` first")
+
+// runPRRefresh handles the ADR-071 --refresh path: force-refresh the
+// cached PR state via gh pr view without opening anything. Writes back
+// the updated state.toml and emits a pr_state_changed ledger event on
+// a flip.
+func runPRRefresh(cmd *cobra.Command, name string) error {
+	statePath, err := resolveLifecycleStatePath(name)
+	if err != nil {
+		return fmt.Errorf("pr --refresh: %w", err)
+	}
+	state, err := session.ReadState(statePath)
+	if err != nil {
+		return fmt.Errorf("pr --refresh: read state: %w", err)
+	}
+	if state.PR.Number == 0 {
+		return fmt.Errorf("%w", errPRRefreshNoPR)
+	}
+	cfg, err := loadConfigForRefresh(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("pr --refresh: %w", err)
+	}
+	result, err := prRefreshFunc(cmd.Context(), &state.PR, pr.Options{
+		Runner:   sandbox.ExecRunner{},
+		RepoSlug: state.Worktree.RepoSlug,
+		TTL:      cfg.PR.RefreshTTL,
+		Force:    true,
+		Now:      time.Now,
+	})
+	if err != nil {
+		return fmt.Errorf("pr --refresh: %w", err)
+	}
+	err = session.WriteState(statePath, state)
+	if err != nil {
+		return fmt.Errorf("pr --refresh: write state: %w", err)
+	}
+	if result.Changed {
+		err = emitPRStateChangedEvent(statePath, &state, result)
+		if err != nil {
+			return fmt.Errorf("pr --refresh: %w", err)
+		}
+	}
+	writef(cmd.OutOrStdout(),
+		"pr: %s: %s → %s (refreshed=%t skipped=%t)\n",
+		state.Session.Name, result.Old, result.New, !result.Skipped, result.Skipped)
+	return nil
+}
+
+// prRefreshFunc is the test seam wrapping pr.Refresh.
+//
+//nolint:gochecknoglobals // Test seam: replaced in tests; same pattern as prAIBodyFunc above.
+var prRefreshFunc = pr.Refresh
+
+// loadConfigForRefresh loads the layered config without requiring a
+// workstream context — used by --refresh which only needs PR.RefreshTTL.
+func loadConfigForRefresh(ctx context.Context) (config.Config, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return config.Config{}, fmt.Errorf("resolve home: %w", err)
+	}
+	loaded, err := config.LoadWithOptions(ctx, config.LoadOptions{
+		UserConfigPath: home + "/.config/af/config.toml",
+	})
+	if err != nil {
+		return config.Config{}, fmt.Errorf("load config: %w", err)
+	}
+	return loaded, nil
+}
+
+func emitPRStateChangedEvent(statePath string, state *session.State, result pr.Result) error {
+	ledgerPath := pathDir(statePath) + "/ledger.jsonl"
+	event := session.Event{
+		Timestamp: time.Now().UTC(),
+		Type:      "pr_state_changed",
+		Fields: map[string]any{
+			"session": state.Session.Name,
+			"number":  state.PR.Number,
+			"url":     state.PR.URL,
+			"from":    result.Old,
+			"to":      result.New,
+		},
+	}
+	err := session.AppendEvent(ledgerPath, event)
+	if err != nil {
+		return fmt.Errorf("append pr_state_changed: %w", err)
+	}
+	return nil
+}
+
+// pathDir returns the directory portion of path without importing
+// path/filepath at the top of this already-large file.
+func pathDir(p string) string {
+	for i := len(p) - 1; i >= 0; i-- {
+		if p[i] == '/' {
+			return p[:i]
+		}
+	}
+	return p
 }

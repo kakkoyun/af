@@ -190,10 +190,17 @@ type AgentState struct {
 }
 
 // PRState stores pull-request metadata associated with a workstream.
+//
+// LastRefreshedAt and LastRefreshError were added by ADR-071's
+// TTL-bounded refresh contract. Empty values round-trip cleanly through
+// existing state.toml files; zero LastRefreshedAt means "never refreshed,
+// a fresh gh pr view is mandatory before any consumer reads State".
 type PRState struct {
-	URL    string `toml:"url"`
-	State  string `toml:"state"`
-	Number int    `toml:"number"`
+	LastRefreshedAt  *time.Time `toml:"last_refreshed_at,omitempty"`
+	URL              string     `toml:"url"`
+	State            string     `toml:"state"`
+	LastRefreshError string     `toml:"last_refresh_error,omitempty"`
+	Number           int        `toml:"number"`
 }
 
 // StackState stores stack parent metadata for a workstream.
