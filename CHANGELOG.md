@@ -15,6 +15,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Stage 12 — ADR-066 + ADR-067 slicer VM agent-session sync
+
+- **ADR-066** (VM agent-session export): new `af session-data sync
+  [session]` and `af session-data list [session]` commands. The sync
+  command copies allowlisted transcripts (`~/.claude/projects/**`,
+  `~/.codex/sessions/**`, pi `sessionDir`, harness `~/.pi/agent/teams`)
+  out of the slicer VM via `slicer vm exec` + `slicer vm cp --mode=tar`
+  and merges into the matching host directories.
+- **SHA-256 dedup + conflict quarantine**: identical files are skipped;
+  divergent files are routed to `<staging>/conflicts/` rather than
+  overwriting host state. Imports use `0o600` files and `0o700` parent
+  dirs per the ADR-066 privacy contract.
+- **Append-aware JSONL merge** (ADR-067 §Latest-sync merge rules):
+  when a `*.jsonl` destination is a byte-for-byte prefix of the VM
+  source, sync appends only the missing tail to the existing host
+  file. Divergent or shrunken JSONLs still quarantine.
+- **ADR-067** state schema: `state.toml.[session_export]` records
+  `last_sync_at`, `last_sync_status` (never/ok/blocked/discarded),
+  `last_manifest` (staging path), and per-file `[[session_export.sources]]`
+  cursors with `agent`, `vm`, `source_path`, `dest_path`, `mode`
+  (copy or append-jsonl), `hash`, `size`, `last_offset`, `mtime`, and
+  `status`. Empty sessions omit the section entirely.
+- **`agent_sessions_synced` ledger event** captures every sync attempt
+  with kinds + imported/skipped/conflict counts.
+- **Auto-sync hooks on lifecycle boundaries** (ADR-067 §Lifecycle rule):
+  `af suspend` and `af done` now run `session-data sync` for any
+  slicer-backed workstream before the destructive step. A failed or
+  conflicting sync blocks teardown and prints a recovery hint pointing
+  to `af session-data sync <name>` or `--discard`. The new `--discard`
+  flag on both commands acknowledges transcript loss and records
+  `last_sync_status=discarded` in state.toml.
+- **`af doctor` wt API probe** (ADR-065 carry-over): slicer's
+  `wt push --help --launch` is consulted when the slicer probe finds
+  the binary; a missing `--launch` flag surfaces as a non-blocking
+  warning sub-line.
+- **`TestEditor_LeaseWarning` + editorCommand seam** (ADR-065
+  carry-over): the lease warning path is now covered without spawning
+  a real editor.
+- **Pre-existing bug fix in `internal/session/ledger_tail.go`**: the
+  writer wrote `Event.Type` to JSON key `"event"` but the parser only
+  matched `"type"`, so round-tripped events lost their Type. Fixed
+  the parser to accept both keys; `TestLedger_EventTypeRoundTrip`
+  regression guard added. No on-disk format change.
+
+Deferrals carried into Stage 13/14 (called out inline in code):
+
+- `af session-data sync --continue-host` path-normalization (per-agent
+  format knowledge).
+- `af clean --force` ADR-067 hook (clean's slicer-VM interaction is
+  uncommon; adding when the reaper learns about VMs).
+
 #### Stage 11 — ADR-065 slicer worktree transport (Session 29)
 
 - **ADR-065** (slicer worktree transport): `af create --sandbox slicer`

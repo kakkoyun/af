@@ -11,54 +11,55 @@ for the narrative log and [`docs/adr/`](docs/adr/) for accepted decisions.
 
 ## Handover snapshot (read this first)
 
-**Status at HEAD `9f0227c`** (2026-05-22, after Stage 11 + the
-gap-analysis pass + ADR-073 design):
+**Status at branch `stage-12-followups-066-067`** (2026-05-22, after
+Stage 12 complete):
 
-- Every numbered ADR from **031 to 065** is `implementation: complete`.
-- `pending` ADRs: **066** (VM agent-session export), **067**
-  (automatic agent-session sync), **068** (operational UX contract),
-  **069** (boundary & privacy), **070** (session selection &
-  inference), **071** (PR state TTL cache), **072** (state.toml
-  schema roll-up), **073** (`af review` repo-aware PR review).
-- ADRs 068–072 are the **gap-analysis batch** — cross-cutting
-  contracts plus a state-schema consolidation. They were drafted to
-  match what's currently shipped, so most of 068/072 is
-  documentation of existing behaviour. ADRs 069/070/071 add new
-  required behaviour. ADR-073 is a new read-only command. See
-  §"Stage 12 / 13 reading list" below for what each one implies for
-  code work.
+- Every numbered ADR from **031 to 067** is `implementation: complete`.
+- `pending` ADRs: **068** (operational UX contract), **069** (boundary
+  & privacy), **070** (session selection & inference), **071** (PR
+  state TTL cache), **072** (state.toml schema roll-up), **073**
+  (`af review` repo-aware PR review).
+- Stage 12 work landed in five commits on this branch:
+    - `c919db5` — I12.1 + I12.2 (doctor wt probe, editor lease test).
+    - `7022de3` — I12.3 (ADR-066 sessiondata package + CLI).
+    - `e4cbd34` — I12.4a (ADR-067 state schema + pull→sync rename).
+    - `258bc5b` — I12.4b (append-aware JSONL merge).
+    - `<stage-12-close-out>` — I12.4c + I12.5 (lifecycle hooks + docs).
 - ADR-032 is `implementation: n/a` (it is the conventions ADR itself).
-- `make check` is green: 0 lint, all 21 packages pass
+- `make check` is green: 0 lint, all 22 packages pass
   `-race -count=1 -shuffle=on`.
-- `goreleaser check` is green; `make snapshot-all` cross-builds for
-  darwin/arm64, linux/amd64, linux/arm64.
-- Working tree is clean. `main` is in sync with `origin/main` after
-  the gap-analysis pass; no rebase needed.
+- ADRs 068–073 are the **gap-analysis batch + ADR-073** — cross-cutting
+  contracts plus the new `af review` command. They were drafted to
+  match what's currently shipped, so most of 068/072 is documentation
+  of existing behaviour. ADRs 069/070/071 add new required behaviour.
+  See §"Stage 13 reading list" below for what each one implies for
+  code work.
 
 **Next session pickup options** (in roughly increasing effort):
 
-1. **Wire `SlicerWTAvailable` into `af doctor`'s default probe list.**
-   The probe function exists in `internal/doctor/system.go` with a
-   `// TODO(ADR-065)` marker. Small (~30 lines) follow-up; see
-   I12.1 below.
-2. **Add a `TestEditor_LeaseWarning`** that exercises the warning
-   path without spawning a real editor (e.g. inject a fake editor
-   command via the existing seam). Small (~20 lines); I12.2.
-3. **Implement ADR-066 + ADR-067** (the agent-session-export +
-   automatic-sync pair). Larger; I12.3–I12.4. Spec is well-defined;
-   parallelizable into two worktree agents.
-4. **Implement ADRs 068–072** (gap-analysis batch) in Stage 13. New
+1. **Implement ADRs 068–072** (gap-analysis batch) in Stage 13. New
    cross-cutting contracts that need to land before v1.0.0. See
-   §"Stage 12 / 13 reading list" below and Stage 13 task list (I13.1–
+   §"Stage 13 reading list" below and Stage 13 task list (I13.1–
    I13.9).
-5. **Implement ADR-073 `af review`** in Stage 14 (I14.1–I14.6). Depends
+2. **Implement ADR-073 `af review`** in Stage 14 (I14.1–I14.6). Depends
    on Stage 13 PR state work (ADR-071); otherwise self-contained.
-6. **Cut v1.0.0 release.** `goreleaser release --clean` after a
+3. **Cut v1.0.0 release.** `goreleaser release --clean` after a
    dry-run validation; tag, push, GitHub release. Out of scope until
-   the owner is ready; the project is in release-ready shape modulo
-   the follow-ups above.
+   Stages 13 + 14 land.
 
-### Stage 12 / 13 reading list — the gap-analysis batch
+**Stage 12 deferrals** (small, can land any time before v1.0.0):
+
+- **`--continue-host` path normalization for ADR-066.** Currently the
+  flag is accepted and prints a stderr hint but does not rewrite
+  transcript metadata. Implementing it requires per-agent format
+  knowledge (Claude project keys, Codex session IDs, pi sessionDir
+  headers). Inline TODO in `internal/sandbox/sessiondata/pull.go`.
+- **af clean --force ADR-067 hook.** suspend + done are covered; clean
+  is a future addition once the clean reaper learns about VM-backed
+  workstreams. No inline TODO yet because clean's interaction with
+  slicer is uncommon.
+
+### Stage 13 reading list — the gap-analysis batch
 
 The owner ran a SPEC-vs-ADR reconciliation pass in branch
 `docs/gap-analysis-v1` (now merged into `main`). Five new ADRs and a
@@ -590,24 +591,24 @@ implements it so the v1 ADR set is complete up to and including 065.
 Small follow-ups from Stage 11, plus the next two pending ADRs. These
 are the only `[ ]` items in this file.
 
-- [ ] I12.1: Wire `internal/doctor.SlicerWTAvailable` into the
+- [x] I12.1: Wire `internal/doctor.SlicerWTAvailable` into the
       `af doctor` default probe list as a non-blocking warning per
       ADR-065. The probe function exists; this is just the
       `defaultProbes()` registration + a `TestSystem_SlicerWTReported`
       test asserting that `af doctor` mentions the wt API status when
       slicer is installed.
-- [ ] I12.2: Add `TestEditor_LeaseWarning` for the lease-warning path
+- [x] I12.2: Add `TestEditor_LeaseWarning` for the lease-warning path
       in `runEditor`. Use the existing `editorCommand` seam (or add
       one if missing) so the test never spawns a real editor. Verify
       stderr contains the "host worktree may be stale" message.
-- [ ] I12.3: ADR-066 — implement VM agent-session export. Per the
+- [x] I12.3: ADR-066 — implement VM agent-session export. Per the
       ADR, this means a host-side allowlist copy of
       `~/.claude/projects/**`, `~/.codex/sessions/**`, pi's resolved
       `sessionDir`, and harness session roots from the VM back to the
       host as part of `af pull` (or a sibling command). Read
       `docs/adr/066-agent-session-export-from-slicer-vms.md` for the
       exact allowlist + denylist + safety rules.
-- [ ] I12.4: ADR-067 — automatic agent-session sync state machine.
+- [x] I12.4: ADR-067 — automatic agent-session sync state machine.
       Per the ADR, this captures sync state in `state.toml` and runs
       the export from I12.3 automatically at sane points (after
       successful pull, before `af done`, on resume). Read
@@ -616,14 +617,14 @@ are the only `[ ]` items in this file.
       with I12.3 in worktrees if the state fields are sequenced
       carefully (I12.3 lands the export module; I12.4 wires the
       automatic triggers around it).
-- [ ] I12.5: Wave 3 close-out for Stage 12 — advance ADR-066 and
+- [x] I12.5: Wave 3 close-out for Stage 12 — advance ADR-066 and
       ADR-067 frontmatter to `implementation: complete`, update
       README/CHANGELOG/PROGRESS, check off I12.1–I12.5.
 
 ### Implementation Stage 13 — Gap-analysis batch (ADRs 068–072)
 
 The five ADRs added by the gap-analysis pass on branch
-`docs/gap-analysis-v1`. See the Stage 12 / 13 reading list above for
+`docs/gap-analysis-v1`. See the Stage 13 reading list above for
 the scope summary; see each ADR for the full contract.
 
 - [ ] I13.1: ADR-070 — implement the session-resolution chain:

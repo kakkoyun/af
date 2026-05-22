@@ -6,19 +6,21 @@ dedicated worktree, a tmux session, and launches a primary agent (pi, claude, or
 codex) — all tied together under a single durable state file. When the task is
 done, everything is cleaned up with one command.
 
-> **Status — v1 (single-user).** Stages 0–11 are implemented; every ADR
-> from 031 to 065 is marked `implementation: complete`. `make check` is
+> **Status — v1 (single-user).** Stages 0–12 are implemented; every ADR
+> from 031 to 067 is marked `implementation: complete`. `make check` is
 > green. The proxy commands (`af editor`, `af diff`, `af pr`, `af retro`),
 > suspend/resume lifecycle, stack-aware `af sync`, opinionated diff
 > rendering (hunk + diffity), repo-scoped `[control]` settings,
 > `af control up/down/status` remote-control via Tailscale + superterm,
 > slicer-only sandbox with `[sandbox.slicer.resources]` profile capture,
 > slicer worktree transport (`slicer wt push/pull`) with host-worktree
-> lease enforcement and `af pull`, and goreleaser snapshot builds are
-> all exercised by unit + integration testscripts. Remote / sandbox
-> launches go through `secret.Envelope` for ephemeral env-file
-> transport. See [Caveats](#caveats) for the remaining single-user
-> assumptions.
+> lease enforcement and `af pull`, slicer VM agent-session export +
+> automatic sync (`af session-data sync|list` with append-aware JSONL
+> merge and auto-sync hooks on `af suspend` / `af done`), and
+> goreleaser snapshot builds are all exercised by unit + integration
+> testscripts. Remote / sandbox launches go through `secret.Envelope`
+> for ephemeral env-file transport. See [Caveats](#caveats) for the
+> remaining single-user assumptions.
 
 ## Installation
 
@@ -132,6 +134,15 @@ These commands run the user-configured executables from `[diff]`, `[pr]`, and
 | `af pr [session] [--title T] [--draft] [--web] [--ai] [--ai-model MODEL]` | Run the PR-create command; `--ai` builds the body from the worktree diff via `agent.BodyCmd` (rejects `--ai` + `--web`). |
 | `af editor [session] [--terminal                                          | -t] [--visual]`                                                          | Open the configured editor at the workstream worktree path. |
 
+### Slicer VM session sync (ADR-066 + ADR-067)
+
+| Command                                                                            | Description                                                                                                                  |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `af session-data sync [session] [--agent KIND] [--dry-run] [--continue-host]`     | Copy allowlisted agent transcripts (`~/.claude/projects/**`, `~/.codex/sessions/**`, `~/.pi/agent/...`, harness teams) out of the slicer VM and merge into the host home dir with SHA-256 dedup + JSONL prefix-append. Writes `[session_export]` cursors to state.toml. |
+| `af session-data list [session] [--vm VM] [--agent KIND]`                          | Inventory the allowlisted session files in the VM without copying.                                                          |
+| `af suspend [session] [--force] [--discard]`                                       | Auto-runs `session-data sync` before VM teardown when slicer-backed. `--discard` skips the sync and acknowledges transcript loss; `--force` is the ADR-065 lease bypass and the two compose. |
+| `af done [session] [--force] [--discard]`                                          | Same auto-sync + `--discard` semantics as `af suspend`.                                                                      |
+
 ### Secrets
 
 Backed by `zalando/go-keyring` (macOS Keychain / Linux Secret Service).
@@ -205,9 +216,17 @@ strictly verified; a tightening pass lands when slicer ships such an
 API. See `internal/sandbox/resources.go` (`// ADR-062 §Resolution step
 6`) for the exact deferral.
 
-**Pending draft ADRs.** ADR-066 (VM agent-session export) and ADR-067
-(automatic session sync) are `status: proposed, implementation:
-pending`. They are the next batch of work after Stage 11.
+**Pending draft ADRs.** ADRs 068–073 (operational UX contract, boundary
+& privacy, session resolution + fzf, PR TTL cache, state.toml roll-up,
+`af review` repo-aware PR review) are `status: proposed, implementation:
+pending`. They are the Stage 13/14 work targeting v1.0.0.
+
+**`af session-data sync --continue-host` is accepted but not yet wired.**
+The ADR-066 host-continuation path normalization (rewriting transcript
+metadata so `claude --resume` / `codex resume` / pi can find imported
+sessions from the host worktree) is deferred. The flag prints a stderr
+hint and falls back to the analysis-only import. Inline TODO in
+`internal/sandbox/sessiondata/pull.go`.
 
 ## Building
 
@@ -223,11 +242,11 @@ make release-snapshot  # cross-compile snapshot via goreleaser
 | -------------------------------------------- | -------------------------------------------------------------------------- |
 | [`CHANGELOG.md`](CHANGELOG.md)               | Full feature history (`[Unreleased]` for v1)                               |
 | [`PROGRESS.md`](PROGRESS.md)                 | Narrative session log                                                      |
-| [`TODO.md`](TODO.md)                         | Implementation checklist (Stages 0–8)                                      |
+| [`TODO.md`](TODO.md)                         | Implementation checklist (Stages 0–14)                                     |
 | [`docs/SPEC.md`](docs/SPEC.md)               | v1 specification                                                           |
 | [`docs/PLAN.md`](docs/PLAN.md)               | Implementation plan (pointer to ADR groups)                                |
 | [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Go style, commit format, file ownership                                    |
-| [`docs/adr/INDEX.md`](docs/adr/INDEX.md)     | ADR index (031–059)                                                        |
+| [`docs/adr/INDEX.md`](docs/adr/INDEX.md)     | ADR index (031–073)                                                        |
 | [`docs/v0/`](docs/v0/)                       | Frozen Rust-era archive (30 ADRs, SPEC, PLAN, eleven-session PROGRESS log) |
 | [`AGENTS.md`](AGENTS.md)                     | Working agreement for AI agents                                            |
 | [`CLAUDE.md`](CLAUDE.md)                     | Project constitution                                                       |

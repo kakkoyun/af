@@ -2,7 +2,7 @@
 adr: 066
 title: "Agent Session Export from Slicer VMs"
 status: proposed
-implementation: in-progress
+implementation: complete
 date: 2026-05-21
 last_modified: 2026-05-22
 supersedes: []

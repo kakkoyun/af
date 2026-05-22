@@ -1738,3 +1738,130 @@ untouched outside `docs/` and the tracking files.
 Unchanged from Session 30's pointer: continue with Stage 12. The
 full pickup ladder (Stage 12 → 13 → 14, with ADR-073 depending on
 ADR-071) is in the Handover snapshot in `TODO.md`.
+
+## 2026-05-22 — Session 32: Stage 12 complete — ADR-066 + ADR-067
+
+### Goal
+
+Land the Stage 12 work in `TODO.md` (I12.1–I12.5). This closes the
+two pending owner-draft ADRs from the Stage 11 handover (ADR-066 VM
+agent-session export, ADR-067 automatic session sync) plus the two
+small Stage 11 carry-overs (I12.1 doctor wt probe wiring, I12.2 editor
+lease warning test).
+
+Branch: `stage-12-followups-066-067` (not yet pushed; per the project
+constitution every multi-commit change lands on a feature branch and
+is merged into `main` separately).
+
+### Done
+
+**I12.1 + I12.2 carry-overs** (commit `c919db5`):
+
+- `internal/doctor`: `Result` gains a `Note` field. A package-level
+  `slicerWTChecker` seam (default: `SlicerWTAvailable`) is consulted
+  by `Run` when the slicer probe resolves a binary; on a missing wt
+  API the hint is attached as the Note. `Render` emits the Note as an
+  indented `⚠ <hint>` sub-line after the probe row. Four internal
+  tests cover the wired path.
+- `cmd/af/proxy_commands.go` gains an `editorCommandFunc` seam mirroring
+  the existing `prAIBodyFunc` / `retroAIBodyFunc` / `controlExecutorFactory`
+  pattern. Two new tests assert the ADR-065 lease warning fires on
+  `held_by_vm` and is suppressed when no lease exists.
+
+**I12.3 — ADR-066** (commit `7022de3`):
+
+- New package `internal/sandbox/sessiondata` with allowlist (Claude /
+  Codex / pi / harness), Slicer interface (ExecSlicer over
+  `sandbox.Runner`, FakeSlicer over an on-disk dir simulating the VM
+  $HOME), manifest builder, Sync orchestrator (staging under
+  `~/.local/share/af/v1/session-import/<session>/<vm>/<ts>/`), and
+  merge engine with SHA-256 dedup + conflict quarantine.
+- New CLI: `af session-data sync [session]` (renamed from `pull` in
+  I12.4a per ADR-067) and `af session-data list [session]`. Flags:
+  `--agent` (comma-separated or `all`), `--dry-run`, `--continue-host`
+  (accepted but not yet wired; prints a stderr hint), `--vm` (override).
+- Emits `agent_sessions_synced` ledger event with vm + kinds +
+  imported/skipped/conflicts + staging path.
+- **Pre-existing bug fix**: `internal/session/ledger_tail.go` parser
+  matched `"type"` but the writer always emits `"event"`, so all
+  round-tripped Event.Type values were empty. Surfaced by the
+  session-data sync ledger test. Fixed parser to accept both keys.
+
+**I12.4 — ADR-067** in three commits:
+
+- `e4cbd34` (I12.4a) — state schema. New types `ExportState`,
+  `ExportSource`, `ExportSyncStatus`, `ExportSourceStatus` on
+  `internal/session`. Round-trip tests for the populated + empty
+  sections. Renamed `sessiondata.Pull` → `Sync`, `PullOptions` →
+  `SyncOptions`, etc., across the package + CLI. Ledger event
+  `agent_sessions_pulled` → `agent_sessions_synced`. The CLI writes
+  back `state.toml.[session_export]` after every successful sync with
+  per-source cursors (one `SourceRecord` per merged file, including
+  `hash`, `size`, `mtime`, `status`, `mode`).
+- `258bc5b` (I12.4b) — append-aware JSONL merge. When a `*.jsonl`
+  host destination is a byte-for-byte prefix of the VM source, sync
+  appends only the missing tail via `io.CopyN` onto an `O_APPEND` fd
+  and reports `Mode: append-jsonl`, `LastOffset: <pre-append size>`.
+  Divergent or shrunken JSONLs continue to quarantine. Three new tests
+  cover the three branches.
+- `<lifecycle commit>` (I12.4c) — auto-sync hooks. New
+  `cmd/af/session_data_lifecycle.go` with `autoSyncBeforeTeardown(cmd,
+  state, statePath, discard)`. Wired into `af suspend` and `af done`
+  before the destructive lifecycle step. A failed or conflicting sync
+  blocks teardown and prints a recovery hint pointing to
+  `af session-data sync <name>` or `--discard`. New `--discard` flag
+  on both commands acknowledges transcript loss and records
+  `last_sync_status=discarded`. Four tests cover the hook behaviour;
+  pre-existing `TestSuspend_LeaseRefusal` / `TestSuspend_ForceAllowsWithLease`
+  updated to install a no-op `FakeSlicer` so they exercise ADR-065
+  without depending on a real slicer binary.
+
+**I12.5 close-out** (this commit):
+
+- ADR-066 frontmatter: `in-progress` → `complete`. ADR-067 frontmatter:
+  `pending` → `complete`. `last_modified: 2026-05-22`.
+- `docs/adr/INDEX.md` rows updated.
+- TODO snapshot rewritten: ADRs 031–067 complete; `pending` reduced
+  to 068/069/070/071/072/073 (the Stage 13 + 14 batch). I12.1–I12.5
+  all `[x]`.
+- README status banner advanced to "Stages 0–12 are implemented; every
+  ADR from 031 to 067 is marked implementation: complete". New "Slicer
+  VM session sync (ADR-066 + ADR-067)" command table with
+  `af session-data {sync,list}` and the `--discard` flag on
+  suspend / done. Caveats list updated: pending-drafts pointer moves
+  to ADRs 068–073; ADR-066 `--continue-host` deferral spelled out.
+- CHANGELOG gains a "Stage 12 — ADR-066 + ADR-067" section under
+  `[Unreleased]` enumerating every shipped feature, file, and deferral.
+
+### Verification
+
+- `make check` is green throughout the stage: 0 lint, all 22 packages
+  pass `-race -count=1 -shuffle=on`. (Up from 21 in Session 31; the
+  new `internal/sandbox/sessiondata` adds the 22nd test target.)
+- Test count grew by ~35 functions across new files in
+  `internal/sandbox/sessiondata`, `cmd/af`, and `internal/session`.
+- ADR count: still 43 files. Status: 36 `complete` (031, 033–067), 1
+  `n/a` (032), 6 `pending` (068–073).
+- TODO checks: 131 `[x]` / 15 `[ ]`. The 15 unchecked items are
+  Stages 13 (I13.1–I13.9) and 14 (I14.1–I14.6).
+
+### Deferrals (called out inline in code)
+
+- **`--continue-host` path normalization** (ADR-066). The flag is
+  accepted, prints a stderr hint, and falls back to analysis-only
+  import. Implementing the per-agent format rewrites (Claude project
+  keys, Codex session IDs, pi sessionDir headers) is its own piece of
+  work; not part of Stage 12.
+- **`af clean --force` ADR-067 hook.** Suspend and done are covered.
+  Clean's interaction with VM-backed workstreams is uncommon; the hook
+  lands when the clean reaper learns about slicer VMs.
+
+### Next
+
+Continue with Stage 13 — the gap-analysis batch (ADRs 068–072, items
+I13.1–I13.9). ADR-070 (session resolution + fzf) and ADR-071 (PR state
+TTL cache) are the natural starting points: they're new-behaviour
+ADRs and unblock dashboard freshness + the `af review` work in
+Stage 14. ADR-068's per-session flock lift can come alongside the next
+mutating command. The pickup ladder is in `TODO.md`'s Handover
+snapshot.
