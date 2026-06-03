@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/kakkoyun/af/internal/diff"
+	"github.com/kakkoyun/af/internal/pr"
 	"github.com/kakkoyun/af/internal/session"
 )
 
 // writeTestSessionStateWithWorktree is like writeTestSessionState but accepts
 // a custom worktreePath and baseBranch so tests can point to real git repos.
-func writeTestSessionStateWithWorktree(t *testing.T, home, name, worktreePath, branch, baseBranch, status string) {
+func writeTestSessionStateWithWorktree(t *testing.T, home, name, worktreePath, branch, baseBranch string) {
 	t.Helper()
 	stateDir := filepath.Join(home, ".local", "share", "af", "v1", "sessions", name)
 	err := os.MkdirAll(stateDir, 0o750)
@@ -28,7 +29,7 @@ func writeTestSessionStateWithWorktree(t *testing.T, home, name, worktreePath, b
 		Session: session.Info{
 			ID:        "00000000-0000-0000-0000-000000000001",
 			Name:      name,
-			Status:    status,
+			Status:    "active",
 			CreatedAt: time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC),
 		},
 		Worktree: session.WorktreeState{
@@ -86,7 +87,7 @@ func writePRTestConfig(t *testing.T, home string) {
 // The diff.cmd is intentionally empty so that the ADR-064 default path is used.
 func writeTestDiffState(t *testing.T, home, name, worktreePath, branch, baseBranch string) {
 	t.Helper()
-	writeTestSessionStateWithWorktree(t, home, name, worktreePath, branch, baseBranch, "active")
+	writeTestSessionStateWithWorktree(t, home, name, worktreePath, branch, baseBranch)
 }
 
 // TestDiff_FallbacksToGitDiff verifies that when stdout is non-interactive (a
@@ -147,7 +148,7 @@ func TestPR_AIErrorsOnEmptyDiff(t *testing.T) {
 
 	repoDir := t.TempDir()
 	branch := initGitRepo(t, repoDir)
-	writeTestSessionStateWithWorktree(t, home, "ai-diff-test", repoDir, branch, branch, "active")
+	writeTestSessionStateWithWorktree(t, home, "ai-diff-test", repoDir, branch, branch)
 
 	_, _, err := executeCommand(t, newRootCmd(), "pr", "--ai", "ai-diff-test")
 	if !errors.Is(err, errPRAIEmptyDiff) {
@@ -168,7 +169,7 @@ func TestPR_AIUsesBodyFromAgent(t *testing.T) {
 	t.Setenv("HOME", home)
 	// Use a real directory for the worktree path so the proxy runner's chdir succeeds.
 	worktreeDir := t.TempDir()
-	writeTestSessionStateWithWorktree(t, home, "ai-body-test", worktreeDir, "feat/ai-test", "main", "active")
+	writeTestSessionStateWithWorktree(t, home, "ai-body-test", worktreeDir, "feat/ai-test", "main")
 	writePRTestConfig(t, home)
 
 	stdout, _, err := executeCommand(t, newRootCmd(), "pr", "--ai", "--title", "Test PR", "ai-body-test")
@@ -229,4 +230,207 @@ func TestDiff_LeaseWarning(t *testing.T) {
 	}
 	// We cannot assert the exact warning in unit tests because git isn't available,
 	// but the build must succeed and the test must not panic.
+}
+
+// TestEditor_LeaseWarning verifies that when state.SlicerWT lease state is
+// `held_by_vm`, runEditor emits the "host worktree may be stale" warning to
+// stderr before invoking the editor. The editorCommandFunc seam is replaced
+// with a stub that runs /usr/bin/true so this test never spawns a real editor.
+//
+// This closes I12.2 (ADR-065 carry-over).
+func TestEditor_LeaseWarning(t *testing.T) {
+	orig := editorCommandFunc
+	t.Cleanup(func() { editorCommandFunc = orig })
+	var capturedTarget, capturedPath string
+	editorCommandFunc = func(ctx context.Context, target, worktreePath string) *exec.Cmd {
+		capturedTarget = target
+		capturedPath = worktreePath
+		return exec.CommandContext(ctx, "/usr/bin/true")
+	}
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionStateWithLease(t, home, "edit-leased", session.SlicerWTLeaseHeldByVM)
+
+	// Configure an editor target so runEditor reaches the seam (otherwise it
+	// short-circuits with errEditorNotConfigured before the warning could be
+	// reached — though the warning would already have been emitted above the
+	// configuration check, this exercises the full success path).
+	cfgDir := filepath.Join(home, ".config", "af")
+	err := os.MkdirAll(cfgDir, 0o750)
+	if err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	const cfgContent = "schema_version = 1\n\n[editor]\nvisual = \"editor-stub\"\n"
+	err = os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(cfgContent), 0o600)
+	if err != nil {
+		t.Fatalf("write editor test config: %v", err)
+	}
+
+	_, stderr, err := executeCommand(t, newRootCmd(), "editor", "edit-leased")
+	if err != nil {
+		t.Fatalf("editor: %v", err)
+	}
+	if !strings.Contains(stderr, "host worktree may be stale") {
+		t.Fatalf("stderr should contain lease warning; got: %q", stderr)
+	}
+	if !strings.Contains(stderr, "af pull edit-leased") {
+		t.Fatalf("stderr should mention the suggested `af pull <name>` remediation; got: %q", stderr)
+	}
+	if capturedTarget != "editor-stub" {
+		t.Errorf("seam captured target = %q, want %q", capturedTarget, "editor-stub")
+	}
+	if capturedPath == "" {
+		t.Errorf("seam captured empty worktree path")
+	}
+}
+
+// TestEditor_NoLeaseNoWarning verifies that when the lease state is unset
+// (no slicer-backed workstream), no warning appears on stderr.
+func TestEditor_NoLeaseNoWarning(t *testing.T) {
+	orig := editorCommandFunc
+	t.Cleanup(func() { editorCommandFunc = orig })
+	editorCommandFunc = func(ctx context.Context, _, _ string) *exec.Cmd {
+		return exec.CommandContext(ctx, "/usr/bin/true")
+	}
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionStateNoLease(t, home, "edit-no-lease")
+
+	cfgDir := filepath.Join(home, ".config", "af")
+	err := os.MkdirAll(cfgDir, 0o750)
+	if err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	const cfgContent = "schema_version = 1\n\n[editor]\nvisual = \"editor-stub\"\n"
+	err = os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(cfgContent), 0o600)
+	if err != nil {
+		t.Fatalf("write editor test config: %v", err)
+	}
+
+	_, stderr, err := executeCommand(t, newRootCmd(), "editor", "edit-no-lease")
+	if err != nil {
+		t.Fatalf("editor: %v", err)
+	}
+	if strings.Contains(stderr, "host worktree may be stale") {
+		t.Fatalf("stderr should NOT contain lease warning when lease is unset; got: %q", stderr)
+	}
+}
+
+// TestPR_RefreshNoPRReturnsErrPRRefreshNoPR asserts the EX_DATAERR
+// path (ADR-068 §2): af pr --refresh on a workstream with no PR.
+func TestPR_RefreshNoPRReturnsErrPRRefreshNoPR(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	worktreeDir := t.TempDir()
+	writeTestSessionStateWithWorktree(t, home, "no-pr-refresh", worktreeDir, "feat/x", "main")
+
+	_, _, err := executeCommand(t, newRootCmd(), "pr", "--refresh", "no-pr-refresh")
+	if !errors.Is(err, errPRRefreshNoPR) {
+		t.Errorf("want errPRRefreshNoPR, got %v", err)
+	}
+}
+
+// TestPR_RefreshUpdatesStateOnFlip asserts that af pr --refresh
+// force-refreshes the cached state and emits pr_state_changed on a flip.
+func TestPR_RefreshUpdatesStateOnFlip(t *testing.T) { //nolint:cyclop,funlen // Test exercises full state writeback + ledger event invariants.
+	orig := prRefreshFunc
+	t.Cleanup(func() { prRefreshFunc = orig })
+	prRefreshFunc = func(_ context.Context, prState *session.PRState, _ pr.Options) (pr.Result, error) {
+		old := prState.State
+		prState.State = "merged" //nolint:goconst // Test literal; readability over a one-shot const.
+		stamp := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
+		prState.LastRefreshedAt = &stamp
+		prState.LastRefreshError = ""
+		return pr.Result{Old: old, New: "merged", RefreshedAt: stamp, Changed: old != "merged"}, nil
+	}
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	worktreeDir := t.TempDir()
+	writeTestSessionStateWithWorktree(t, home, "flip-refresh", worktreeDir, "feat/flip", "main")
+	// Pre-populate state with a PR number so --refresh has work to do.
+	statePath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "flip-refresh", "state.toml")
+	state, err := session.ReadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.PR = session.PRState{Number: 7, URL: "https://github.com/kakkoyun/af/pull/7", State: "open"}
+	err = session.WriteState(statePath, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, _, err := executeCommand(t, newRootCmd(), "pr", "--refresh", "flip-refresh")
+	if err != nil {
+		t.Fatalf("pr --refresh: %v", err)
+	}
+	if !strings.Contains(stdout, "open → merged") {
+		t.Errorf("stdout should report the flip; got: %s", stdout)
+	}
+	state, err = session.ReadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.PR.State != "merged" {
+		t.Errorf("state.PR.State = %q, want merged", state.PR.State)
+	}
+	// Ledger should contain pr_state_changed event.
+	ledgerPath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "flip-refresh", "ledger.jsonl")
+	events, err := session.ReadLedgerTail(ledgerPath, 10)
+	if err != nil {
+		t.Fatalf("ReadLedgerTail: %v", err)
+	}
+	flipFound := false
+	for _, e := range events {
+		if e.Type == "pr_state_changed" {
+			flipFound = true
+			if e.Fields["from"] != "open" || e.Fields["to"] != "merged" {
+				t.Errorf("pr_state_changed fields wrong: %+v", e.Fields)
+			}
+		}
+	}
+	if !flipFound {
+		t.Errorf("ledger should contain pr_state_changed event after flip")
+	}
+}
+
+// TestPR_RefreshSkipsLedgerOnNoFlip asserts that a refresh with no state
+// change does not emit a pr_state_changed ledger event.
+func TestPR_RefreshSkipsLedgerOnNoFlip(t *testing.T) {
+	orig := prRefreshFunc
+	t.Cleanup(func() { prRefreshFunc = orig })
+	prRefreshFunc = func(_ context.Context, prState *session.PRState, _ pr.Options) (pr.Result, error) {
+		stamp := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
+		prState.LastRefreshedAt = &stamp
+		return pr.Result{Old: prState.State, New: prState.State, RefreshedAt: stamp, Changed: false}, nil
+	}
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	worktreeDir := t.TempDir()
+	writeTestSessionStateWithWorktree(t, home, "no-flip", worktreeDir, "feat/x", "main")
+	statePath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "no-flip", "state.toml")
+	state, err := session.ReadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.PR = session.PRState{Number: 9, State: "open"}
+	err = session.WriteState(statePath, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err = executeCommand(t, newRootCmd(), "pr", "--refresh", "no-flip")
+	if err != nil {
+		t.Fatalf("pr --refresh: %v", err)
+	}
+	ledgerPath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "no-flip", "ledger.jsonl")
+	events, _ := session.ReadLedgerTail(ledgerPath, 10) //nolint:errcheck // best-effort.
+	for _, e := range events {
+		if e.Type == "pr_state_changed" {
+			t.Errorf("no flip → no pr_state_changed event; got %+v", e)
+		}
+	}
 }

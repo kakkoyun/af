@@ -405,8 +405,7 @@ created_at      = 2026-05-06T12:00:00Z
 number              = 0
 url                 = ""
 state               = ""            # "" | open | draft | closed | merged
-# PROPOSED (ADR-071, implementation pending):
-last_refreshed_at   = ""            # ISO; "" = never refreshed
+last_refreshed_at   = ""            # ISO; omitted/nil = never refreshed
 last_refresh_error  = ""            # truncated 120-char error
 
 [stack]                             # ADR-059 — always present; empty when unstacked
@@ -421,12 +420,22 @@ pushed_at     = 2026-05-21T15:00:00Z
 pulled_at     = ""                  # ISO; set after `slicer wt pull`
 lease_state   = ""                  # held_by_vm | pulled | discarded
 
-[[session_sync]]                    # PROPOSED (ADR-067, implementation pending)
-agent           = "claude"          # claude | codex | pi | harness
-source_root     = "/home/agent/.claude/sessions"
-last_synced_at  = ""
-last_hash       = ""                # sha256 of last imported tail
-last_offset     = 0                 # byte offset for resumable JSONL appends
+[session_export]                    # ADR-067 — omitted until first sync/discard
+last_sync_at     = ""              # ISO; omitted until first sync
+last_sync_status = ""              # never | ok | blocked | discarded
+last_manifest    = ""               # staging manifest path for latest sync
+
+[[session_export.sources]]
+agent       = "claude"             # claude | codex | pi | harness
+vm          = "sbox-abc"
+source_path = "/home/agent/.claude/sessions/..."
+dest_path   = "/Users/me/.claude/sessions/..."
+mode        = "append-jsonl"       # copy | append-jsonl | directory
+status      = "ok"                 # ok | conflict | skipped | blocked
+hash        = ""                    # sha256 of imported content/tail, hex
+size        = 0
+last_offset = 0                     # byte offset for resumable JSONL appends
+mtime       = ""                    # source mtime when known
 
 [versions]
 af             = "1.0.0"

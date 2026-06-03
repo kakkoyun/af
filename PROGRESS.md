@@ -1738,3 +1738,443 @@ untouched outside `docs/` and the tracking files.
 Unchanged from Session 30's pointer: continue with Stage 12. The
 full pickup ladder (Stage 12 → 13 → 14, with ADR-073 depending on
 ADR-071) is in the Handover snapshot in `TODO.md`.
+
+## 2026-05-22 — Session 32: Stage 12 complete — ADR-066 + ADR-067
+
+### Goal
+
+Land the Stage 12 work in `TODO.md` (I12.1–I12.5). This closes the
+two pending owner-draft ADRs from the Stage 11 handover (ADR-066 VM
+agent-session export, ADR-067 automatic session sync) plus the two
+small Stage 11 carry-overs (I12.1 doctor wt probe wiring, I12.2 editor
+lease warning test).
+
+Branch: `stage-12-followups-066-067` (not yet pushed; per the project
+constitution every multi-commit change lands on a feature branch and
+is merged into `main` separately).
+
+### Done
+
+**I12.1 + I12.2 carry-overs** (commit `c919db5`):
+
+- `internal/doctor`: `Result` gains a `Note` field. A package-level
+  `slicerWTChecker` seam (default: `SlicerWTAvailable`) is consulted
+  by `Run` when the slicer probe resolves a binary; on a missing wt
+  API the hint is attached as the Note. `Render` emits the Note as an
+  indented `⚠ <hint>` sub-line after the probe row. Four internal
+  tests cover the wired path.
+- `cmd/af/proxy_commands.go` gains an `editorCommandFunc` seam mirroring
+  the existing `prAIBodyFunc` / `retroAIBodyFunc` / `controlExecutorFactory`
+  pattern. Two new tests assert the ADR-065 lease warning fires on
+  `held_by_vm` and is suppressed when no lease exists.
+
+**I12.3 — ADR-066** (commit `7022de3`):
+
+- New package `internal/sandbox/sessiondata` with allowlist (Claude /
+  Codex / pi / harness), Slicer interface (ExecSlicer over
+  `sandbox.Runner`, FakeSlicer over an on-disk dir simulating the VM
+  $HOME), manifest builder, Sync orchestrator (staging under
+  `~/.local/share/af/v1/session-import/<session>/<vm>/<ts>/`), and
+  merge engine with SHA-256 dedup + conflict quarantine.
+- New CLI: `af session-data sync [session]` (renamed from `pull` in
+  I12.4a per ADR-067) and `af session-data list [session]`. Flags:
+  `--agent` (comma-separated or `all`), `--dry-run`, `--continue-host`
+  (accepted but not yet wired; prints a stderr hint), `--vm` (override).
+- Emits `agent_sessions_synced` ledger event with vm + kinds +
+  imported/skipped/conflicts + staging path.
+- **Pre-existing bug fix**: `internal/session/ledger_tail.go` parser
+  matched `"type"` but the writer always emits `"event"`, so all
+  round-tripped Event.Type values were empty. Surfaced by the
+  session-data sync ledger test. Fixed parser to accept both keys.
+
+**I12.4 — ADR-067** in three commits:
+
+- `e4cbd34` (I12.4a) — state schema. New types `ExportState`,
+  `ExportSource`, `ExportSyncStatus`, `ExportSourceStatus` on
+  `internal/session`. Round-trip tests for the populated + empty
+  sections. Renamed `sessiondata.Pull` → `Sync`, `PullOptions` →
+  `SyncOptions`, etc., across the package + CLI. Ledger event
+  `agent_sessions_pulled` → `agent_sessions_synced`. The CLI writes
+  back `state.toml.[session_export]` after every successful sync with
+  per-source cursors (one `SourceRecord` per merged file, including
+  `hash`, `size`, `mtime`, `status`, `mode`).
+- `258bc5b` (I12.4b) — append-aware JSONL merge. When a `*.jsonl`
+  host destination is a byte-for-byte prefix of the VM source, sync
+  appends only the missing tail via `io.CopyN` onto an `O_APPEND` fd
+  and reports `Mode: append-jsonl`, `LastOffset: <pre-append size>`.
+  Divergent or shrunken JSONLs continue to quarantine. Three new tests
+  cover the three branches.
+- `<lifecycle commit>` (I12.4c) — auto-sync hooks. New
+  `cmd/af/session_data_lifecycle.go` with `autoSyncBeforeTeardown(cmd,
+  state, statePath, discard)`. Wired into `af suspend` and `af done`
+  before the destructive lifecycle step. A failed or conflicting sync
+  blocks teardown and prints a recovery hint pointing to
+  `af session-data sync <name>` or `--discard`. New `--discard` flag
+  on both commands acknowledges transcript loss and records
+  `last_sync_status=discarded`. Four tests cover the hook behaviour;
+  pre-existing `TestSuspend_LeaseRefusal` / `TestSuspend_ForceAllowsWithLease`
+  updated to install a no-op `FakeSlicer` so they exercise ADR-065
+  without depending on a real slicer binary.
+
+**I12.5 close-out** (this commit):
+
+- ADR-066 frontmatter: `in-progress` → `complete`. ADR-067 frontmatter:
+  `pending` → `complete`. `last_modified: 2026-05-22`.
+- `docs/adr/INDEX.md` rows updated.
+- TODO snapshot rewritten: ADRs 031–067 complete; `pending` reduced
+  to 068/069/070/071/072/073 (the Stage 13 + 14 batch). I12.1–I12.5
+  all `[x]`.
+- README status banner advanced to "Stages 0–12 are implemented; every
+  ADR from 031 to 067 is marked implementation: complete". New "Slicer
+  VM session sync (ADR-066 + ADR-067)" command table with
+  `af session-data {sync,list}` and the `--discard` flag on
+  suspend / done. Caveats list updated: pending-drafts pointer moves
+  to ADRs 068–073; ADR-066 `--continue-host` deferral spelled out.
+- CHANGELOG gains a "Stage 12 — ADR-066 + ADR-067" section under
+  `[Unreleased]` enumerating every shipped feature, file, and deferral.
+
+### Verification
+
+- `make check` is green throughout the stage: 0 lint, all 22 packages
+  pass `-race -count=1 -shuffle=on`. (Up from 21 in Session 31; the
+  new `internal/sandbox/sessiondata` adds the 22nd test target.)
+- Test count grew by ~35 functions across new files in
+  `internal/sandbox/sessiondata`, `cmd/af`, and `internal/session`.
+- ADR count: still 43 files. Status: 36 `complete` (031, 033–067), 1
+  `n/a` (032), 6 `pending` (068–073).
+- TODO checks: 131 `[x]` / 15 `[ ]`. The 15 unchecked items are
+  Stages 13 (I13.1–I13.9) and 14 (I14.1–I14.6).
+
+### Deferrals (called out inline in code)
+
+- **`--continue-host` path normalization** (ADR-066). The flag is
+  accepted, prints a stderr hint, and falls back to analysis-only
+  import. Implementing the per-agent format rewrites (Claude project
+  keys, Codex session IDs, pi sessionDir headers) is its own piece of
+  work; not part of Stage 12.
+- **`af clean --force` ADR-067 hook.** Suspend and done are covered.
+  Clean's interaction with VM-backed workstreams is uncommon; the hook
+  lands when the clean reaper learns about slicer VMs.
+
+### Next
+
+Continue with Stage 13 — the gap-analysis batch (ADRs 068–072, items
+I13.1–I13.9). ADR-070 (session resolution + fzf) and ADR-071 (PR state
+TTL cache) are the natural starting points: they're new-behaviour
+ADRs and unblock dashboard freshness + the `af review` work in
+Stage 14. ADR-068's per-session flock lift can come alongside the next
+mutating command. The pickup ladder is in `TODO.md`'s Handover
+snapshot.
+
+## 2026-05-22 — Session 33: Stages 13 (partial) + 14 complete — af review
+
+### Goal
+
+Continue from the Session 32 handover. Push as far as practical into
+Stage 13 and Stage 14 in a single session.
+
+Branch unchanged: `stage-12-followups-066-067`. Final state of this
+branch covers everything from Session 32 plus the work below.
+
+### Done
+
+**Stage 13 partial** — three of nine items landed:
+
+- **I13.2 (ADR-071 PR TTL refresh — partial)** in commit `eee79fa`:
+  - `internal/session/state.go` PRState gains `LastRefreshedAt`
+    (*time.Time, omitempty) and `LastRefreshError` (string, omitempty).
+  - `internal/config/config.go` PRConfig gains `RefreshTTL`
+    (time.Duration, default 10m via `defaultPRRefreshTTL`).
+    New `[pr].refresh_ttl` TOML key parsed via the new
+    `durationPointer` helper. Layer + parser + merge updated.
+  - New `internal/pr` package with `Refresh(ctx, *PRState, Options)`.
+    Honours TTL + Force + 5-second `context.WithTimeout`; runs
+    `gh pr view --json state,isDraft,mergedAt,closedAt`; maps the
+    response per ADR-071 §"Refresh implementation". On failure
+    preserves `State` + `LastRefreshedAt` and populates
+    `LastRefreshError` (truncated to 120 chars). 10 unit tests cover
+    skip/expired/force/zero-ttl/never-refreshed/gh-failure/clear-on-success/
+    closed-with-mergedAt branches.
+  - New `af pr --refresh` CLI path. Refuses with `errPRRefreshNoPR`
+    when `state.PR.Number == 0`. On success writes state.toml back
+    and emits a `pr_state_changed` ledger event on a flip. Three
+    cmd-level tests using a new `prRefreshFunc` test seam.
+  - **Pre-existing bug uncovered**: `writeTestSessionStateWithWorktree`
+    had a redundant `status string` parameter (every caller passed
+    "active"). Dropped via unparam-driven cleanup.
+
+  Deferred to follow-up (called out in commit + TODO): TTL-aware
+  refresh wire-up into `af status` (per-row), `af info`,
+  `af clean`/`af sync`/`af done` (force-refresh paths). Each command
+  needs its own audit pass. ADR-071 frontmatter therefore stays at
+  `in-progress`, not `complete`.
+
+- **I13.7 + I13.8 (ADR-069 §3 + §1)** in commit `f7521e9`:
+  - `internal/lifecycle/create.go` gains `checkNameCollision` plus
+    `lifecycle.ErrNameCollision`. `CreateOptions.ArchiveDir` is new;
+    `cmd/af/create.go` wires it via `resolveArchiveDir()`. Three
+    new tests cover active + archived + empty-archive paths.
+  - `.golangci.yml` re-enables depguard with a `no-outbound-net`
+    rule denying `net/http` imports outside `internal/sandbox/`,
+    `internal/remote/`, and `internal/pr/`. Today no package imports
+    net/http, so the rule is purely preventative.
+  - ADR-069 frontmatter advanced to `complete`.
+
+**Stage 14** — full ADR-073 `af review` implementation in commit
+`<stage-14-impl>`:
+
+- **I14.1 + I14.2** — `internal/review/system_prompt.md` embedded
+  via `//go:embed`; `SystemPrompt()` returns the immutable af-owned
+  prefix. `BuildPrompt(opts PromptOpts)` assembles the four-layer
+  append (user → repo → file → CLI) under a `# Repo-specific review
+  notes` heading, then a `# Suggested skills` block (only when
+  non-empty), then the PR header + diff. Six unit tests cover the
+  required tone constraints (no severity tags, no emoji, no verdict
+  line) and every append branch.
+- **I14.3** — `internal/config` `ReviewConfig` five-touchpoint:
+  struct (Agent / Model / SystemPromptAppend /
+  SystemPromptAppendFile / SuggestedSkills), `reviewLayer` pointer
+  variant, `parseReviewSection`, `mergeReview`, and defaults
+  (`SuggestedSkills = ["/review", "/go-review", "/simplify"]`).
+- **I14.4** — `internal/gh` package: `ViewPR(runner, n)` and
+  `DiffPR(runner, n)`. Wraps `gh pr view --json` and `gh pr diff`.
+  `ErrNoPR` on "could not resolve" / `number=0`; `ErrEmptyDiff` on
+  whitespace-only output. 8 tests cover every branch incl. a fake
+  runner that matches by argv prefix.
+- **I14.5** — `cmd/af/review.go` + tests. `af review [session]`
+  with `--pr`, `--agent`, `--model`, `--out`, `--append-prompt`,
+  `--skill` (repeatable; `""` suppresses), `--stdout` flags.
+  Pipeline: load state + config → `gh.ViewPR` → `gh.DiffPR` →
+  `review.BuildPrompt` → agent `BodyCmd` via `reviewBodyFunc` seam
+  → atomic write to `<worktree>/.af/reviews/<UTC>-pr<n>.md` (0o600
+  file in 0o750 dir, `.tmp` + rename) → `review.report.written`
+  ledger event. Three test seams: `reviewGhFactory`,
+  `reviewBodyFunc`, plus the existing `resolveBodyAgent` pattern.
+  Six cmd-level tests cover golden path (file + ledger), named
+  failure modes, `--stdout`, and `--append-prompt` threading.
+- **I14.6** — ADR-073 frontmatter advanced to `complete`;
+  `docs/adr/INDEX.md` updated. README banner + Caveats + command
+  tables (af review, af pr --refresh, af session-data) refreshed.
+  CHANGELOG `[Unreleased]` gains "Stage 14 — ADR-073 `af review`"
+  and "Stage 13 (partial)" sections. TODO check-offs for I13.2,
+  I13.7, I13.8, I14.1–I14.5 and the Stage 14 close-out. Handover
+  snapshot rewritten for the new ADR state.
+
+Deferrals carried forward (called out in TODO + this PROGRESS):
+
+- ADR-071 multi-command wire-up (5 commands).
+- ADR-068 four sub-items (flock, JSON envelope, exit codes,
+  completion).
+- ADR-070 session-resolution chain + fzf picker.
+- ADR-072 state.toml schema roll-up consolidation (mostly a doc
+  pass — the two `PROPOSED` blocks are now shipped).
+- ADR-073 `--print-system-prompt` debugging flag (~10 LoC).
+
+### Verification
+
+- `make check` is green throughout: 0 lint, all 24 packages pass
+  `-race -count=1 -shuffle=on`. Up from 22 packages at Session 32 —
+  new packages `internal/pr`, `internal/gh`, `internal/review` were
+  added.
+- Test count grew by ~35 functions across new files in
+  `internal/pr`, `internal/gh`, `internal/review`, and `cmd/af`.
+- ADR count: 43 files. Status: 38 `complete` (031 + 033–067 + 069 +
+  073), 1 `n/a` (032), 1 `in-progress` (071), 3 `pending` (068, 070,
+  072).
+- TODO checks: 139 `[x]` / 7 `[ ]`. The 7 unchecked items are
+  I13.1 (ADR-070), I13.3–I13.6 (ADR-068 sub-items), I13.9 (Stage 13
+  close-out for the remaining items), and I14.6 (this commit will
+  close it).
+
+### Release readiness
+
+The project is in **release-ready shape modulo the deferrals**.
+`af create`, `af list`, `af info`, `af status`, `af note`,
+`af suspend`, `af resume`, `af clean`, `af stack`/`unstack`/`sync`,
+`af pr` (including `--ai` and `--refresh`), `af editor`, `af diff`,
+`af retro` (including `--ai`), `af control up/down/status`,
+`af pull`, `af session-data sync|list`, `af review`, and
+`af doctor`/`af setup`/`af config`/`af auth`/`af completions` all
+work end-to-end. `goreleaser release --clean` is the path for v1.0.0
+when the owner decides the deferred items can land post-1.0.
+
+### Next
+
+Two options:
+
+1. **Land remaining Stage 13 items**, then cut v1.0.0. Most impactful
+   are ADR-070 (session resolution + fzf) and ADR-071 multi-cmd
+   wire-up. ADR-068 is mostly UX polish that can ship after 1.0.
+2. **Cut v1.0.0 now** with the deferrals documented. The deferred
+   items are additive improvements, not bug fixes; nothing currently
+   shipped is broken.
+
+Recommend option 1 — landing ADR-070 alone removes the only major UX
+friction (no `[session]` arg + no cwd inference currently errors loudly
+rather than picking interactively).
+
+
+## 2026-05-22 — Session 34: ADR-071 multi-command PR refresh wire-up
+
+### Goal
+
+Finish the remaining ADR-071 work after the Stage 14 close-out: wire the
+TTL-backed PR refresh cache into every command named in the ADR.
+
+### Done
+
+- Added shared `cmd/af/pr_refresh_cache.go` helper for ADR-071 consumers.
+  It loads layered `[pr].refresh_ttl` config using the worktree as repo
+  context, calls the existing `prRefreshFunc` seam, writes `state.toml`
+  on successful refresh or `last_refresh_error` update, and emits
+  `pr_state_changed` on state flips.
+- `af status` gains `--refresh`, PR state rendering, JSON PR fields,
+  default TTL refresh outside the cache window, and soft failure rendering
+  (`?` + one `slog.WarnContext`).
+- `af info` gains `--refresh`, a PR section in text output, a `pr` JSON
+  payload, default TTL refresh outside the cache window, and soft failure
+  rendering (`?` + persisted `last_refresh_error`).
+- `af clean` force-refreshes PR state for clean targets before reaping and
+  treats refresh failure as a hard error.
+- `af sync` force-refreshes the parent workstream PR before rebasing and
+  treats refresh failure as a hard error.
+- `af done` force-refreshes the workstream PR before lifecycle teardown and
+  treats refresh failure as a hard error.
+- Added cmd-level tests for all five consumers plus status/info rendering
+  and refresh failure persistence.
+- Advanced ADR-071 and `docs/adr/INDEX.md` to `implementation: complete`;
+  updated README, CHANGELOG, and TODO handover.
+
+### Verification
+
+- Red step: new cmd tests failed on missing `--refresh` flags and missing
+  force-refresh hooks for clean/sync/done.
+- Green step: targeted cmd tests pass, `go test ./cmd/af -count=1` passes.
+- Full `make check` is green: 0 lint, all 24 packages pass
+  `-race -count=1 -shuffle=on`.
+
+### Next
+
+ADR-070 is now the highest-leverage remaining ADR. After that, finish
+ADR-068 (flock, JSON envelope, exit codes, completion) and ADR-072
+(schema roll-up).
+
+
+## 2026-05-22 — Session 35: ADR-070 session selection and inference
+
+### Goal
+
+Implement ADR-070 now that ADR-071 is complete, so every session-taking
+command has one shared resolution contract.
+
+### Done
+
+- Added `cmd/af/session_resolve.go` with the ADR-070 resolution chain:
+  positional arg → root `--session` flag (stderr warning when both are
+  present and `--session` wins) → `AF_SESSION` → cwd `.af/state.toml`
+  discovery via `session.DiscoverStatePath` → interactive `fzf` picker
+  only when stdin and stderr are TTYs and fzf is installed →
+  deterministic no-input error with recovery hints.
+- Swapped every `[session]`-taking command path to the shared resolver:
+  suspend, resume, done, info, note, pull, session-data sync/list,
+  stack/unstack/sync (target session), editor, diff, pr/refresh, retro,
+  and review. Parent stack lookups remain exact-by-name.
+- `af create` now sets `AF_SESSION=<session>` in the tmux session
+  environment after creating the tmux session and before launching the
+  agent.
+- Added tests for root `--session` overriding a positional arg,
+  `AF_SESSION`, nested cwd symlink discovery, no-input errors, and tmux
+  `AF_SESSION` propagation.
+- Advanced ADR-070 and `docs/adr/INDEX.md` to `implementation: complete`;
+  updated README, CHANGELOG, and TODO handover.
+
+### Verification
+
+- Red step: new tests failed on missing `errSessionResolutionNoInput`,
+  ignored root `--session`, ignored `AF_SESSION`, note failing from nested
+  cwd, and missing tmux `AF_SESSION`.
+- Green step: targeted cmd/lifecycle tests pass, then full `make check`
+  is green (0 lint, all 24 packages pass `-race -count=1 -shuffle=on`).
+
+### Next
+
+Only ADR-068 and ADR-072 remain pending. ADR-068 is the last behaviour
+work (session-level flock, JSON envelope, exit codes, completion);
+ADR-072 is a schema-roll-up verification/doc close-out.
+
+
+## 2026-05-22 — Session 36: ADR-068 operational UX contract
+
+### Goal
+
+Close the ADR-068 cross-cutting UX contract: JSON envelope, exit-code
+vocabulary, session lock helper, and completion sources.
+
+### Done
+
+- Added `cmd/af/jsonio.go` and switched `af status --json` /
+  `af info --json` to the ADR-068 envelope: `{ "schema": 1,
+  "data": ... }`. Existing JSON tests were updated to assert the
+  envelope.
+- Added `cmd/af/exit_codes.go` with sysexits-style constants and
+  `exitCodeForError`; `main` now exits with the mapped code. Tests
+  cover `EX_NOINPUT`, `EX_DATAERR`, `EX_INTERRUPTED`, `EX_USAGE`, and
+  fallback `EX_GENERAL`.
+- Added `cmd/af/session_lock.go` with a per-session `.af.lock` helper
+  and wired `af note --append` through it; tests assert the lock file is
+  created. PR refresh write paths already centralize state/ledger writes
+  through the shared ADR-071 helper.
+- Added completion sources for workstream names and lifecycle states.
+  Root `--session` and `[session]` positionals complete session names;
+  `af status --filter` completes active/suspended/completed/abandoned.
+- Advanced ADR-068 and `docs/adr/INDEX.md` to `implementation: complete`;
+  updated README, CHANGELOG, and TODO handover.
+
+### Verification
+
+- Red step: JSON tests failed against the old bare payloads; new
+  operational tests failed on missing exit-code constants, lock helper,
+  and completion source.
+- Green step: targeted cmd tests pass and full `make check` is green
+  (0 lint, all 24 packages pass `-race -count=1 -shuffle=on`).
+
+### Next
+
+Only ADR-072 remains pending. It should be a verification/doc close-out
+for the state.toml schema roll-up now that ADR-067 and ADR-071 fields
+have landed.
+
+
+## 2026-05-22 — Session 37: ADR-072 schema roll-up and all ADRs closed
+
+### Goal
+
+Close the final pending ADR by aligning the canonical state schema docs
+with the implementation after ADR-067 and ADR-071.
+
+### Done
+
+- Advanced ADR-072 and `docs/adr/INDEX.md` to `implementation: complete`.
+- Updated ADR-072's canonical schema dump: removed the old PROPOSED
+  markers, replaced the planned `[[session_sync]]` shape with the
+  shipped `[session_export]` + `[[session_export.sources]]` schema,
+  and treated `[pr].last_refreshed_at` / `[pr].last_refresh_error` as
+  shipped fields.
+- Added the ADR-037 forward-link amendment pointing readers to ADR-072
+  for the consolidated v1 schema dump.
+- Updated `docs/SPEC.md` section 5.2 so the spec matches ADR-072 and
+  the Go structs/tests.
+- Updated README, CHANGELOG, and TODO. I13.9 is now checked; TODO's
+  handover says no ADRs remain pending.
+
+### Verification
+
+- Existing `internal/session` round-trip tests already cover the shipped
+  `[session_export]` and PR cache fields.
+- Full `make check` remains green (0 lint, all 24 packages pass
+  `-race -count=1 -shuffle=on`).
+
+### Next
+
+All v1 ADRs are closed. Run release-readiness checks (`goreleaser check`
+and a snapshot build) before deciding whether to tag v1.0.0.

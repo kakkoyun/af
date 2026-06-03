@@ -30,7 +30,7 @@ func newPullCmd(opts *rootOptions) *cobra.Command {
 }
 
 func runPull(cmd *cobra.Command, name string) error {
-	statePath, err := resolveLifecycleStatePath(name)
+	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
 		return fmt.Errorf("pull: %w", err)
 	}

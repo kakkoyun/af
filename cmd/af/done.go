@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,11 +12,10 @@ import (
 	"github.com/kakkoyun/af/internal/mux"
 )
 
-var errDoneNoState = errors.New("no .af/state.toml in current directory")
-
 type doneOptions struct {
-	root  *rootOptions
-	force bool
+	root    *rootOptions
+	force   bool
+	discard bool
 }
 
 func newDoneCmd(opts *rootOptions) *cobra.Command {
@@ -36,13 +34,35 @@ func newDoneCmd(opts *rootOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dOpts.force, "force", false, "abandon rather than complete; skip safety checks")
+	cmd.Flags().BoolVar(&dOpts.discard, "discard", false, "discard agent session transcripts; skip ADR-067 automatic sync before VM teardown")
 	return cmd
 }
 
 func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
-	statePath, err := resolveDoneStatePath(name)
+	statePath, err := resolveDoneStatePath(cmd, name)
 	if err != nil {
 		return err
+	}
+	preState, err := readStateForAutoSync(cmd.Context(), statePath)
+	if err != nil {
+		return fmt.Errorf("done: %w", err)
+	}
+	err = autoSyncBeforeTeardown(cmd, preState, statePath, opts.discard)
+	if err != nil {
+		return fmt.Errorf("done: %w", err)
+	}
+	stateForRefresh, err := readStateForAutoSync(cmd.Context(), statePath)
+	if err != nil {
+		return fmt.Errorf("done: %w", err)
+	}
+	if stateForRefresh.PR.Number != 0 {
+		err = refreshPRCacheForState(cmd.Context(), statePath, &stateForRefresh, prCacheRefreshOptions{
+			Command: "done",
+			Force:   true,
+		})
+		if err != nil {
+			return fmt.Errorf("done: refresh PR state: %w", err)
+		}
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -69,22 +89,15 @@ func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
 	return nil
 }
 
-func resolveDoneStatePath(name string) (string, error) {
+func resolveDoneStatePath(cmd *cobra.Command, name string) (string, error) {
 	stateDir, err := defaultSessionsDir()
 	if err != nil {
 		return "", fmt.Errorf("done: %w", err)
 	}
-	if name != "" {
-		return filepath.Join(stateDir, name, "state.toml"), nil
-	}
-	cwd, err := os.Getwd()
+	_ = stateDir
+	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
-		return "", fmt.Errorf("done: getwd: %w", err)
-	}
-	statePath := filepath.Join(cwd, ".af", "state.toml")
-	_, err = os.Stat(statePath)
-	if err != nil {
-		return "", fmt.Errorf("done: %w (cwd=%s)", errDoneNoState, cwd)
+		return "", fmt.Errorf("done: %w", err)
 	}
 	return statePath, nil
 }

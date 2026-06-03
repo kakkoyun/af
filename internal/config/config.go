@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -18,6 +19,7 @@ const (
 	defaultMaxSessions   = 10
 	defaultMaxParallel   = 8
 	defaultRetentionDays = 90
+	defaultPRRefreshTTL  = 10 * time.Minute
 )
 
 const (
@@ -34,6 +36,7 @@ const (
 	sectionStatus   = "status"
 	sectionLife     = "lifecycle"
 	sectionControl  = "control"
+	sectionReview   = "review"
 )
 
 const (
@@ -61,6 +64,7 @@ type Config struct { //nolint:govet // Field grouping by semantic domain beats p
 	Doctor        DoctorConfig
 	Branch        BranchConfig
 	PR            PRConfig
+	Review        ReviewConfig
 	Diff          DiffConfig
 	Lifecycle     LifecycleConfig
 	Control       ControlConfig
@@ -124,6 +128,31 @@ type PRConfig struct {
 	Template     string
 	AIModel      string
 	Command      ProxyCommandConfig
+	// RefreshTTL bounds how stale the cached PR state may be before
+	// af status / af info trigger a gh pr view refresh (ADR-071).
+	// Default 10m. Set to 0 to force always-refresh on read.
+	RefreshTTL time.Duration
+}
+
+// ReviewConfig holds the ADR-073 [review] section.
+type ReviewConfig struct {
+	// Agent slot used for the review. Empty means: use the
+	// workstream's primary agent, or "claude" when no session is loaded.
+	Agent string
+	// Model override forwarded to BodyCmd. Empty means agent default.
+	Model string
+	// SystemPromptAppend is appended to the af-owned immutable system
+	// prompt. The af prefix always runs first; this content cannot
+	// replace it, only extend it. Repo-level overrides user-level.
+	SystemPromptAppend string
+	// SystemPromptAppendFile is a repo-relative path to a markdown file
+	// whose contents are appended after SystemPromptAppend. When unset,
+	// af looks for ".af/review-system-prompt.md" at the repo root.
+	SystemPromptAppendFile string
+	// SuggestedSkills are advisory slash-command names. The agent reads
+	// .claude/commands/ to discover real skill definitions; this list
+	// is purely advisory.
+	SuggestedSkills []string
 }
 
 // RemoteConfig contains SSH remote defaults.
@@ -270,6 +299,10 @@ func Defaults() Config {
 				"web":   {"--web"},
 				"body":  {"--body", "{body}"},
 			},
+			RefreshTTL: defaultPRRefreshTTL,
+		},
+		Review: ReviewConfig{
+			SuggestedSkills: []string{"/review", "/go-review", "/simplify"},
 		},
 		Remote: RemoteConfig{
 			SSHOptions: []string{"-o", "ServerAliveInterval=60"},
@@ -302,6 +335,7 @@ type configLayer struct {
 	Editor        editorLayer
 	Diff          commandLayer
 	PR            prLayer
+	Review        reviewLayer
 	Remote        remoteLayer
 	Sandbox       sandboxLayer
 	Obsidian      obsidianLayer
@@ -340,6 +374,16 @@ type prLayer struct {
 	FlagTemplate map[string][]string
 	Template     *string
 	AIModel      *string
+	RefreshTTL   *time.Duration
+}
+
+// reviewLayer is the ADR-073 [review] section layer.
+type reviewLayer struct {
+	Agent                  *string
+	Model                  *string
+	SystemPromptAppend     *string
+	SystemPromptAppendFile *string
+	SuggestedSkills        *[]string
 }
 
 type remoteLayer struct {
@@ -481,6 +525,7 @@ func parseNamedSections(layer *configLayer, raw map[string]any, path string, all
 		sectionEditor:   parseEditorSection,
 		sectionDiff:     parseDiffSection,
 		sectionPR:       parsePRSection,
+		sectionReview:   parseReviewSection,
 		sectionRemote:   parseRemoteSection,
 		sectionSandbox:  parseSandboxSection,
 		sectionObsidian: parseObsidianSection,
@@ -590,7 +635,36 @@ func parsePRSection(table map[string]any, path string, _ bool, _ *slog.Logger, l
 	if err != nil {
 		return err
 	}
+	layer.PR.RefreshTTL, err = durationPointer(table, "refresh_ttl", path)
+	if err != nil {
+		return err
+	}
 
+	return nil
+}
+
+func parseReviewSection(table map[string]any, path string, _ bool, _ *slog.Logger, layer *configLayer) error {
+	var err error
+	layer.Review.Agent, err = stringPointer(table, "agent", path)
+	if err != nil {
+		return err
+	}
+	layer.Review.Model, err = stringPointer(table, "model", path)
+	if err != nil {
+		return err
+	}
+	layer.Review.SystemPromptAppend, err = stringPointer(table, "system_prompt_append", path)
+	if err != nil {
+		return err
+	}
+	layer.Review.SystemPromptAppendFile, err = stringPointer(table, "system_prompt_append_file", path)
+	if err != nil {
+		return err
+	}
+	layer.Review.SuggestedSkills, err = stringSlicePointer(table, "suggested_skills", path)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -986,6 +1060,7 @@ func mergeLayer(cfg *Config, layer configLayer) {
 	mergeEditor(&cfg.Editor, layer.Editor)
 	mergeCommand(&cfg.Diff.Command, layer.Diff)
 	mergePR(&cfg.PR, layer.PR)
+	mergeReview(&cfg.Review, layer.Review)
 	mergeRemote(&cfg.Remote, layer.Remote)
 	mergeSandbox(&cfg.Sandbox, layer.Sandbox)
 	mergeObsidian(&cfg.Obsidian, layer.Obsidian)
@@ -1032,6 +1107,17 @@ func mergePR(cfg *PRConfig, layer prLayer) {
 	}
 	assignString(&cfg.Template, layer.Template)
 	assignString(&cfg.AIModel, layer.AIModel)
+	if layer.RefreshTTL != nil {
+		cfg.RefreshTTL = *layer.RefreshTTL
+	}
+}
+
+func mergeReview(cfg *ReviewConfig, layer reviewLayer) {
+	assignString(&cfg.Agent, layer.Agent)
+	assignString(&cfg.Model, layer.Model)
+	assignString(&cfg.SystemPromptAppend, layer.SystemPromptAppend)
+	assignString(&cfg.SystemPromptAppendFile, layer.SystemPromptAppendFile)
+	assignStringSlice(&cfg.SuggestedSkills, layer.SuggestedSkills)
 }
 
 func mergeRemote(cfg *RemoteConfig, layer remoteLayer) {
@@ -1232,6 +1318,25 @@ func intPointer(raw map[string]any, key, path string) (*int, error) {
 	integer := int(result)
 
 	return &integer, nil
+}
+
+// durationPointer parses a TOML string ("10m", "1h30m") via time.ParseDuration.
+// Returns (nil, nil) when the key is absent; an error for non-string or
+// unparseable values.
+func durationPointer(raw map[string]any, key, path string) (*time.Duration, error) {
+	value, ok := raw[key]
+	if !ok {
+		return nil, nil //nolint:nilnil // Nil pointer plus nil error means the optional TOML key is absent.
+	}
+	s, ok := value.(string)
+	if !ok {
+		return nil, typeError(path, key, value, "duration string")
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s.%s: invalid duration %q: %w", path, sectionPR, key, s, err)
+	}
+	return &d, nil
 }
 
 func stringSlicePointer(raw map[string]any, key, path string) (*[]string, error) {

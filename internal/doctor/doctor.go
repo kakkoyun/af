@@ -86,7 +86,11 @@ type Result struct { //nolint:govet // ADR-044 prioritises field readability ove
 	Probe   Probe
 	Path    string
 	Version string
-	Found   bool
+	// Note is an optional non-blocking warning attached to this result.
+	// Populated for the slicer probe when its `wt` API is missing
+	// (ADR-065). Surfaced by Render as an indented warning line.
+	Note  string
+	Found bool
 }
 
 // Report aggregates results from a probe run.
@@ -187,11 +191,20 @@ func extraToolProbes(extraTools []string) []Probe {
 	return out
 }
 
+// slicerWTChecker reports whether the installed slicer binary supports
+// the `wt` API required by ADR-065. Replaced in internal tests via the
+// same seam pattern as prAIBodyFunc in cmd/af/proxy_commands.go.
+var slicerWTChecker = SlicerWTAvailable //nolint:gochecknoglobals // Test seam: replaced in internal tests to avoid spawning the real slicer binary.
+
 // Run executes every probe through lookup and returns a Report.
 //
 // Group semantics: probes that share a non-empty Group are linked. A
 // TierMust probe inside a group counts as missing only when the entire
 // group is missing.
+//
+// When the slicer probe resolves a binary, Run consults
+// slicerWTChecker to attach a non-blocking warning to the slicer
+// result if the `wt` API is unavailable (ADR-065).
 func Run(ctx context.Context, lookup Lookup, platform Platform, probes []Probe) Report {
 	report := Report{Platform: platform, Results: make([]Result, 0, len(probes))}
 
@@ -208,6 +221,8 @@ func Run(ctx context.Context, lookup Lookup, platform Platform, probes []Probe) 
 		report.Results = append(report.Results, result)
 	}
 
+	annotateSlicerWT(ctx, report.Results)
+
 	for _, result := range report.Results {
 		if result.Probe.Tier != TierMust || result.Found {
 			continue
@@ -220,6 +235,22 @@ func Run(ctx context.Context, lookup Lookup, platform Platform, probes []Probe) 
 
 	sort.Strings(report.MissingMustTools)
 	return report
+}
+
+// annotateSlicerWT attaches the wt-API warning to the slicer probe
+// result when slicer was found but its wt API is unavailable.
+// Mutates results in place.
+func annotateSlicerWT(ctx context.Context, results []Result) {
+	for i := range results {
+		if results[i].Probe.Name != "slicer" || !results[i].Found {
+			continue
+		}
+		ok, hint := slicerWTChecker(ctx)
+		if !ok && hint != "" {
+			results[i].Note = hint
+		}
+		return
+	}
 }
 
 // Render writes a human-readable report to w. The first line is a
@@ -284,6 +315,12 @@ func renderFound(w io.Writer, marker string, result Result) error {
 	_, err := fmt.Fprintf(w, "  %s %-12s (%s)\n", marker, result.Probe.Name, detail)
 	if err != nil {
 		return fmt.Errorf("render found: %w", err)
+	}
+	if result.Note != "" {
+		_, err = fmt.Fprintf(w, "        ⚠ %s\n", result.Note)
+		if err != nil {
+			return fmt.Errorf("render note: %w", err)
+		}
 	}
 	return nil
 }

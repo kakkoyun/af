@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -12,6 +11,7 @@ type statusOptions struct {
 	filter   string
 	jsonMode bool
 	all      bool
+	refresh  bool
 }
 
 func newStatusCmd(opts *rootOptions) *cobra.Command {
@@ -27,7 +27,9 @@ func newStatusCmd(opts *rootOptions) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&sOpts.jsonMode, "json", false, "emit status as JSON")
 	cmd.Flags().BoolVar(&sOpts.all, "all", false, "include completed and abandoned workstreams")
+	cmd.Flags().BoolVar(&sOpts.refresh, "refresh", false, "force-refresh cached PR state before rendering")
 	cmd.Flags().StringVar(&sOpts.filter, "filter", "", "show only workstreams in this lifecycle state (active|suspended|completed|abandoned)")
+	registerFlagCompletion(cmd, "filter", completeLifecycleStates)
 	return cmd
 }
 
@@ -42,6 +44,7 @@ func runStatus(cmd *cobra.Command, opts *statusOptions) error {
 	}
 
 	filtered := filterStatusSummaries(summaries, opts)
+	refreshStatusSummaries(cmd, filtered, opts.refresh)
 
 	if opts.jsonMode {
 		return statusEmitJSON(cmd, filtered)
@@ -73,21 +76,20 @@ func statusEmitJSON(cmd *cobra.Command, summaries []sessionSummary) error {
 			"status": s.Session.Status,
 			"branch": s.Worktree.Branch,
 		}
+		if s.PR.Number != 0 {
+			row["pr_number"] = s.PR.Number
+			row["pr_state"] = statusPRState(summaries[i])
+			if s.PR.LastRefreshError != "" {
+				row["pr_last_refresh_error"] = s.PR.LastRefreshError
+			}
+		}
 		if s.SlicerWT.VM != "" {
 			row["slicer_wt_vm"] = s.SlicerWT.VM
 			row["slicer_wt_lease"] = string(s.SlicerWT.LeaseState)
 		}
 		rows = append(rows, row)
 	}
-	data, err := json.MarshalIndent(rows, "", "  ")
-	if err != nil {
-		return fmt.Errorf("status json: %w", err)
-	}
-	_, err = fmt.Fprintln(cmd.OutOrStdout(), string(data))
-	if err != nil {
-		return fmt.Errorf("status json write: %w", err)
-	}
-	return nil
+	return writeJSONEnvelope(cmd, 1, rows)
 }
 
 func statusEmitText(cmd *cobra.Command, summaries []sessionSummary) error {
@@ -99,7 +101,7 @@ func statusEmitText(cmd *cobra.Command, summaries []sessionSummary) error {
 		}
 		return nil
 	}
-	_, err := fmt.Fprintln(w, "NAME                           STATUS     BRANCH")
+	_, err := fmt.Fprintln(w, "NAME                           STATUS     BRANCH                         PR")
 	if err != nil {
 		return fmt.Errorf("status write header: %w", err)
 	}
@@ -109,10 +111,40 @@ func statusEmitText(cmd *cobra.Command, summaries []sessionSummary) error {
 		if s.SlicerWT.VM != "" {
 			suffix = " [vm=" + s.SlicerWT.VM + " lease=" + string(s.SlicerWT.LeaseState) + "]"
 		}
-		_, err = fmt.Fprintf(w, "%-30s %-10s %s%s\n", s.Session.Name, s.Session.Status, s.Worktree.Branch, suffix)
+		_, err = fmt.Fprintf(w, "%-30s %-10s %-30s %s%s\n", s.Session.Name, s.Session.Status, s.Worktree.Branch, statusPRState(summaries[i]), suffix)
 		if err != nil {
 			return fmt.Errorf("status write row: %w", err)
 		}
 	}
 	return nil
+}
+
+func refreshStatusSummaries(cmd *cobra.Command, summaries []sessionSummary, force bool) {
+	warned := false
+	for i := range summaries {
+		if summaries[i].state.PR.Number == 0 {
+			continue
+		}
+		err := refreshPRCacheForState(cmd.Context(), summaries[i].statePath, &summaries[i].state, prCacheRefreshOptions{
+			Command: "status",
+			Force:   force,
+		})
+		if err != nil {
+			summaries[i].prRefreshFailed = true
+			warnPRRefreshOnce(cmd.Context(), &warned, "status", err)
+		}
+	}
+}
+
+func statusPRState(summary sessionSummary) string {
+	if summary.state.PR.Number == 0 {
+		return "-"
+	}
+	if summary.prRefreshFailed {
+		return "?"
+	}
+	if summary.state.PR.State == "" {
+		return "?"
+	}
+	return summary.state.PR.State
 }

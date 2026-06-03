@@ -2,9 +2,9 @@
 adr: 068
 title: "Operational UX Contract"
 status: proposed
-implementation: pending
+implementation: complete
 date: 2026-05-21
-last_modified: 2026-05-21
+last_modified: 2026-05-22
 supersedes: []
 superseded_by: null
 related: ["034", "035", "037", "049", "050", "054", "055"]

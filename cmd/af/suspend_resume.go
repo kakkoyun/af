@@ -1,10 +1,7 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -12,10 +9,11 @@ import (
 	"github.com/kakkoyun/af/internal/mux"
 )
 
-var errLifecycleNoState = errors.New("no .af/state.toml in current directory")
-
 func newSuspendCmd(_ *rootOptions) *cobra.Command {
-	var force bool
+	var (
+		force   bool
+		discard bool
+	)
 	cmd := &cobra.Command{
 		Use:   "suspend [session]",
 		Short: "Suspend a workstream (state.toml records suspension; tmux stays alive)",
@@ -25,9 +23,17 @@ func newSuspendCmd(_ *rootOptions) *cobra.Command {
 			if len(args) == 1 {
 				name = args[0]
 			}
-			statePath, err := resolveLifecycleStatePath(name)
+			statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 			if err != nil {
 				return err
+			}
+			preState, err := readStateForAutoSync(cmd.Context(), statePath)
+			if err != nil {
+				return fmt.Errorf("suspend: %w", err)
+			}
+			err = autoSyncBeforeTeardown(cmd, preState, statePath, discard)
+			if err != nil {
+				return fmt.Errorf("suspend: %w", err)
 			}
 			state, err := lifecycle.SuspendWorkstream(cmd.Context(), lifecycle.SuspendOptions{
 				StatePath: statePath,
@@ -47,6 +53,7 @@ func newSuspendCmd(_ *rootOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "force suspend even when worktree is leased to a slicer VM (sets lease_state=discarded)")
+	cmd.Flags().BoolVar(&discard, "discard", false, "discard agent session transcripts; skip ADR-067 automatic sync before VM teardown")
 	return cmd
 }
 
@@ -61,7 +68,7 @@ func newResumeCmd(_ *rootOptions) *cobra.Command {
 			if len(args) == 1 {
 				name = args[0]
 			}
-			statePath, err := resolveLifecycleStatePath(name)
+			statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 			if err != nil {
 				return err
 			}
@@ -81,24 +88,4 @@ func newResumeCmd(_ *rootOptions) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&bare, "bare", false, "skip tmux respawn")
 	return cmd
-}
-
-func resolveLifecycleStatePath(name string) (string, error) {
-	stateDir, err := defaultSessionsDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve state path: %w", err)
-	}
-	if name != "" {
-		return filepath.Join(stateDir, name, "state.toml"), nil
-	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("resolve state path: getwd: %w", err)
-	}
-	statePath := filepath.Join(cwd, ".af", "state.toml")
-	_, err = os.Stat(statePath)
-	if err != nil {
-		return "", fmt.Errorf("resolve state path: %w (cwd=%s)", errLifecycleNoState, cwd)
-	}
-	return statePath, nil
 }

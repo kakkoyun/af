@@ -82,6 +82,41 @@ func TestLedgerAppendAndLastTouchedAt(t *testing.T) {
 	}
 }
 
+// TestLedger_EventTypeRoundTrip asserts that AppendEvent + ReadLedgerTail
+// preserve the Event.Type field. Regression test for a parser/writer key
+// mismatch (writer used "event", parser only looked at "type").
+func TestLedger_EventTypeRoundTrip(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "ledger.jsonl")
+	ts := time.Date(2026, time.May, 22, 12, 0, 0, 0, time.UTC)
+
+	err := session.AppendEvent(path, session.Event{
+		Timestamp: ts,
+		Type:      "agent_sessions_pulled",
+		Fields:    map[string]any{"vm": "sbox-abc", "imported": 3},
+	})
+	if err != nil {
+		t.Fatalf("AppendEvent: %v", err)
+	}
+
+	events, err := session.ReadLedgerTail(path, 0)
+	if err != nil {
+		t.Fatalf("ReadLedgerTail: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("len(events) = %d, want 1", len(events))
+	}
+	if events[0].Type != "agent_sessions_pulled" {
+		t.Errorf("Type = %q, want agent_sessions_pulled", events[0].Type)
+	}
+	if !events[0].Timestamp.Equal(ts) {
+		t.Errorf("Timestamp = %v, want %v", events[0].Timestamp, ts)
+	}
+	if events[0].Fields["vm"] != "sbox-abc" {
+		t.Errorf("Fields[vm] = %v, want sbox-abc", events[0].Fields["vm"])
+	}
+}
+
 func TestRepoSlugFromRemote(t *testing.T) {
 	tests := map[string]string{
 		"git@github.com:kakkoyun/af.git":       "kakkoyun/af",
@@ -380,6 +415,95 @@ func TestState_RoundTrip_PreservesSlicerWT(t *testing.T) {
 	}
 	if !out.SlicerWT.PulledAt.Equal(pulledAt) {
 		t.Errorf("PulledAt = %v, want %v", out.SlicerWT.PulledAt, pulledAt)
+	}
+}
+
+func TestState_RoundTrip_PreservesSessionExport(t *testing.T) { //nolint:cyclop,funlen // Round-trip test asserts every field of the new ExportState section.
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.toml")
+	now := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
+	lastSync := now.Add(time.Hour)
+
+	in := session.State{
+		SchemaVersion: 1,
+		Session:       session.Info{Name: "se-rt", Status: "active", CreatedAt: now},
+		SessionExport: session.ExportState{
+			LastSyncAt:     &lastSync,
+			LastSyncStatus: session.ExportSyncOK,
+			LastManifest:   "/home/me/.local/share/af/v1/session-import/se-rt/sbox/20260522T120000Z",
+			Sources: []session.ExportSource{
+				{
+					Agent:      "pi",
+					VM:         "sbox-abc",
+					SourcePath: "/root/.pi/agent/sessions/2026.jsonl",
+					DestPath:   "/home/me/.pi/agent/sessions/2026.jsonl",
+					Mode:       "append-jsonl",
+					Hash:       "sha256:deadbeef",
+					Status:     session.SourceStatusOK,
+					Size:       2048,
+					LastOffset: 1024,
+					MTime:      lastSync,
+				},
+			},
+		},
+	}
+	err := session.WriteState(path, in)
+	if err != nil {
+		t.Fatalf("WriteState: %v", err)
+	}
+	out, err := session.ReadState(path)
+	if err != nil {
+		t.Fatalf("ReadState: %v", err)
+	}
+	if out.SessionExport.LastSyncStatus != session.ExportSyncOK {
+		t.Errorf("LastSyncStatus = %q, want ok", out.SessionExport.LastSyncStatus)
+	}
+	if out.SessionExport.LastSyncAt == nil {
+		t.Fatal("LastSyncAt is nil after round-trip")
+	}
+	if !out.SessionExport.LastSyncAt.Equal(lastSync) {
+		t.Errorf("LastSyncAt = %v, want %v", out.SessionExport.LastSyncAt, lastSync)
+	}
+	if len(out.SessionExport.Sources) != 1 {
+		t.Fatalf("len(Sources) = %d, want 1", len(out.SessionExport.Sources))
+	}
+	got := out.SessionExport.Sources[0]
+	if got.Agent != "pi" || got.VM != "sbox-abc" {
+		t.Errorf("Source = %+v, want agent=pi vm=sbox-abc", got)
+	}
+	if got.Mode != "append-jsonl" {
+		t.Errorf("Mode = %q, want append-jsonl", got.Mode)
+	}
+	if got.Hash != "sha256:deadbeef" {
+		t.Errorf("Hash = %q, want sha256:deadbeef", got.Hash)
+	}
+	if got.LastOffset != 1024 {
+		t.Errorf("LastOffset = %d, want 1024", got.LastOffset)
+	}
+}
+
+func TestState_OmitsEmptySessionExport(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.toml")
+	in := session.State{
+		SchemaVersion: 1,
+		Session:       session.Info{Name: "no-se", Status: "active", CreatedAt: time.Now().UTC()},
+	}
+	err := session.WriteState(path, in)
+	if err != nil {
+		t.Fatalf("WriteState: %v", err)
+	}
+	content := readFile(t, path)
+	// Empty ExportState round-trips as a section without fields, which
+	// some TOML emitters keep. We accept either omission or an empty section,
+	// as long as nothing inside leaks state-shaped data.
+	if strings.Contains(content, "last_sync_status =") {
+		t.Errorf("empty SessionExport should not emit last_sync_status field; got:\n%s", content)
+	}
+	if strings.Contains(content, "[[session_export.sources]]") {
+		t.Errorf("empty SessionExport should not emit any sources; got:\n%s", content)
 	}
 }
 

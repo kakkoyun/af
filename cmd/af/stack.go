@@ -71,7 +71,7 @@ func runStack(cmd *cobra.Command, name, parent string) error {
 	if parent == "" {
 		return fmt.Errorf("stack: %w", errStackParentRequired)
 	}
-	state, statePath, err := loadStackState(name)
+	state, statePath, err := loadStackState(cmd, name)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func runStack(cmd *cobra.Command, name, parent string) error {
 }
 
 func runUnstack(cmd *cobra.Command, name string) error {
-	state, statePath, err := loadStackState(name)
+	state, statePath, err := loadStackState(cmd, name)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func runUnstack(cmd *cobra.Command, name string) error {
 }
 
 func runSync(cmd *cobra.Command, name string) error {
-	state, _, err := loadStackState(name)
+	state, _, err := loadStackState(cmd, name)
 	if err != nil {
 		return err
 	}
@@ -117,9 +117,18 @@ func runSync(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("sync: %w", errSyncNoParent)
 	}
 
-	parentState, _, err := loadStackState(state.Stack.ParentSession)
+	parentState, parentStatePath, err := loadStackStateByName(state.Stack.ParentSession)
 	if err != nil {
 		return fmt.Errorf("sync: read parent state: %w", err)
+	}
+	if parentState.PR.Number != 0 {
+		err = refreshPRCacheForState(cmd.Context(), parentStatePath, &parentState, prCacheRefreshOptions{
+			Command: "sync",
+			Force:   true,
+		})
+		if err != nil {
+			return fmt.Errorf("sync: refresh parent PR state for %s: %w", parentState.Session.Name, err)
+		}
 	}
 
 	result, err := lifecycle.Sync(
@@ -160,11 +169,24 @@ func shortSHA(s string) string {
 	return s
 }
 
-func loadStackState(name string) (session.State, string, error) {
-	statePath, err := resolveLifecycleStatePath(name)
+func loadStackState(cmd *cobra.Command, name string) (session.State, string, error) {
+	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
 		return session.State{}, "", err
 	}
+	state, err := session.ReadState(statePath)
+	if err != nil {
+		return session.State{}, "", fmt.Errorf("stack: %w: %v", errStackNoState, err) //nolint:errorlint // primary sentinel is errStackNoState; underlying read error is informational.
+	}
+	return state, statePath, nil
+}
+
+func loadStackStateByName(name string) (session.State, string, error) {
+	stateDir, err := defaultSessionsDir()
+	if err != nil {
+		return session.State{}, "", fmt.Errorf("stack: %w", err)
+	}
+	statePath := statePathForSessionName(stateDir, name)
 	state, err := session.ReadState(statePath)
 	if err != nil {
 		return session.State{}, "", fmt.Errorf("stack: %w: %v", errStackNoState, err) //nolint:errorlint // primary sentinel is errStackNoState; underlying read error is informational.

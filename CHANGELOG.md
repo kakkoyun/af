@@ -15,6 +15,158 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Stage 14 — ADR-073 `af review`
+
+- **`af review [session]`** (ADR-073): new read-only command that
+  generates a draft PR review report. Never posts; never modifies
+  files outside `.af/reviews/`. Pipeline: load state + config →
+  `gh.ViewPR` + `gh.DiffPR` → `review.BuildPrompt` (af system prompt +
+  user/repo/file/CLI append layers + suggested skills + PR header +
+  diff) → agent `BodyCmd` → atomic write to
+  `<worktree>/.af/reviews/<UTC>-pr<n>.md` (0o600 file in 0o750 dir,
+  `.tmp` + rename) → `review.report.written` ledger event.
+- **Embedded immutable system prompt** at
+  `internal/review/system_prompt.md` via `//go:embed`. ADR-073 §1
+  contract: no severity tags, no emoji, no verdict line; config can
+  only append after the af prefix, never replace it.
+- **`[review]` config section**: `agent`, `model`,
+  `system_prompt_append`, `system_prompt_append_file`,
+  `suggested_skills`. Default suggested skills =
+  `["/review", "/go-review", "/simplify"]`.
+- **Flags**: `--pr N`, `--agent X`, `--model Y`, `--out PATH`,
+  `--append-prompt TEXT`, `--skill S` (repeatable; `--skill ""`
+  suppresses), `--stdout` (skip file write, print to stdout).
+- **New packages**: `internal/review` (system prompt + builder),
+  `internal/gh` (ViewPR + DiffPR helpers wrapping `gh pr view` and
+  `gh pr diff`). Three test seams: `reviewGhFactory`,
+  `reviewBodyFunc`, and the existing `resolveBodyAgent` pattern.
+- **Failure modes** (with named sentinels): `errReviewNoPR` when gh
+  cannot resolve a PR, `errReviewEmptyDiff` when the diff is empty,
+  `errReviewEmptyBody` when the agent returns whitespace.
+
+#### Stage 13 — ADR-072 state.toml schema roll-up
+
+- **ADR-072 complete**: canonical schema docs now reflect the shipped
+  state shape after ADR-067 and ADR-071. The former proposed blocks are
+  now concrete: `[session_export]` with `[[session_export.sources]]`,
+  plus `[pr].last_refreshed_at` and `[pr].last_refresh_error`.
+- **ADR-037 forward link**: foundational schema ADR now points to
+  ADR-072 as the consolidated v1 schema dump.
+- **SPEC alignment**: `docs/SPEC.md` state schema now matches the
+  implementation and ADR-072.
+
+#### Stage 13 — ADR-068 operational UX contract
+
+- **JSON envelope**: `af status --json` and `af info --json` now emit
+  `{ "schema": 1, "data": ... }` instead of bare payloads.
+- **Exit-code vocabulary**: `cmd/af/exit_codes.go` maps known error
+  classes to ADR-068 sysexits-style codes, and `main` exits with that
+  mapping.
+- **Per-session lock helper**: `cmd/af/session_lock.go` centralises
+  exclusive session locking at `<session>/.af.lock`; `af note --append`
+  uses it and PR refresh write paths continue to serialize state/ledger
+  writes through a shared helper.
+- **Completion sources**: root `--session` and `[session]` positionals
+  complete workstream names; `af status --filter` completes lifecycle
+  states.
+
+#### Stage 13 — ADR-070 session selection
+
+- **ADR-070 session resolution**: every `[session]` command now uses
+  the shared resolution chain: positional arg → root `--session` flag
+  (with stderr warning when it overrides a positional arg) →
+  `AF_SESSION` → cwd `.af/state.toml` discovery (walking parent
+  directories) → interactive `fzf` picker when stdin/stderr are TTYs →
+  deterministic `EX_NOINPUT`-style error with hints.
+- **Tmux propagation**: `af create` now sets `AF_SESSION=<session>` in
+  the tmux session environment, so agent panes inherit the session
+  identity automatically.
+- New tests cover root `--session` override, `AF_SESSION`, nested cwd
+  symlink discovery, no-input error hints, and tmux `AF_SESSION`
+  propagation.
+
+#### Stage 13 (partial) — ADR-069 + ADR-071 core
+
+- **ADR-069 §1 depguard rule**: `.golangci.yml` re-enables depguard
+  with a `no-outbound-net` rule denying `net/http` imports outside
+  `internal/sandbox/`, `internal/remote/`, and `internal/pr/`.
+  Preventative — no package imports `net/http` today.
+- **ADR-069 §3 strict name collision**: `af create` now refuses to
+  reuse a name that exists in either `sessions/` (active/suspended)
+  or `archive/`. New `lifecycle.ErrNameCollision` sentinel.
+  `CreateOptions.ArchiveDir` controls the archive check (empty
+  disables for back-compat).
+- **ADR-071 TTL refresh complete**: new `internal/pr` package
+  with `Refresh(ctx, *PRState, Options) (Result, error)`. Honours
+  TTL + Force + 5-second context timeout, maps `gh pr view --json`
+  to af labels (`open`/`draft`/`closed`/`merged`), records
+  `last_refreshed_at` + `last_refresh_error`, detects state flips.
+  New `[pr].refresh_ttl` config (default `10m`). New
+  `pr_state_changed` ledger event emitted on flips. `af status` and
+  `af info` refresh outside TTL (or with `--refresh`) and render `?` on
+  refresh failures; `af clean`, `af sync`, and `af done` force-refresh
+  correctness-critical PR state and fail loudly on refresh errors.
+- `state.toml.[pr]` gains `last_refreshed_at` and `last_refresh_error`
+  fields (omitempty; existing files round-trip cleanly).
+
+Deferred Stage 13 follow-ups (called out in TODO/PROGRESS):
+
+- ADR-068 (operational UX contract: flock + JSON envelope + exit codes
+  + completion).
+- ADR-070 (session resolution chain + fzf picker).
+- ADR-072 state.toml schema roll-up.
+
+#### Stage 12 — ADR-066 + ADR-067 slicer VM agent-session sync
+
+- **ADR-066** (VM agent-session export): new `af session-data sync
+  [session]` and `af session-data list [session]` commands. The sync
+  command copies allowlisted transcripts (`~/.claude/projects/**`,
+  `~/.codex/sessions/**`, pi `sessionDir`, harness `~/.pi/agent/teams`)
+  out of the slicer VM via `slicer vm exec` + `slicer vm cp --mode=tar`
+  and merges into the matching host directories.
+- **SHA-256 dedup + conflict quarantine**: identical files are skipped;
+  divergent files are routed to `<staging>/conflicts/` rather than
+  overwriting host state. Imports use `0o600` files and `0o700` parent
+  dirs per the ADR-066 privacy contract.
+- **Append-aware JSONL merge** (ADR-067 §Latest-sync merge rules):
+  when a `*.jsonl` destination is a byte-for-byte prefix of the VM
+  source, sync appends only the missing tail to the existing host
+  file. Divergent or shrunken JSONLs still quarantine.
+- **ADR-067** state schema: `state.toml.[session_export]` records
+  `last_sync_at`, `last_sync_status` (never/ok/blocked/discarded),
+  `last_manifest` (staging path), and per-file `[[session_export.sources]]`
+  cursors with `agent`, `vm`, `source_path`, `dest_path`, `mode`
+  (copy or append-jsonl), `hash`, `size`, `last_offset`, `mtime`, and
+  `status`. Empty sessions omit the section entirely.
+- **`agent_sessions_synced` ledger event** captures every sync attempt
+  with kinds + imported/skipped/conflict counts.
+- **Auto-sync hooks on lifecycle boundaries** (ADR-067 §Lifecycle rule):
+  `af suspend` and `af done` now run `session-data sync` for any
+  slicer-backed workstream before the destructive step. A failed or
+  conflicting sync blocks teardown and prints a recovery hint pointing
+  to `af session-data sync <name>` or `--discard`. The new `--discard`
+  flag on both commands acknowledges transcript loss and records
+  `last_sync_status=discarded` in state.toml.
+- **`af doctor` wt API probe** (ADR-065 carry-over): slicer's
+  `wt push --help --launch` is consulted when the slicer probe finds
+  the binary; a missing `--launch` flag surfaces as a non-blocking
+  warning sub-line.
+- **`TestEditor_LeaseWarning` + editorCommand seam** (ADR-065
+  carry-over): the lease warning path is now covered without spawning
+  a real editor.
+- **Pre-existing bug fix in `internal/session/ledger_tail.go`**: the
+  writer wrote `Event.Type` to JSON key `"event"` but the parser only
+  matched `"type"`, so round-tripped events lost their Type. Fixed
+  the parser to accept both keys; `TestLedger_EventTypeRoundTrip`
+  regression guard added. No on-disk format change.
+
+Deferrals carried into Stage 13/14 (called out inline in code):
+
+- `af session-data sync --continue-host` path-normalization (per-agent
+  format knowledge).
+- `af clean --force` ADR-067 hook (clean's slicer-VM interaction is
+  uncommon; adding when the reaper learns about VMs).
+
 #### Stage 11 — ADR-065 slicer worktree transport (Session 29)
 
 - **ADR-065** (slicer worktree transport): `af create --sandbox slicer`

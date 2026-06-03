@@ -23,7 +23,7 @@ func main() {
 		if writeErr != nil {
 			os.Exit(1)
 		}
-		os.Exit(1)
+		os.Exit(exitCodeForError(err))
 	}
 }
 

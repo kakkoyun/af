@@ -47,6 +47,13 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 	flags.StringVar(&opts.configPath, "config", "", "path to an af config file")
 	flags.StringVar(&opts.sessionName, "session", "", "target a specific workstream session")
 
+	addSubcommands(cmd, opts)
+	registerCompletionContracts(cmd)
+
+	return cmd
+}
+
+func addSubcommands(cmd *cobra.Command, opts *rootOptions) {
 	cmd.AddCommand(newVersionCmd())
 	cmd.AddCommand(newConfigCmd(opts))
 	cmd.AddCommand(newCompletionsCmd())
@@ -73,6 +80,6 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 	cmd.AddCommand(newRetroCmd(opts))
 	cmd.AddCommand(newPullCmd(opts))
 	cmd.AddCommand(newControlCmd(opts))
-
-	return cmd
+	cmd.AddCommand(newSessionDataCmd(opts))
+	cmd.AddCommand(newReviewCmd(opts))
 }

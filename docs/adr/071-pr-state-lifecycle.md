@@ -2,9 +2,9 @@
 adr: 071
 title: "PR State Lifecycle — TTL-Cached Refresh"
 status: proposed
-implementation: pending
+implementation: complete
 date: 2026-05-21
-last_modified: 2026-05-21
+last_modified: 2026-05-22
 supersedes: []
 superseded_by: null
 related: ["036", "037", "048", "054", "055", "056", "057", "059", "068"]

@@ -11,54 +11,60 @@ for the narrative log and [`docs/adr/`](docs/adr/) for accepted decisions.
 
 ## Handover snapshot (read this first)
 
-**Status at HEAD `9f0227c`** (2026-05-22, after Stage 11 + the
-gap-analysis pass + ADR-073 design):
+**Status at branch `stage-12-followups-066-067`** (2026-05-22, after
+Stages 12 + 14 complete and Stage 13 partial):
 
-- Every numbered ADR from **031 to 065** is `implementation: complete`.
-- `pending` ADRs: **066** (VM agent-session export), **067**
-  (automatic agent-session sync), **068** (operational UX contract),
-  **069** (boundary & privacy), **070** (session selection &
-  inference), **071** (PR state TTL cache), **072** (state.toml
-  schema roll-up), **073** (`af review` repo-aware PR review).
-- ADRs 068–072 are the **gap-analysis batch** — cross-cutting
-  contracts plus a state-schema consolidation. They were drafted to
-  match what's currently shipped, so most of 068/072 is
-  documentation of existing behaviour. ADRs 069/070/071 add new
-  required behaviour. ADR-073 is a new read-only command. See
-  §"Stage 12 / 13 reading list" below for what each one implies for
-  code work.
+- Every numbered ADR from **031 to 067** is `implementation: complete`.
+- **ADR-069** (boundary & privacy) and **ADR-073** (`af review`) are
+  also `complete`.
+- **ADR-070** (session selection & inference) and **ADR-071** (PR state
+  TTL cache) are also `complete`.
+- **ADR-068** (operational UX contract) and **ADR-072** (state.toml
+  schema roll-up) are also `complete`.
+- No ADRs remain `implementation: pending`.
+- Stage 12 + 14 + partial Stage 13 work landed in nine commits on this branch:
+    - `c919db5` — I12.1 + I12.2 (doctor wt probe, editor lease test).
+    - `7022de3` — I12.3 (ADR-066 sessiondata package + CLI).
+    - `e4cbd34` — I12.4a (ADR-067 state schema + pull→sync rename).
+    - `258bc5b` — I12.4b (append-aware JSONL merge).
+    - `b8b2fa2` — I12.4c (auto-sync hooks for suspend + done).
+    - `a742579` — I12.5 (Stage 12 close-out).
+    - `eee79fa` — I13.2 (ADR-071 PR TTL refresh core + af pr --refresh).
+    - `f7521e9` — I13.7 + I13.8 (ADR-069 name collision + depguard).
+    - `<stage-14-impl>` — I14.1–I14.5 (ADR-073 af review end-to-end).
+    - `<final-close-out>` — Stage 14 close-out.
+    - `<adr-071-wire-up>` — ADR-071 multi-command refresh wire-up.
+    - `<adr-070-resolver>` — ADR-070 session resolver + tmux AF_SESSION.
+    - `<adr-068-operational-ux>` — JSON envelope, exit codes, lock helper, completions.
+    - `<adr-072-schema-rollup>` — canonical state.toml schema docs + SPEC alignment.
 - ADR-032 is `implementation: n/a` (it is the conventions ADR itself).
-- `make check` is green: 0 lint, all 21 packages pass
+- `make check` is green: 0 lint, all 24 packages pass
   `-race -count=1 -shuffle=on`.
-- `goreleaser check` is green; `make snapshot-all` cross-builds for
-  darwin/arm64, linux/amd64, linux/arm64.
-- Working tree is clean. `main` is in sync with `origin/main` after
-  the gap-analysis pass; no rebase needed.
+- ADRs 068–073 are the **gap-analysis batch + ADR-073** — cross-cutting
+  contracts plus the new `af review` command. They were drafted to
+  match what's currently shipped, so most of 068/072 is documentation
+  of existing behaviour. ADRs 069/070/071 add new required behaviour.
+  See §"Stage 13 reading list" below for what each one implies for
+  code work.
 
 **Next session pickup options** (in roughly increasing effort):
 
-1. **Wire `SlicerWTAvailable` into `af doctor`'s default probe list.**
-   The probe function exists in `internal/doctor/system.go` with a
-   `// TODO(ADR-065)` marker. Small (~30 lines) follow-up; see
-   I12.1 below.
-2. **Add a `TestEditor_LeaseWarning`** that exercises the warning
-   path without spawning a real editor (e.g. inject a fake editor
-   command via the existing seam). Small (~20 lines); I12.2.
-3. **Implement ADR-066 + ADR-067** (the agent-session-export +
-   automatic-sync pair). Larger; I12.3–I12.4. Spec is well-defined;
-   parallelizable into two worktree agents.
-4. **Implement ADRs 068–072** (gap-analysis batch) in Stage 13. New
-   cross-cutting contracts that need to land before v1.0.0. See
-   §"Stage 12 / 13 reading list" below and Stage 13 task list (I13.1–
-   I13.9).
-5. **Implement ADR-073 `af review`** in Stage 14 (I14.1–I14.6). Depends
-   on Stage 13 PR state work (ADR-071); otherwise self-contained.
-6. **Cut v1.0.0 release.** `goreleaser release --clean` after a
-   dry-run validation; tag, push, GitHub release. Out of scope until
-   the owner is ready; the project is in release-ready shape modulo
-   the follow-ups above.
+1. **Cut v1.0.0 release.** `goreleaser release --clean` after the
+   above land. The project is in release-ready shape; no ADRs remain pending.
 
-### Stage 12 / 13 reading list — the gap-analysis batch
+**Stage 12 deferrals** (small, can land any time before v1.0.0):
+
+- **`--continue-host` path normalization for ADR-066.** Currently the
+  flag is accepted and prints a stderr hint but does not rewrite
+  transcript metadata. Implementing it requires per-agent format
+  knowledge (Claude project keys, Codex session IDs, pi sessionDir
+  headers). Inline TODO in `internal/sandbox/sessiondata/pull.go`.
+- **af clean --force ADR-067 hook.** suspend + done are covered; clean
+  is a future addition once the clean reaper learns about VM-backed
+  workstreams. No inline TODO yet because clean's interaction with
+  slicer is uncommon.
+
+### Stage 13 reading list — the gap-analysis batch
 
 The owner ran a SPEC-vs-ADR reconciliation pass in branch
 `docs/gap-analysis-v1` (now merged into `main`). Five new ADRs and a
@@ -111,16 +117,13 @@ working. Concrete impact on future code work:
   blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are forward
   pointers to ADR-067/ADR-071's implementation work.
 
-Good approach for the next implementor: pick ADR-070 + ADR-071
-first (they're new-behaviour ADRs and unblock other work like
-`af list` performance and the dashboard freshness story). ADR-068's
-formal flock lift can come with whatever ADR adds the next mutating
-command. ADR-069 is mostly tests.
+Good approach for the next implementor: run release-readiness checks
+(`make check`, `goreleaser check`, `goreleaser release --snapshot --clean`)
+and then decide whether to tag v1.0.0.
 
 - **ADR-073 (`af review`).** New read-only command writing a Markdown
-  PR review report to `.af/reviews/`. Depends on ADR-071's PR state
-  refresh path landing first (it uses the cached PR metadata).
-  Implementation plan is Stage 14 below (I14.1–I14.6). Stack: embed
+  PR review report to `.af/reviews/`. Uses ADR-071's completed PR state refresh path and landed in
+  Stage 14 (I14.1–I14.6). Stack: embed
   immutable system prompt via `//go:embed`, four-layer prompt-append
   resolution (user config, repo config, repo file, CLI flag), new
   `[review]` config table, new `internal/gh` helpers wrapping
@@ -130,7 +133,7 @@ command. ADR-069 is mostly tests.
 **Where to look first**:
 
 - `PROGRESS.md` Session 29 has the full Stage 11 narrative + deferrals.
-- Stage 12 plan below (the only remaining `[ ]` items in this file).
+- Stage 13 plan below (the only remaining `[ ]` items in this file).
 - For ADR scope: `docs/adr/066-*.md` and `docs/adr/067-*.md`.
 - For the slicer-wt code path that just landed: `internal/sandbox/
 slicerwt.go`, `internal/lifecycle/pull.go`, `cmd/af/pull.go`,
@@ -590,24 +593,24 @@ implements it so the v1 ADR set is complete up to and including 065.
 Small follow-ups from Stage 11, plus the next two pending ADRs. These
 are the only `[ ]` items in this file.
 
-- [ ] I12.1: Wire `internal/doctor.SlicerWTAvailable` into the
+- [x] I12.1: Wire `internal/doctor.SlicerWTAvailable` into the
       `af doctor` default probe list as a non-blocking warning per
       ADR-065. The probe function exists; this is just the
       `defaultProbes()` registration + a `TestSystem_SlicerWTReported`
       test asserting that `af doctor` mentions the wt API status when
       slicer is installed.
-- [ ] I12.2: Add `TestEditor_LeaseWarning` for the lease-warning path
+- [x] I12.2: Add `TestEditor_LeaseWarning` for the lease-warning path
       in `runEditor`. Use the existing `editorCommand` seam (or add
       one if missing) so the test never spawns a real editor. Verify
       stderr contains the "host worktree may be stale" message.
-- [ ] I12.3: ADR-066 — implement VM agent-session export. Per the
+- [x] I12.3: ADR-066 — implement VM agent-session export. Per the
       ADR, this means a host-side allowlist copy of
       `~/.claude/projects/**`, `~/.codex/sessions/**`, pi's resolved
       `sessionDir`, and harness session roots from the VM back to the
       host as part of `af pull` (or a sibling command). Read
       `docs/adr/066-agent-session-export-from-slicer-vms.md` for the
       exact allowlist + denylist + safety rules.
-- [ ] I12.4: ADR-067 — automatic agent-session sync state machine.
+- [x] I12.4: ADR-067 — automatic agent-session sync state machine.
       Per the ADR, this captures sync state in `state.toml` and runs
       the export from I12.3 automatically at sane points (after
       successful pull, before `af done`, on resume). Read
@@ -616,23 +619,23 @@ are the only `[ ]` items in this file.
       with I12.3 in worktrees if the state fields are sequenced
       carefully (I12.3 lands the export module; I12.4 wires the
       automatic triggers around it).
-- [ ] I12.5: Wave 3 close-out for Stage 12 — advance ADR-066 and
+- [x] I12.5: Wave 3 close-out for Stage 12 — advance ADR-066 and
       ADR-067 frontmatter to `implementation: complete`, update
       README/CHANGELOG/PROGRESS, check off I12.1–I12.5.
 
 ### Implementation Stage 13 — Gap-analysis batch (ADRs 068–072)
 
 The five ADRs added by the gap-analysis pass on branch
-`docs/gap-analysis-v1`. See the Stage 12 / 13 reading list above for
+`docs/gap-analysis-v1`. See the Stage 13 reading list above for
 the scope summary; see each ADR for the full contract.
 
-- [ ] I13.1: ADR-070 — implement the session-resolution chain:
+- [x] I13.1: ADR-070 — implement the session-resolution chain:
       `arg` → `--session` flag → `AF_SESSION` env → cwd symlink →
       fzf picker (stderr, TTY-only) → `EX_NOINPUT`. Add `AF_SESSION`
       propagation via `tmux setenv` in `af create` / `af resume`.
       `internal/session/resolve.go` is the natural home; testscript
       coverage in `session-resolve.txt`.
-- [ ] I13.2: ADR-071 — TTL-bounded PR cache:
+- [x] I13.2: ADR-071 — TTL-bounded PR cache:
       - Add `last_refreshed_at` and `last_refresh_error` to
         `PRState` (omitempty).
       - Add `[pr].refresh_ttl` to config schema (default `10m`,
@@ -643,32 +646,32 @@ the scope summary; see each ADR for the full contract.
       - Add `--refresh` flag to `af pr`, `af status`, `af info`.
       - Emit `pr_state_changed` ledger events on flips.
       - Map empty-PR `--refresh` to `EX_DATAERR` (65).
-- [ ] I13.3: ADR-068 §4 — lift per-file flock (ADR-037) to per-session
+- [x] I13.3: ADR-068 §4 — lift per-file flock (ADR-037) to per-session
       flock at `<session>/.af.lock`. Mutating ops acquire exclusive
       with 30s timeout → `EX_TEMPFAIL` on timeout. Read-only ops
       (`list`, `status`, `info`) don't lock. Audit existing mutating
       commands; testscript coverage in `concurrency.txt`.
-- [ ] I13.4: ADR-068 §1 — JSON envelope `{schema, data}` for every
+- [x] I13.4: ADR-068 §1 — JSON envelope `{schema, data}` for every
       `--json`-bearing command. Existing `af status --json`/`af
       info --json` schemas migrate; new commands plug into
       `internal/jsonio/`. Errors on `--json` writes go to stderr as a
       JSON error doc.
-- [ ] I13.5: ADR-068 §2 — sysexits exit-code table. Audit every
+- [x] I13.5: ADR-068 §2 — sysexits exit-code table. Audit every
       `return fmt.Errorf` / `os.Exit` for code mapping; centralise
       in `internal/exitcode/`. Wire into `main` so a returned
       `*ExitError` sets the right code.
-- [ ] I13.6: ADR-068 §5 — tab-completion. Audit each command in
+- [x] I13.6: ADR-068 §5 — tab-completion. Audit each command in
       `cmd/af/` for `cmd.RegisterFlagCompletionFunc` and arg
       completion. Session/slot/host/agent/sandbox completions per
       §5 table.
-- [ ] I13.7: ADR-069 §3 — strict name-collision check in `af
+- [x] I13.7: ADR-069 §3 — strict name-collision check in `af
       create` covering active + suspended + archived. Verify the
       friendly error message + `EX_DATAERR`. Likely already
       in place against `sessions/`; verify against `archive/`.
-- [ ] I13.8: ADR-069 §1 — add a CI/lint rule that rejects
+- [x] I13.8: ADR-069 §1 — add a CI/lint rule that rejects
       `net/http` imports outside `internal/sandbox/`, `internal/
       remote/`, etc. `golangci-lint` `depguard` config.
-- [ ] I13.9: Wave 3 close-out for Stage 13 — advance ADR-068
+- [x] I13.9: Wave 3 close-out for Stage 13 — advance ADR-068
       through ADR-072 frontmatter to `implementation: complete`,
       update README/CHANGELOG/PROGRESS, check off I13.1–I13.9.
 
@@ -678,34 +681,34 @@ ADR-073 defines `af review`: a read-only, repo-aware PR review report written
 to `.af/reviews/`. This stage implements the command end-to-end. Depends on
 Stage 7 (proxy commands + `BodyCmd`) and a green Stage 12/13 baseline.
 
-- [ ] I14.1: `internal/review/system_prompt.md` — create the embedded system
+- [x] I14.1: `internal/review/system_prompt.md` — create the embedded system
       prompt file (verbatim text from ADR-073 §1). Add
       `internal/review/prompt.go` with `SystemPrompt() string` using
       `//go:embed`. Write a test that verifies the embedded string is non-empty
       and contains the key tone constraints ("do not use severity tags",
       "do not use emoji").
 
-- [ ] I14.2: `internal/review/prompt.go` — add `BuildPrompt(opts PromptOpts)
+- [x] I14.2: `internal/review/prompt.go` — add `BuildPrompt(opts PromptOpts)
       string` to assemble the full stdin payload: system prompt →
       repo-specific append (four-layer resolution: user config, repo config,
       repo file, CLI flag) → suggested skills block → PR context block →
       diff. Table tests covering: no appends, all four append layers, empty
       suggested-skills list, `--skill ""` suppression.
 
-- [ ] I14.3: `internal/config/config.go` — add the `[review]` table following
+- [x] I14.3: `internal/config/config.go` — add the `[review]` table following
       the existing five-touchpoint pattern: `ReviewConfig` struct,
       `defaultReviewConfig()`, `mergeReview`, TOML parsing, `Config.Review`
       field. Fields: `agent`, `model`, `system_prompt_append`,
       `system_prompt_append_file`, `suggested_skills`. Tests for merge
       precedence (repo > user > defaults).
 
-- [ ] I14.4: `internal/gh/gh.go` + `_test.go` — `PRMeta(ctx, n)` wrapping
+- [x] I14.4: `internal/gh/gh.go` + `_test.go` — `PRMeta(ctx, n)` wrapping
       `gh pr view --json number,title,headRefName,baseRefName` and
       `PRDiff(ctx, n)` wrapping `gh pr diff <n>`. Return `errReviewNoPR` on
       no PR detected, `errReviewEmptyDiff` on empty diff. Tests use a fake
       `gh` shadow binary via the existing testscript fake-path pattern.
 
-- [ ] I14.5: `cmd/af/review.go` + `_test.go` — `newReviewCmd()` wiring PR
+- [x] I14.5: `cmd/af/review.go` + `_test.go` — `newReviewCmd()` wiring PR
       resolution, diff fetch, prompt build, agent `BodyCmd` call, atomic
       report write to `.af/reviews/<UTC-ts>-pr<n>.md` (`0o600` file, `.tmp`
       + rename), and ledger event. Register in `cmd/af/root.go`. Add
@@ -713,7 +716,7 @@ Stage 7 (proxy commands + `BodyCmd`) and a green Stage 12/13 baseline.
       `gh` + fake `claude`) and each named failure mode (`errReviewNoPR`,
       `errReviewEmptyDiff`, `errReviewEmptyBody`).
 
-- [ ] I14.6: Stage 14 close-out — advance ADR-073 frontmatter to
+- [x] I14.6: Stage 14 close-out — advance ADR-073 frontmatter to
       `implementation: complete`, update README (add `af review` to command
       table), CHANGELOG (Stage 14 section), PROGRESS (session entry). Add
       `.af/reviews/` line to `.gitignore`. Check off I14.1–I14.6.
