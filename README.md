@@ -6,9 +6,10 @@ dedicated worktree, a tmux session, and launches a primary agent (pi, claude, or
 codex) — all tied together under a single durable state file. When the task is
 done, everything is cleaned up with one command.
 
-> **Status — v1 (single-user).** Stages 0–12 + Stage 14 are implemented;
-> ADRs 031–073 are `implementation: complete` (ADR-032 is
-> `implementation: n/a`). `make check` is
+> **Status — v1 (single-user).** Stages 0–14 are implemented and all
+> v1 ADRs are closed: ADRs 031–073 are `implementation: complete`
+> (ADR-032 is `implementation: n/a`). Stage 15 is release prep.
+> `make check` is
 > green. The proxy commands (`af editor`, `af diff`, `af pr`, `af retro`),
 > suspend/resume lifecycle, stack-aware `af sync`, opinionated diff
 > rendering (hunk + diffity), repo-scoped `[control]` settings,

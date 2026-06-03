@@ -11,137 +11,46 @@ for the narrative log and [`docs/adr/`](docs/adr/) for accepted decisions.
 
 ## Handover snapshot (read this first)
 
-**Status at branch `stage-12-followups-066-067`** (2026-05-22, after
-Stages 12 + 14 complete and Stage 13 partial):
+**Status on `main`** (2026-05-22, after merge `1d63290`):
 
-- Every numbered ADR from **031 to 067** is `implementation: complete`.
-- **ADR-069** (boundary & privacy) and **ADR-073** (`af review`) are
-  also `complete`.
-- **ADR-070** (session selection & inference) and **ADR-071** (PR state
-  TTL cache) are also `complete`.
-- **ADR-068** (operational UX contract) and **ADR-072** (state.toml
-  schema roll-up) are also `complete`.
-- No ADRs remain `implementation: pending`.
-- Stage 12 + 14 + partial Stage 13 work landed in nine commits on this branch:
-    - `c919db5` — I12.1 + I12.2 (doctor wt probe, editor lease test).
-    - `7022de3` — I12.3 (ADR-066 sessiondata package + CLI).
-    - `e4cbd34` — I12.4a (ADR-067 state schema + pull→sync rename).
-    - `258bc5b` — I12.4b (append-aware JSONL merge).
-    - `b8b2fa2` — I12.4c (auto-sync hooks for suspend + done).
-    - `a742579` — I12.5 (Stage 12 close-out).
-    - `eee79fa` — I13.2 (ADR-071 PR TTL refresh core + af pr --refresh).
-    - `f7521e9` — I13.7 + I13.8 (ADR-069 name collision + depguard).
-    - `<stage-14-impl>` — I14.1–I14.5 (ADR-073 af review end-to-end).
-    - `<final-close-out>` — Stage 14 close-out.
-    - `<adr-071-wire-up>` — ADR-071 multi-command refresh wire-up.
-    - `<adr-070-resolver>` — ADR-070 session resolver + tmux AF_SESSION.
-    - `<adr-068-operational-ux>` — JSON envelope, exit codes, lock helper, completions.
-    - `<adr-072-schema-rollup>` — canonical state.toml schema docs + SPEC alignment.
-- ADR-032 is `implementation: n/a` (it is the conventions ADR itself).
-- `make check` is green: 0 lint, all 24 packages pass
-  `-race -count=1 -shuffle=on`.
-- ADRs 068–073 are the **gap-analysis batch + ADR-073** — cross-cutting
-  contracts plus the new `af review` command. They were drafted to
-  match what's currently shipped, so most of 068/072 is documentation
-  of existing behaviour. ADRs 069/070/071 add new required behaviour.
-  See §"Stage 13 reading list" below for what each one implies for
-  code work.
+- `stage-12-followups-066-067` was merged into `main`.
+- ADR status is closed for v1: **42 complete**, **1 n/a** (ADR-032),
+  **0 pending**.
+- Stages 0–14 are implemented and documented.
+- Pre-merge release checks on the source branch passed:
+  `make check`, `goreleaser check`, and
+  `goreleaser release --snapshot --clean`.
+- This handover starts **Implementation Stage 15 — v1.0.0 release prep**.
 
-**Next session pickup options** (in roughly increasing effort):
+**Next session pickup options** (in order):
 
-1. **Cut v1.0.0 release.** `goreleaser release --clean` after the
-   above land. The project is in release-ready shape; no ADRs remain pending.
+1. **Finish Stage 15 release prep** below: rerun verification on merged
+   `main`, inspect the merged diff/release notes, and decide whether to
+   tag v1.0.0.
+2. **Cut v1.0.0** if the owner approves: create the release tag, run
+   `goreleaser release --clean`, and publish the GitHub release.
+3. **Defer optional polish to post-v1** rather than blocking release.
 
-**Stage 12 deferrals** (small, can land any time before v1.0.0):
+**Known post-v1 deferrals** (do not block v1.0.0 unless the owner
+explicitly chooses to pull them in):
 
 - **`--continue-host` path normalization for ADR-066.** Currently the
   flag is accepted and prints a stderr hint but does not rewrite
   transcript metadata. Implementing it requires per-agent format
   knowledge (Claude project keys, Codex session IDs, pi sessionDir
   headers). Inline TODO in `internal/sandbox/sessiondata/pull.go`.
-- **af clean --force ADR-067 hook.** suspend + done are covered; clean
-  is a future addition once the clean reaper learns about VM-backed
-  workstreams. No inline TODO yet because clean's interaction with
-  slicer is uncommon.
-
-### Stage 13 reading list — the gap-analysis batch
-
-The owner ran a SPEC-vs-ADR reconciliation pass in branch
-`docs/gap-analysis-v1` (now merged into `main`). Five new ADRs and a
-full SPEC rewrite landed. **None of the gap-analysis commits changed
-any code** — they're documentation-only; existing code keeps
-working. Concrete impact on future code work:
-
-- **ADR-068 (Operational UX contract).** Mostly documents what's
-  already shipped. Concrete commitments going forward:
-    - Every command that ships `--json` carries
-      `{"schema": <int>, "data": {...}}` (per-command schema number).
-    - The exit-code table in §2 (sysexits) is canonical — new error
-      classes must pick a code from the table.
-    - Per-session flock at `~/.local/share/af/v1/sessions/<name>/.af.lock`
-      for mutating ops (currently atomic per-file flock per ADR-037
-      — needs lifting to a session-level lock for consistent semantics
-      across mixed-file ops like `af note --append`, `af stack`).
-    - Tab-completion sources per §5 are mandatory; some of them
-      (sessions, slot names) may need adding.
-- **ADR-069 (Boundary & privacy).** All three sub-decisions are
-  mostly already true; documenting the contract.
-    - **No outbound calls from `af`'s own code.** Worth a `gosec`-style
-      rule that rejects any new `net/http` import outside
-      sub-process invocations.
-    - **Single-machine canonical state.** No code change needed.
-    - **Strict-fail name collisions across active+suspended+archived.**
-      Verify `af create` enforces this. Quick test to add.
-- **ADR-070 (Session selection & inference).** New behaviour:
-    - Resolution order: arg → `--session` → `AF_SESSION` → cwd
-      symlink → fzf picker on stderr (TTY only) → `EX_NOINPUT`.
-    - `AF_SESSION` env var is new; `af create` should
-      `tmux setenv -t <session> AF_SESSION <session>` so panes inherit.
-    - fzf picker is new; falls back to error when stdin/stderr aren't
-      both TTYs or fzf is missing.
-- **ADR-071 (PR state TTL cache).** New behaviour:
-    - `state.toml.[pr]` gains two fields (PROPOSED in ADR-072):
-      `last_refreshed_at`, `last_refresh_error`.
-    - `[pr].refresh_ttl = "10m"` config knob (default 10m).
-    - Refresh policy: `af list` never refreshes; `af status`/`af info`
-      refresh on TTL expiry; `af clean`/`af sync`/`af done` always
-      force-refresh.
-    - New ledger event `pr_state_changed` on flips.
-    - `af pr --refresh` and `af status --refresh` explicit
-      force-refresh paths.
-- **ADR-072 (state.toml schema roll-up).** Aligns the canonical
-  state.toml dump in ADR-037 with what's actually implemented after
-  Stages 9–11 (flat `execution.sandbox_resource_*` fields,
-  `[slicer_wt]` block, `execution.remote_control`). Ships **no new
-  fields** — only catalogues the existing ones. The two `PROPOSED`
-  blocks (`[[session_sync]]`, `[pr].last_refreshed_at`) are forward
-  pointers to ADR-067/ADR-071's implementation work.
-
-Good approach for the next implementor: run release-readiness checks
-(`make check`, `goreleaser check`, `goreleaser release --snapshot --clean`)
-and then decide whether to tag v1.0.0.
-
-- **ADR-073 (`af review`).** New read-only command writing a Markdown
-  PR review report to `.af/reviews/`. Uses ADR-071's completed PR state refresh path and landed in
-  Stage 14 (I14.1–I14.6). Stack: embed
-  immutable system prompt via `//go:embed`, four-layer prompt-append
-  resolution (user config, repo config, repo file, CLI flag), new
-  `[review]` config table, new `internal/gh` helpers wrapping
-  `gh pr view --json` and `gh pr diff`, atomic 0o600 write of the
-  report, ledger event.
+- **`af clean --force` ADR-067 hook.** `suspend` + `done` are covered;
+  `clean` is a future addition once the clean reaper learns about
+  VM-backed workstreams.
 
 **Where to look first**:
 
-- `PROGRESS.md` Session 29 has the full Stage 11 narrative + deferrals.
-- Stage 13 plan below (the only remaining `[ ]` items in this file).
-- For ADR scope: `docs/adr/066-*.md` and `docs/adr/067-*.md`.
-- For the slicer-wt code path that just landed: `internal/sandbox/
-slicerwt.go`, `internal/lifecycle/pull.go`, `cmd/af/pull.go`,
-  and the lease checks scattered across `done.go`, `suspend_resume.go`,
-  `proxy_commands.go`, `status.go`, `info.go`.
+- `PROGRESS.md` Sessions 32–38 summarize the Stage 12–15 merge and
+  release-prep transition.
+- Stage 15 below is the only remaining pre-release checklist.
+- `CHANGELOG.md` `[Unreleased]` contains the v1.0.0 release notes draft.
 
 ---
-
 ## Stage A — Archive v0 docs ✅
 
 Closed at commit `1659d60`.
@@ -720,6 +629,32 @@ Stage 7 (proxy commands + `BodyCmd`) and a green Stage 12/13 baseline.
       `implementation: complete`, update README (add `af review` to command
       table), CHANGELOG (Stage 14 section), PROGRESS (session entry). Add
       `.af/reviews/` line to `.gitignore`. Check off I14.1–I14.6.
+
+---
+
+## Implementation Stage 15 — v1.0.0 release prep
+
+All v1 ADRs are closed. This stage turns the implemented tree into a
+release, without pulling optional polish back into v1 unless the owner
+explicitly chooses to do so.
+
+- [ ] I15.1: Re-run verification on merged `main`:
+      `make check`, `goreleaser check`, and
+      `goreleaser release --snapshot --clean`.
+- [ ] I15.2: Review release notes:
+      `CHANGELOG.md` `[Unreleased]`, README command surface, and
+      `docs/adr/INDEX.md` status table. Confirm they describe the
+      release accurately.
+- [ ] I15.3: Decide whether known post-v1 deferrals stay deferred:
+      ADR-066 `--continue-host` normalization and `af clean --force`
+      auto-sync hook.
+- [ ] I15.4: If approved, cut v1.0.0:
+      create the `v1.0.0` tag, run `goreleaser release --clean`, and
+      publish the GitHub release.
+- [ ] I15.5: Post-release docs update:
+      move `[Unreleased]` notes into a `[1.0.0] - YYYY-MM-DD` block,
+      add a fresh empty `[Unreleased]` block, and record the release in
+      `PROGRESS.md`.
 
 ---
 

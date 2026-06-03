@@ -2178,3 +2178,39 @@ with the implementation after ADR-067 and ADR-071.
 
 All v1 ADRs are closed. Run release-readiness checks (`goreleaser check`
 and a snapshot build) before deciding whether to tag v1.0.0.
+
+
+## 2026-05-22 — Session 38: merged ADR completion branch to main and opened Stage 15
+
+### Goal
+
+Merge the completed Stage 12/13/14 ADR branch back to `main` and update
+tracking files for the next stage.
+
+### Done
+
+- Merged `stage-12-followups-066-067` into `main` with merge commit
+  `1d63290` (`merge: stage 12-14 ADR completion`).
+- The merged tree includes the final ADR-completion commits:
+  - `6ea1391` — ADR-071 multi-command PR refresh wire-up.
+  - `aee6917` — ADR-070 shared session resolution + tmux `AF_SESSION`.
+  - `0bf3e7e` — ADR-068 operational UX contract.
+  - `f292395` — ADR-072 schema roll-up.
+- Confirmed ADR status after merge: 42 `complete`, 1 `n/a` (ADR-032),
+  0 `pending`.
+- Updated `TODO.md` handover to point at the new
+  **Implementation Stage 15 — v1.0.0 release prep** checklist.
+- Updated `README.md` status banner from "Stages 0–12 + Stage 14" to
+  "Stages 0–14 implemented; Stage 15 release prep".
+
+### Verification
+
+Release checks passed on the source branch before merge (`make check`,
+`goreleaser check`, `goreleaser release --snapshot --clean`). The next
+step is to rerun those checks on merged `main` after this tracking-doc
+commit.
+
+### Next
+
+Run Stage 15: verify merged `main`, review release notes, decide whether
+to defer optional polish, then cut v1.0.0 if approved.
