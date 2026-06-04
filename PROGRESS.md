@@ -2299,3 +2299,35 @@ stage, while covering the full command surface before release approval.
 
 The v1.0.0 release remains blocked until the owner reruns the staged
 smoke test and reports the required stages 0–10.
+
+
+## 2026-06-04 — Session 42: version metadata and install iteration path
+
+### Goal
+
+Address owner smoke feedback: `af version` needs report-grade build
+metadata, and `make install` should be a fast iteration path that warns
+about dirty state without breaking the smoke flow.
+
+### Done
+
+- Expanded `af version` from the old one-line `af dev (none, unknown)`
+  shape to a multi-line build report with version, commit, build date,
+  Go runtime version, `os/arch`, and dirty worktree status.
+- Added fallback to Go VCS build metadata (`runtime/debug.ReadBuildInfo`)
+  so vanilla source builds still report the built commit and dirty flag.
+- Updated `make build` / `make install` to pass version ldflags.
+- Added `release-build` and `release/build` aliases for the local build
+  path.
+- Changed `make install` to run the local release build first, warn on a
+  dirty git worktree without failing, and then install with `go install`.
+- Reframed the smoke doc as an owner expectation-check workflow rather
+  than an automated regression harness; Stage 0 now focuses on
+  `make install` plus version metadata, with full release verification
+  called out separately before final approval.
+
+### Verification
+
+- Targeted version tests pass.
+- `make build` produces an `af version` report containing commit, date,
+  Go version, os/arch, and dirty status.

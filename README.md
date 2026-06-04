@@ -279,7 +279,8 @@ hint and falls back to the analysis-only import. Inline TODO in
 ## Building
 
 ```bash
-make build          # ./bin/af
+make build          # ./bin/af with build metadata ldflags
+make install        # build first, warn if dirty, then go install ./cmd/af
 make check          # lint + race test
 make release-snapshot  # cross-compile snapshot via goreleaser
 ```

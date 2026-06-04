@@ -1,4 +1,9 @@
-# af version prints the default development build metadata.
+# af version prints report-grade development build metadata.
 exec af version
-stdout '^af dev \(none, unknown\)$'
+stdout '^af dev$'
+stdout '^  commit: .+'
+stdout '^  date: .+'
+stdout '^  go: go[0-9]'
+stdout '^  os/arch: .+/.+'
+stdout '^  dirty: (true|false)$'
 ! stderr .

@@ -4,19 +4,29 @@ GOFUMPT_VERSION       = 0.7.0
 GOIMPORTS_VERSION     = 0.38.0
 GORELEASER_VERSION    = 2.5.0
 
+VERSION_PKG   = github.com/kakkoyun/af/internal/version
+BUILD_VERSION ?= dev
+GIT_COMMIT    ?= $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo none)
+BUILD_DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LD_FLAGS      ?= -X $(VERSION_PKG).Version=$(BUILD_VERSION) -X $(VERSION_PKG).Commit=$(GIT_COMMIT) -X $(VERSION_PKG).Date=$(BUILD_DATE)
+
 GO         ?= go
 GOLANGCI   ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_LINT_VERSION)
 GOFUMPT    ?= $(GO) run mvdan.cc/gofumpt@v$(GOFUMPT_VERSION)
 GOIMPORTS  ?= $(GO) run golang.org/x/tools/cmd/goimports@v$(GOIMPORTS_VERSION)
 GORELEASER ?= $(GO) run github.com/goreleaser/goreleaser/v2@v$(GORELEASER_VERSION)
 
-.PHONY: all build test test-property lint fmt fmt-check check install \
-	release-snapshot snapshot clean
+.PHONY: all build release-build release/build test test-property lint fmt fmt-check \
+	check install warn-dirty release-snapshot snapshot clean
 
 all: check
 
 build:
-	$(GO) build -o bin/af ./cmd/af
+	$(GO) build -ldflags '$(LD_FLAGS)' -o bin/af ./cmd/af
+
+release-build: build
+
+release/build: build
 
 test:
 	$(GO) test -race -count=1 -shuffle=on ./...
@@ -37,8 +47,14 @@ fmt-check:
 
 check: fmt-check lint test
 
-install:
-	$(GO) install ./cmd/af
+install: warn-dirty release-build
+	$(GO) install -ldflags '$(LD_FLAGS)' ./cmd/af
+
+warn-dirty:
+	@if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && [ -n "$$(git status --porcelain)" ]; then \
+		printf '%s\n' 'warning: working tree has uncommitted changes; installed af will report dirty: true' >&2; \
+		printf '%s\n' 'warning: commit or stash changes before release approval if this was not intentional' >&2; \
+	fi
 
 release-snapshot:
 	$(GORELEASER) release --snapshot --clean --config .goreleaser.yaml

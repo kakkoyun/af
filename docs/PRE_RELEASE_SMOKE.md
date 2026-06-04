@@ -1,8 +1,11 @@
 # Pre-release smoke test — v1.0.0
 
-Run this before approving `v1.0.0`. The required path uses a temporary
-`$HOME`, a temporary git repository, and the release-candidate `af`
-installed on your normal `PATH`. It should not touch your real af state.
+Run this before approving `v1.0.0`. This is an owner-run expectation
+check, not an automated regression harness: run a stage, compare the
+output with what you expect, then report pass/fail/discrepancy. The
+required path uses a temporary `$HOME`, a temporary git repository, and
+the release-candidate `af` installed on your normal `PATH`. It should not
+touch your real af state.
 
 > **Release gate:** do not tag `v1.0.0` and do not run
 > `goreleaser release --clean` until the owner reports every required
@@ -34,11 +37,9 @@ set -euo pipefail
 git branch --show-current | grep '^main$'
 git status --short
 
-make check
-goreleaser check --config .goreleaser.yaml
-goreleaser release --snapshot --clean --config .goreleaser.yaml
-
-# Direct system/user install. This overwrites the `af` binary in Go's install bin.
+# Direct user install for iteration. `make install` runs the release-build
+# target first, warns if the git worktree is dirty, and then installs via
+# `go install` without stopping your smoke flow.
 make install
 
 GO_BIN="$(go env GOBIN)"
@@ -50,7 +51,10 @@ hash -r
 
 AF="$GO_BIN/af"
 test -x "$AF"
-"$AF" version
+"$AF" version | tee /tmp/af-v1-version.txt
+grep '^  commit: ' /tmp/af-v1-version.txt
+grep '^  go: ' /tmp/af-v1-version.txt
+grep '^  os/arch: ' /tmp/af-v1-version.txt
 
 AF_SMOKE_ENV="${AF_SMOKE_ENV:-/tmp/af-v1-smoke.env}"
 cat > "$AF_SMOKE_ENV" <<SMOKE_ENV
@@ -64,9 +68,20 @@ printf 'Smoke env saved to %s\n' "$AF_SMOKE_ENV"
 
 Expected:
 
-- `make check`, `goreleaser check`, and snapshot build all pass.
-- `af version` prints the candidate version/build metadata.
-- `git status --short` is empty. If it is not empty, report it.
+- `make install` completes. If the worktree is dirty, it warns but does
+  not fail.
+- `af version` prints commit, date, Go version, `os/arch`, and dirty
+  status. This metadata is what you should include in bug reports.
+- `git status --short` is informational for this manual smoke pass. If it
+  is not empty and you did not expect that, report it as a discrepancy.
+
+Before final release approval, run the full release verification once:
+
+```bash
+make check
+goreleaser check --config .goreleaser.yaml
+goreleaser release --snapshot --clean --config .goreleaser.yaml
+```
 
 Optional hard install into a system directory, if you specifically want
 `/opt/homebrew/bin/af` or `/usr/local/bin/af` to be the tested binary:
@@ -203,7 +218,10 @@ cd "$AF_SMOKE_REPO"
 
 "$AF" --help | grep 'Available Commands'
 "$AF" help doctor | grep 'Probe'
-"$AF" version
+"$AF" version | tee /tmp/af-v1-version.txt
+grep '^  commit: ' /tmp/af-v1-version.txt
+grep '^  go: ' /tmp/af-v1-version.txt
+grep '^  os/arch: ' /tmp/af-v1-version.txt
 
 for cmd in \
   agent auth clean completions config control create diff doctor done \

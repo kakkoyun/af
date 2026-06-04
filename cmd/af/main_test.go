@@ -22,9 +22,16 @@ func TestRunExecutesVersionCommand(t *testing.T) {
 		t.Fatalf("run() error = %v, want nil", err)
 	}
 
-	want := "af 1.2.3 (abc1234, 2026-05-09)\n"
-	if got := stdout.String(); got != want {
-		t.Fatalf("stdout = %q, want %q", got, want)
+	for _, want := range []string{
+		"af 1.2.3",
+		"commit: abc1234",
+		"date: 2026-05-09",
+		"go:",
+		"os/arch:",
+	} {
+		if got := stdout.String(); !strings.Contains(got, want) {
+			t.Fatalf("stdout = %q, want it to contain %q", got, want)
+		}
 	}
 
 	if got := stderr.String(); got != "" {

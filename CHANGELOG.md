@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`af version` build report**: version output is now multi-line and
+  includes commit, build date, Go runtime version, `os/arch`, and dirty
+  worktree status. Source builds fall back to Go VCS build metadata when
+  release ldflags are absent.
+- **`make install` iteration path**: `make install` now runs the local
+  release-build target first, warns (without failing) on a dirty git
+  worktree, and installs via `go install` with build metadata ldflags.
+
 ### Fixed
 
 - **`af doctor` smoke-test finding**: local doctor output now checks

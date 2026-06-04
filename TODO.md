@@ -651,6 +651,10 @@ explicitly chooses to do so.
       granular, stage-by-stage, full-command smoke procedure with direct
       `make install`/system-install guidance and an explicit
       pass/fail/discrepancy report protocol.
+- [x] I15.1d: Smoke-test findings fixed: `af version` now reports
+      commit/date/Go/os-arch/dirty metadata for bug reports, and
+      `make install` builds first, warns on dirty git state without
+      failing, then installs with build metadata.
 - [ ] I15.2: Review release notes:
       `CHANGELOG.md` `[Unreleased]`, README command surface, and
       `docs/adr/INDEX.md` status table. Confirm they describe the
