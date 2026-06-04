@@ -66,3 +66,46 @@ func TestDoctor_RemoteUsesSSHHostInHeading(t *testing.T) {
 		t.Fatalf("doctor --remote heading missing host; output:\n%s", stdout)
 	}
 }
+
+func TestDoctor_LocalReportsObsidianVaultAccessibility(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	bin := filepath.Join(home, "bin")
+	for _, name := range []string{"git", "tmux", "pi"} {
+		testutil.WriteExecutable(t, bin, name, "echo "+name+" version test")
+	}
+	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+
+	goodVault := filepath.Join(home, "Vaults", "personal")
+	missingVault := filepath.Join(home, "Vaults", "missing")
+	err := os.MkdirAll(goodVault, 0o750)
+	if err != nil {
+		t.Fatalf("mkdir good vault: %v", err)
+	}
+	configPath := filepath.Join(home, ".config", "af", "config.toml")
+	err = os.MkdirAll(filepath.Dir(configPath), 0o750)
+	if err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	body := "schema_version = 1\n\n[obsidian.vaults]\npersonal = \"" + goodVault + "\"\nmissing = \"" + missingVault + "\"\n"
+	err = os.WriteFile(configPath, []byte(body), 0o600)
+	if err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	stdout, _, err := executeCommand(t, newRootCmd(), "doctor")
+	if err != nil {
+		t.Fatalf("doctor: %v\nstdout:\n%s", err, stdout)
+	}
+	for _, want := range []string{
+		"✓ obsidian:personal",
+		goodVault,
+		"⚠ obsidian:missing",
+		"update [obsidian.vaults].missing",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("doctor output missing %q; full output:\n%s", want, stdout)
+		}
+	}
+}

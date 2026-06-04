@@ -47,19 +47,46 @@ func (SystemLookup) LookPath(_ context.Context, name string) (string, bool) {
 	return path, true
 }
 
-// Version invokes `binary --version` and returns the trimmed first line
-// of output. It returns an empty string on any failure (best-effort).
+// Version invokes the best-known version command for binary and returns a
+// concise version line. Most tools support `--version`; tmux uses `-V`,
+// and slicer prints its version from `slicer version` after a banner.
+// It returns an empty string on any failure (best-effort).
 func (SystemLookup) Version(ctx context.Context, binary string) string {
-	cmd := exec.CommandContext(ctx, binary, "--version")
-	out, err := cmd.Output()
-	if err != nil {
+	cmd := exec.CommandContext(ctx, binary, versionArgs(binary)...) //nolint:gosec // Doctor probes fixed binary names from the typed probe set; no shell is used.
+	out, err := cmd.CombinedOutput()
+	if err != nil && len(out) == 0 {
 		return ""
 	}
-	scanner := bufio.NewScanner(strings.NewReader(string(out)))
-	if scanner.Scan() {
-		return strings.TrimSpace(scanner.Text())
+	return parseVersionOutput(binary, string(out))
+}
+
+func versionArgs(binary string) []string {
+	switch binary {
+	case "tmux":
+		return []string{"-V"}
+	case "slicer":
+		return []string{"version"}
+	default:
+		return []string{"--version"}
 	}
-	return ""
+}
+
+func parseVersionOutput(binary, output string) string {
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	first := ""
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		if first == "" {
+			first = line
+		}
+		if binary == "slicer" && strings.HasPrefix(line, "Version:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "Version:"))
+		}
+	}
+	return first
 }
 
 // DetectPlatform returns the local Platform by inspecting GOOS and, on

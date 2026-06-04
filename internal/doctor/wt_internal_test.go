@@ -7,10 +7,6 @@ import (
 	"testing"
 )
 
-// slicerProbeName is the name of the slicer probe registered in
-// DefaultProbes; used by tests in this file to locate its Result.
-const slicerProbeName = "slicer"
-
 // fakeLookupInternal mirrors the test-package fakeLookup but lives in
 // the doctor package so this file can access the unexported
 // slicerWTChecker seam.

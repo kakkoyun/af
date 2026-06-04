@@ -44,8 +44,23 @@ git add README.md
 git commit -m 'initial smoke commit'
 
 $AF setup --skip-completions --skip-gitignore
-$AF config show | grep -E '^schema_version = 1|worktree_root'
-$AF doctor
+mkdir -p "$HOME/Vaults/personal"
+cat > "$HOME/.config/af/config.toml" <<SMOKE_CONFIG
+schema_version = 1
+
+[obsidian.vaults]
+personal = "$HOME/Vaults/personal"
+SMOKE_CONFIG
+
+$AF config show | grep -E '^schema_version = 1|worktree_root|personal = ' 
+$AF doctor | tee "$SMOKE_ROOT/doctor.txt"
+grep -E '✓ tmux +\(.+version ' "$SMOKE_ROOT/doctor.txt"
+grep -E '✓ pi +\(.+version ' "$SMOKE_ROOT/doctor.txt"
+# slicer is optional, but when installed doctor should report its version too.
+if grep -q '✓ slicer' "$SMOKE_ROOT/doctor.txt"; then
+  grep -E '✓ slicer +\(.+version ' "$SMOKE_ROOT/doctor.txt"
+fi
+grep '✓ obsidian:personal' "$SMOKE_ROOT/doctor.txt"
 ```
 
 ## 2. Exercise local lifecycle and state discovery

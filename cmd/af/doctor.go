@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/spf13/cobra"
 
@@ -54,6 +55,7 @@ func runDoctorLocal(ctx context.Context, cmd *cobra.Command, cfg config.Config) 
 	probes := doctor.DefaultProbes(cfg.Doctor.ExtraTools)
 	platform := doctor.DetectPlatform(localOSRelease{})
 	report := doctor.Run(ctx, doctor.SystemLookup{}, platform, probes)
+	appendObsidianVaultResults(&report, cfg)
 
 	err := doctor.Render(cmd.OutOrStdout(), report, "Local environment:")
 	if err != nil {
@@ -63,6 +65,52 @@ func runDoctorLocal(ctx context.Context, cmd *cobra.Command, cfg config.Config) 
 		return fmt.Errorf("doctor: %w", errDoctorMissingTools)
 	}
 	return nil
+}
+
+func appendObsidianVaultResults(report *doctor.Report, cfg config.Config) {
+	if len(cfg.Obsidian.Vaults) == 0 {
+		return
+	}
+	names := make([]string, 0, len(cfg.Obsidian.Vaults))
+	for name := range cfg.Obsidian.Vaults {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		path := cfg.Obsidian.Vaults[name]
+		found, reason := obsidianVaultAccessible(path)
+		probe := doctor.Probe{
+			Name:   "obsidian:" + name,
+			Tier:   doctor.TierNice,
+			Reason: reason,
+			Hints: map[doctor.Platform]string{
+				doctor.PlatformOther: "create vault directory or update [obsidian.vaults]." + name,
+			},
+		}
+		report.Results = append(report.Results, doctor.Result{
+			Probe: probe,
+			Path:  path,
+			Found: found,
+		})
+	}
+}
+
+func obsidianVaultAccessible(path string) (bool, string) {
+	if path == "" {
+		return false, "configured Obsidian vault has an empty path"
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return false, "configured Obsidian vault is not accessible"
+	}
+	if !info.IsDir() {
+		return false, "configured Obsidian vault path is not a directory"
+	}
+	_, err = os.ReadDir(path)
+	if err != nil {
+		return false, "configured Obsidian vault is not readable"
+	}
+	return true, "configured Obsidian vault is accessible"
 }
 
 func loadDoctorConfig(ctx context.Context, opts *rootOptions) (config.Config, error) {

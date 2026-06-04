@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`af doctor` smoke-test finding**: local doctor output now checks
+  configured Obsidian vault accessibility (`[obsidian.vaults]`) and
+  reports tmux/pi/slicer versions using tool-specific version commands
+  (`tmux -V`, `pi --version`, `slicer version`).
+
 ### Added
 
 #### Stage 14 — ADR-073 `af review`

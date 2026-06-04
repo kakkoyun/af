@@ -2237,3 +2237,35 @@ candidate before any v1.0.0 tag is cut.
 
 Do **not** tag v1.0.0 or run `goreleaser release --clean` until the
 owner reports the smoke-test result.
+
+
+## 2026-05-22 — Session 40: smoke-test finding — doctor Obsidian and versions
+
+### Goal
+
+Address the owner smoke-test feedback before release: `af doctor` should
+report configured Obsidian vault accessibility and should include versions
+for tmux, pi, and slicer.
+
+### Done
+
+- Added failing tests for configured Obsidian vault accessibility in
+  `af doctor` output.
+- Added failing tests for tool-specific version commands:
+  `tmux -V`, `pi --version`, and `slicer version` (parsing the
+  `Version:` line after slicer's banner).
+- Implemented local doctor Obsidian vault checks from `[obsidian.vaults]`:
+  accessible directories render as `✓ obsidian:<name>` and inaccessible
+  configured paths render as optional warnings with a config hint.
+- Updated `SystemLookup.Version` to use tool-specific version commands
+  for tmux and slicer while preserving the generic `--version` path for
+  pi and other tools.
+- Updated `docs/PRE_RELEASE_SMOKE.md` so the owner smoke test asserts
+  doctor reports tmux/pi/slicer versions (slicer only when installed) and
+  `✓ obsidian:personal`.
+- Updated `CHANGELOG.md` and Stage 15 tracking with the smoke-test fix.
+
+### Release gate
+
+The v1.0.0 release remains blocked until the owner reruns the smoke test
+and reports pass/fail.

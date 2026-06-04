@@ -23,6 +23,8 @@ import (
 // Tier classifies how critical a probed tool is.
 type Tier int
 
+const slicerProbeName = "slicer"
+
 const (
 	// TierMust marks tools whose absence fails af's core operation.
 	TierMust Tier = iota
@@ -242,7 +244,7 @@ func Run(ctx context.Context, lookup Lookup, platform Platform, probes []Probe) 
 // Mutates results in place.
 func annotateSlicerWT(ctx context.Context, results []Result) {
 	for i := range results {
-		if results[i].Probe.Name != "slicer" || !results[i].Found {
+		if results[i].Probe.Name != slicerProbeName || !results[i].Found {
 			continue
 		}
 		ok, hint := slicerWTChecker(ctx)
@@ -350,6 +352,9 @@ func missingSuffix(result Result, groupSatisfied map[string]bool) string {
 		return "not in PATH (group satisfied by another agent)"
 	}
 	if result.Probe.Tier == TierShould || result.Probe.Tier == TierNice {
+		if result.Path != "" {
+			return fmt.Sprintf("%s (optional; %s)", result.Path, result.Probe.Reason)
+		}
 		return fmt.Sprintf("not in PATH (optional; %s)", result.Probe.Reason)
 	}
 	return "not in PATH"

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -167,4 +169,54 @@ func contains(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func TestSystemLookup_VersionUsesToolSpecificCommands(t *testing.T) {
+	bin := t.TempDir()
+	writeVersionScript(t, bin, "tmux", `#!/bin/sh
+if [ "$1" = "-V" ]; then echo "tmux 3.6b"; exit 0; fi
+echo "bad tmux args: $*" >&2
+exit 1
+`)
+	writeVersionScript(t, bin, "pi", `#!/bin/sh
+if [ "$1" = "--version" ]; then echo "0.78.0"; exit 0; fi
+echo "bad pi args: $*" >&2
+exit 1
+`)
+	writeVersionScript(t, bin, "slicer", `#!/bin/sh
+if [ "$1" = "version" ]; then
+  echo ""
+  echo "ASCII banner"
+  echo "Version: 0.1.172-deadbeef"
+  exit 0
+fi
+echo "bad slicer args: $*" >&2
+exit 1
+`)
+	t.Setenv("PATH", bin)
+
+	lookup := doctor.SystemLookup{}
+	cases := map[string]string{
+		"tmux":   "tmux 3.6b",
+		"pi":     "0.78.0",
+		"slicer": "0.1.172-deadbeef",
+	}
+	for binary, want := range cases {
+		if got := lookup.Version(context.Background(), binary); got != want {
+			t.Fatalf("Version(%q) = %q, want %q", binary, got, want)
+		}
+	}
+}
+
+func writeVersionScript(t *testing.T, dir, name, body string) {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	err := os.WriteFile(path, []byte(body), 0o600)
+	if err != nil {
+		t.Fatalf("write script %s: %v", name, err)
+	}
+	err = os.Chmod(path, 0o755) //nolint:gosec // Test executable scripts must be runnable from PATH.
+	if err != nil {
+		t.Fatalf("chmod script %s: %v", name, err)
+	}
 }
