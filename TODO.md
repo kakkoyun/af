@@ -641,6 +641,9 @@ explicitly chooses to do so.
 - [ ] I15.1: Re-run verification on merged `main`:
       `make check`, `goreleaser check`, and
       `goreleaser release --snapshot --clean`.
+- [ ] I15.1a: Owner smoke-test gate: send `docs/PRE_RELEASE_SMOKE.md`
+      to the owner and wait for pass/fail results before tagging or
+      running `goreleaser release --clean`.
 - [ ] I15.2: Review release notes:
       `CHANGELOG.md` `[Unreleased]`, README command surface, and
       `docs/adr/INDEX.md` status table. Confirm they describe the

@@ -2214,3 +2214,26 @@ commit.
 
 Run Stage 15: verify merged `main`, review release notes, decide whether
 to defer optional polish, then cut v1.0.0 if approved.
+
+
+## 2026-05-22 — Session 39: added owner pre-release smoke-test gate
+
+### Goal
+
+Give the owner a concrete command list to validate the merged release
+candidate before any v1.0.0 tag is cut.
+
+### Done
+
+- Added `docs/PRE_RELEASE_SMOKE.md` with a copy/paste smoke-test flow:
+  candidate build, isolated temp HOME/repo, setup/config/doctor, local
+  lifecycle, JSON envelopes, ADR-070 session resolution, completion
+  sources, exit-code check, stack metadata, cleanup, and optional real
+  GitHub/slicer integration checks.
+- Updated Stage 15 in `TODO.md` with an explicit owner smoke-test gate
+  (`I15.1a`).
+
+### Release gate
+
+Do **not** tag v1.0.0 or run `goreleaser release --clean` until the
+owner reports the smoke-test result.
