@@ -2269,3 +2269,33 @@ for tmux, pi, and slicer.
 
 The v1.0.0 release remains blocked until the owner reruns the smoke test
 and reports pass/fail.
+
+
+## 2026-05-22 — Session 41: expanded staged pre-release smoke procedure
+
+### Goal
+
+Make the owner smoke test granular enough to run and report stage by
+stage, while covering the full command surface before release approval.
+
+### Done
+
+- Rewrote `docs/PRE_RELEASE_SMOKE.md` as staged smoke gates:
+  build/install, isolated environment, setup/config/doctor/completions,
+  command help coverage, auth lifecycle, local workstream lifecycle,
+  session resolution, agent slots, stack/sync, expected non-slicer
+  failures, hermetic review/control fakes, cleanup, clean, and retro.
+- Added direct install guidance via `make install`, plus an optional hard
+  install into `/opt/homebrew/bin/af` or `/usr/local/bin/af`.
+- Added an explicit report protocol: run one stage at a time and report
+  `PASS`, `FAIL`, or `DISCREPANCY`; maintainers fix implementation/docs
+  or create/amend an ADR when expectations conflict with design.
+- Added optional real-integration stages for GitHub PR review, slicer,
+  and remote doctor/control paths.
+- Added a command coverage matrix mapping every public command to a
+  required or optional smoke stage.
+
+### Release gate
+
+The v1.0.0 release remains blocked until the owner reruns the staged
+smoke test and reports the required stages 0–10.

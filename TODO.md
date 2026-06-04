@@ -647,6 +647,10 @@ explicitly chooses to do so.
 - [x] I15.1b: Smoke-test finding fixed: `af doctor` now checks
       configured Obsidian vault accessibility and reports tmux/pi/slicer
       versions with tool-specific version commands.
+- [x] I15.1c: Expanded `docs/PRE_RELEASE_SMOKE.md` into a
+      granular, stage-by-stage, full-command smoke procedure with direct
+      `make install`/system-install guidance and an explicit
+      pass/fail/discrepancy report protocol.
 - [ ] I15.2: Review release notes:
       `CHANGELOG.md` `[Unreleased]`, README command surface, and
       `docs/adr/INDEX.md` status table. Confirm they describe the
