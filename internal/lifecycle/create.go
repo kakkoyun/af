@@ -217,6 +217,10 @@ func validateCreateOpts(opts CreateOptions) error {
 	case opts.FromBranch == "":
 		return fmt.Errorf("%w: empty from-branch", ErrCreate)
 	}
+	err := workstream.ValidateSessionName(opts.Name)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrCreate, err)
+	}
 	return nil
 }
 
@@ -261,7 +265,10 @@ func checkNameCollision(stateDir, archiveDir, name string) error {
 		if root == "" {
 			continue
 		}
-		candidate := filepath.Join(root, name)
+		candidate, err := containedJoin(root, name)
+		if err != nil {
+			return err
+		}
 		info, err := os.Stat(candidate)
 		if err == nil && info.IsDir() {
 			return fmt.Errorf("%w: %q already exists at %s", ErrNameCollision, name, candidate)
@@ -270,9 +277,24 @@ func checkNameCollision(stateDir, archiveDir, name string) error {
 	return nil
 }
 
+// containedJoin joins name onto root and rejects results that escape
+// root. It backstops workstream.ValidateSessionName for any caller that
+// reaches path construction without opts validation.
+func containedJoin(root, name string) (string, error) {
+	candidate := filepath.Join(root, filepath.FromSlash(name))
+	rel, err := filepath.Rel(root, candidate)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("%w: %q escapes %s", workstream.ErrInvalidSessionName, name, root)
+	}
+	return candidate, nil
+}
+
 func writeInitialState(opts CreateOptions, resolved resolvedNames, plan git.WorktreePlan) (string, string, error) {
-	sessionDir := filepath.Join(opts.StateDir, resolved.name)
-	err := os.MkdirAll(sessionDir, stateDirPerm)
+	sessionDir, err := containedJoin(opts.StateDir, resolved.name)
+	if err != nil {
+		return "", "", err
+	}
+	err = os.MkdirAll(sessionDir, stateDirPerm)
 	if err != nil {
 		return "", "", fmt.Errorf("create session dir: %w", err)
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/kakkoyun/af/internal/mux"
 	"github.com/kakkoyun/af/internal/obsidian"
 	"github.com/kakkoyun/af/internal/session"
+	"github.com/kakkoyun/af/internal/workstream"
 )
 
 // repoSlug is a fixed logical identifier used across the create-test
@@ -307,5 +308,51 @@ func TestCreate_AllowsFreshNameWithEmptyArchiveDir(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("Create with empty ArchiveDir: %v", err)
+	}
+}
+
+// TestCreate_RejectsTraversalNames verifies ADR-069 collision checks
+// cannot be bypassed with names that escape the state root or would
+// produce malformed git refs.
+func TestCreate_RejectsTraversalNames(t *testing.T) {
+	home := t.TempDir()
+	gitRoot := filepath.Join(home, "repo")
+	mkdirT(t, gitRoot)
+	stateDir := filepath.Join(home, "sessions")
+
+	for _, name := range []string{"../evil", "a/../../b", "/abs", "-rf", "a b"} {
+		t.Run(name, func(t *testing.T) {
+			_, err := lifecycle.Create(context.Background(), lifecycle.CreateDeps{
+				Git:   git.NewFakeRunner(),
+				Mux:   mux.NewFakeMultiplexer(),
+				Agent: agent.NewFake("pi"),
+				Notes: obsidian.NewMemoryStore(),
+			}, lifecycle.CreateOptions{
+				Name:         name,
+				FromBranch:   "main",
+				GitRoot:      gitRoot,
+				RepoSlug:     repoSlug(),
+				WorktreeRoot: filepath.Join(home, "wt"),
+				StateDir:     stateDir,
+				AgentName:    "pi",
+				Now:          time.Date(2026, 7, 3, 0, 0, 0, 0, time.UTC),
+			})
+			if !errors.Is(err, lifecycle.ErrCreate) {
+				t.Fatalf("want ErrCreate, got %v", err)
+			}
+			if !errors.Is(err, workstream.ErrInvalidSessionName) {
+				t.Fatalf("want ErrInvalidSessionName, got %v", err)
+			}
+			// Nothing may leak outside (or inside) the state root.
+			entries, readErr := os.ReadDir(home)
+			if readErr != nil {
+				t.Fatalf("read home: %v", readErr)
+			}
+			for _, entry := range entries {
+				if entry.Name() != "repo" {
+					t.Fatalf("unexpected entry %q created under home", entry.Name())
+				}
+			}
+		})
 	}
 }
