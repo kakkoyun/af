@@ -3,6 +3,7 @@ package sandbox_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/kakkoyun/af/internal/sandbox"
@@ -61,26 +62,36 @@ func TestFake_CancelledContextRejectsOperations(t *testing.T) {
 	}{
 		{name: "launch", run: func() error {
 			_, launchErr := fake.Launch(ctx, sandbox.LaunchOpts{Workstream: "other"})
-			return launchErr
+			if launchErr != nil {
+				return fmt.Errorf("launch: %w", launchErr)
+			}
+			return nil
 		}},
 		{name: "attach", run: func() error {
 			return fake.Attach(ctx, handle)
 		}},
 		{name: "health", run: func() error {
 			_, healthErr := fake.IsHealthy(ctx, handle)
-			return healthErr
+			if healthErr != nil {
+				return fmt.Errorf("is healthy: %w", healthErr)
+			}
+			return nil
 		}},
 		{name: "teardown", run: func() error {
 			return fake.Teardown(ctx, handle)
 		}},
 		{name: "list", run: func() error {
 			_, listErr := fake.List(ctx)
-			return listErr
+			if listErr != nil {
+				return fmt.Errorf("list: %w", listErr)
+			}
+			return nil
 		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.run(); !errors.Is(err, context.Canceled) {
+			err := tt.run()
+			if !errors.Is(err, context.Canceled) {
 				t.Fatalf("error = %v, want context.Canceled", err)
 			}
 		})

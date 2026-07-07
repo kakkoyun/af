@@ -67,20 +67,27 @@ func TestEnvelope_Write_SortedEscapedEntries(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "sub", "agent.env")
-			env := secret.Envelope{Path: path, Entries: tt.entries}
-			err := env.Write()
-			if err != nil {
-				t.Fatalf("Write() error = %v", err)
-			}
-			body, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatalf("ReadFile() error = %v", err)
-			}
-			if string(body) != tt.want {
-				t.Fatalf("Write() body = %q, want %q", body, tt.want)
-			}
+			assertEnvelopeWrite(t, tt.entries, tt.want)
 		})
+	}
+}
+
+// assertEnvelopeWrite writes the entries to a fresh envelope file and
+// verifies the resulting body byte-for-byte.
+func assertEnvelopeWrite(t *testing.T, entries map[string]string, want string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "sub", "agent.env")
+	env := secret.Envelope{Path: path, Entries: entries}
+	err := env.Write()
+	if err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	body, err := os.ReadFile(path) //nolint:gosec // test path under t.TempDir.
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(body) != want {
+		t.Fatalf("Write() body = %q, want %q", body, want)
 	}
 }
 
@@ -147,26 +154,30 @@ func TestEnvelope_Delete(t *testing.T) {
 	t.Run("removes existing file", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "agent.env")
 		env := secret.Envelope{Path: path, Entries: map[string]string{"KEY": "value"}}
-		if err := env.Write(); err != nil {
+		err := env.Write()
+		if err != nil {
 			t.Fatalf("Write() error = %v", err)
 		}
-		if err := env.Delete(); err != nil {
+		err = env.Delete()
+		if err != nil {
 			t.Fatalf("Delete() error = %v", err)
 		}
-		_, err := os.Stat(path)
+		_, err = os.Stat(path)
 		if !os.IsNotExist(err) {
 			t.Fatalf("Stat(deleted) error = %v, want not-exist", err)
 		}
 	})
 	t.Run("missing file is not an error", func(t *testing.T) {
 		env := secret.Envelope{Path: filepath.Join(t.TempDir(), "missing.env")}
-		if err := env.Delete(); err != nil {
+		err := env.Delete()
+		if err != nil {
 			t.Fatalf("Delete(missing) error = %v", err)
 		}
 	})
 	t.Run("empty path is a no-op", func(t *testing.T) {
 		env := secret.Envelope{}
-		if err := env.Delete(); err != nil {
+		err := env.Delete()
+		if err != nil {
 			t.Fatalf("Delete(empty path) error = %v", err)
 		}
 	})
@@ -177,7 +188,8 @@ func TestEnvelope_Delete(t *testing.T) {
 			t.Fatalf("WriteFile(child) error = %v", err)
 		}
 		env := secret.Envelope{Path: dir}
-		if err := env.Delete(); err == nil {
+		err = env.Delete()
+		if err == nil {
 			t.Fatal("Delete(non-empty dir) error = nil, want failure")
 		}
 	})

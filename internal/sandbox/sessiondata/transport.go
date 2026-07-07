@@ -132,7 +132,8 @@ func (e ExecSlicer) binary() string {
 	return e.Binary
 }
 
-func (e ExecSlicer) runner() sandbox.Runner { //nolint:ireturn // Factory returns the sandbox.Runner interface; matches sandbox.NewProvider's pattern.
+//nolint:ireturn // Defaulting helper intentionally returns the Runner interface.
+func (e ExecSlicer) runner() sandbox.Runner {
 	if e.Runner == nil {
 		return sandbox.ExecRunner{}
 	}

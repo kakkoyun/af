@@ -3,6 +3,7 @@ package secret_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/kakkoyun/af/internal/secret"
@@ -22,13 +23,25 @@ func TestMemoryKeyring_CancelledContext(t *testing.T) {
 	store := secret.NewMemoryKeyring()
 
 	tests := []struct {
-		name string
 		call func() error
+		name string
 	}{
 		{name: "Set", call: func() error { return store.Set(ctx, "key", "value") }},
-		{name: "Get", call: func() error { _, err := store.Get(ctx, "key"); return err }},
+		{name: "Get", call: func() error {
+			_, err := store.Get(ctx, "key")
+			if err != nil {
+				return fmt.Errorf("get: %w", err)
+			}
+			return nil
+		}},
 		{name: "Delete", call: func() error { return store.Delete(ctx, "key") }},
-		{name: "List", call: func() error { _, err := store.List(ctx); return err }},
+		{name: "List", call: func() error {
+			_, err := store.List(ctx)
+			if err != nil {
+				return fmt.Errorf("list: %w", err)
+			}
+			return nil
+		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

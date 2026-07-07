@@ -3,6 +3,7 @@ package sandbox_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os/exec"
 	"reflect"
 	"strings"
@@ -11,9 +12,15 @@ import (
 	"github.com/kakkoyun/af/internal/sandbox"
 )
 
+// slicerName is the provider binary name asserted throughout these tests.
+const slicerName = "slicer"
+
+// errRunnerBoom is a sentinel runner failure used by provider tests.
+var errRunnerBoom = errors.New("runner boom")
+
 func TestProvider_Name(t *testing.T) {
 	provider := sandbox.NewSlicer()
-	if got := provider.Name(); got != "slicer" {
+	if got := provider.Name(); got != slicerName {
 		t.Fatalf("Name() = %q, want slicer", got)
 	}
 }
@@ -38,7 +45,7 @@ func TestProvider_IsAvailable_CancelledContext(t *testing.T) {
 
 func TestNewSlicerProvider_NilRunnerDefaultsToExec(t *testing.T) {
 	provider := sandbox.NewSlicerProvider(sandbox.SlicerOptions{}, nil)
-	if got := provider.Name(); got != "slicer" {
+	if got := provider.Name(); got != slicerName {
 		t.Fatalf("Name() = %q, want slicer", got)
 	}
 }
@@ -116,7 +123,6 @@ func TestProvider_ListSortsHandlesAndSetsAttachCmd(t *testing.T) {
 
 func TestProvider_OperationsWrapRunnerErrors(t *testing.T) {
 	ctx := context.Background()
-	sentinel := errors.New("runner boom")
 	handle := &sandbox.Handle{ID: "vm-1"}
 
 	tests := []struct {
@@ -131,7 +137,10 @@ func TestProvider_OperationsWrapRunnerErrors(t *testing.T) {
 			if healthy {
 				t.Error("IsHealthy() = true on runner error, want false")
 			}
-			return err
+			if err != nil {
+				return fmt.Errorf("is healthy: %w", err)
+			}
+			return nil
 		}},
 		{name: "teardown", run: func(provider sandbox.Provider) error {
 			return provider.Teardown(ctx, handle)
@@ -141,15 +150,18 @@ func TestProvider_OperationsWrapRunnerErrors(t *testing.T) {
 			if handles != nil {
 				t.Errorf("List() = %#v on runner error, want nil", handles)
 			}
-			return err
+			if err != nil {
+				return fmt.Errorf("list: %w", err)
+			}
+			return nil
 		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider := sandbox.NewSlicerWithRunner(&fakeRunner{err: sentinel})
+			provider := sandbox.NewSlicerWithRunner(&fakeRunner{err: errRunnerBoom})
 			err := tt.run(provider)
-			if !errors.Is(err, sentinel) {
-				t.Fatalf("error = %v, want wrapped %v", err, sentinel)
+			if !errors.Is(err, errRunnerBoom) {
+				t.Fatalf("error = %v, want wrapped %v", err, errRunnerBoom)
 			}
 		})
 	}

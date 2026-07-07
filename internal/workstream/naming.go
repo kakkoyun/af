@@ -54,11 +54,13 @@ func ValidateSessionName(name string) error {
 	if len(name) > maxSessionNameBytes {
 		return fmt.Errorf("%w: longer than %d bytes", ErrInvalidSessionName, maxSessionNameBytes)
 	}
-	if err := validateSessionNameChars(name); err != nil {
+	err := validateSessionNameChars(name)
+	if err != nil {
 		return err
 	}
 	for _, element := range strings.Split(name, "/") {
-		if err := validateSessionNameElement(element); err != nil {
+		err = validateSessionNameElement(element)
+		if err != nil {
 			return err
 		}
 	}

@@ -9,6 +9,15 @@ import (
 	"github.com/kakkoyun/af/internal/sandbox"
 )
 
+var (
+	// errProbeBoom is a sentinel prober failure.
+	errProbeBoom = errors.New("probe boom")
+	// errDaemonUnavailable mimics slicer's connection-refused failure.
+	errDaemonUnavailable = errors.New("dial unix /run/slicer.sock: connect: connection refused")
+	// errSlicerExploded is a sentinel fatal runner failure.
+	errSlicerExploded = errors.New("slicer exploded")
+)
+
 func TestSlicerResources_IsEmpty(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -34,13 +43,12 @@ func TestSlicerResources_IsEmpty(t *testing.T) {
 }
 
 func TestResolveLaunchGroup_ProbeErrorWrapped(t *testing.T) {
-	sentinel := errors.New("probe boom")
-	prober := &fakeGroupProber{err: sentinel}
+	prober := &fakeGroupProber{err: errProbeBoom}
 	r := sandbox.SlicerResources{VCPU: 2}
 
 	_, _, err := sandbox.ResolveLaunchGroup(context.Background(), prober, "myrepo", "", r)
-	if !errors.Is(err, sentinel) {
-		t.Fatalf("ResolveLaunchGroup() error = %v, want wrapped %v", err, sentinel)
+	if !errors.Is(err, errProbeBoom) {
+		t.Fatalf("ResolveLaunchGroup() error = %v, want wrapped %v", err, errProbeBoom)
 	}
 }
 
@@ -74,12 +82,12 @@ func TestExecGroupProber_Probe(t *testing.T) {
 		},
 		{
 			name:      "daemon unavailable treated as absent",
-			runnerErr: errors.New("dial unix /run/slicer.sock: connect: connection refused"),
+			runnerErr: errDaemonUnavailable,
 			group:     "af-myrepo-default",
 		},
 		{
 			name:      "other runner error is fatal",
-			runnerErr: errors.New("slicer exploded"),
+			runnerErr: errSlicerExploded,
 			group:     "af-myrepo-default",
 			wantErr:   true,
 		},
@@ -91,12 +99,7 @@ func TestExecGroupProber_Probe(t *testing.T) {
 
 			exists, matches, err := prober.Probe(context.Background(), tt.group, sandbox.SlicerResources{})
 			if tt.wantErr {
-				if err == nil {
-					t.Fatal("Probe() error = nil, want error")
-				}
-				if !strings.Contains(err.Error(), "slicer vm group") {
-					t.Fatalf("Probe() error = %v, want slicer vm group context", err)
-				}
+				assertProbeFatalError(t, err)
 				return
 			}
 			if err != nil {
@@ -105,14 +108,33 @@ func TestExecGroupProber_Probe(t *testing.T) {
 			if exists != tt.wantExists || matches != tt.wantMatches {
 				t.Fatalf("Probe() = (%v, %v), want (%v, %v)", exists, matches, tt.wantExists, tt.wantMatches)
 			}
-			wantCalls := 1
-			if len(runner.calls) != wantCalls {
-				t.Fatalf("runner calls = %d, want %d", len(runner.calls), wantCalls)
-			}
-			args := runner.calls[0].Args
-			if runner.calls[0].Name != "slicer" || len(args) != 2 || args[0] != "vm" || args[1] != "group" {
-				t.Fatalf("command = %s %v, want slicer vm group", runner.calls[0].Name, args)
-			}
+			assertProbeCommand(t, runner)
 		})
+	}
+}
+
+// assertProbeFatalError verifies Probe surfaced a fatal runner error with
+// the slicer vm group context in its message.
+func assertProbeFatalError(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("Probe() error = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "slicer vm group") {
+		t.Fatalf("Probe() error = %v, want slicer vm group context", err)
+	}
+}
+
+// assertProbeCommand verifies exactly one `slicer vm group` invocation was
+// recorded by the runner.
+func assertProbeCommand(t *testing.T, runner *fakeRunner) {
+	t.Helper()
+	wantCalls := 1
+	if len(runner.calls) != wantCalls {
+		t.Fatalf("runner calls = %d, want %d", len(runner.calls), wantCalls)
+	}
+	args := runner.calls[0].Args
+	if runner.calls[0].Name != slicerName || len(args) != 2 || args[0] != "vm" || args[1] != "group" {
+		t.Fatalf("command = %s %v, want slicer vm group", runner.calls[0].Name, args)
 	}
 }

@@ -23,7 +23,7 @@ func (s *stubSlicer) Inventory(_ context.Context, _ string, _ []string) ([]sessi
 	return s.entries, nil
 }
 
-func (s *stubSlicer) Copy(_ context.Context, _, _, _ string) error { return nil }
+func (*stubSlicer) Copy(_ context.Context, _, _, _ string) error { return nil }
 
 func TestAllKinds_StableOrder(t *testing.T) {
 	t.Parallel()

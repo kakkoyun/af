@@ -54,7 +54,13 @@ func TestExecSlicer_Inventory_ParsesTSVOutput(t *testing.T) {
 	if len(runner.cmds) != 1 {
 		t.Fatalf("runner calls = %d, want 1", len(runner.cmds))
 	}
-	cmd := runner.cmds[0]
+	assertInventoryCommand(t, runner.cmds[0])
+}
+
+// assertInventoryCommand verifies the recorded inventory invocation is a
+// `slicer vm exec` shell script interpolating the requested roots.
+func assertInventoryCommand(t *testing.T, cmd sandbox.Command) {
+	t.Helper()
 	if cmd.Name != "slicer" {
 		t.Errorf("command name = %q, want slicer (default binary)", cmd.Name)
 	}

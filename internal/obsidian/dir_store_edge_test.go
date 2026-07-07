@@ -87,7 +87,8 @@ func TestDirStore_WriteRenameOntoDirectoryFails(t *testing.T) {
 	if !strings.Contains(err.Error(), "replace") {
 		t.Fatalf("Write(onto directory) error = %v, want replace context", err)
 	}
-	if _, statErr := os.Stat(path + ".tmp"); !errors.Is(statErr, os.ErrNotExist) {
+	_, statErr := os.Stat(path + ".tmp")
+	if !errors.Is(statErr, os.ErrNotExist) {
 		t.Fatalf("tmp file left behind after failed rename: stat err = %v", statErr)
 	}
 }

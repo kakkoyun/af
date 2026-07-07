@@ -75,7 +75,7 @@ func KnownProviders() []string {
 // NewProvider returns the named sandbox provider backed by os/exec.
 // Only "slicer" is accepted; all other names return ErrUnsupportedProvider.
 //
-//nolint:ireturn // factory function intentionally returns the Sandbox interface
+//nolint:ireturn // Factory intentionally returns the Sandbox interface.
 func NewProvider(name string) (Sandbox, error) {
 	switch name {
 	case "slicer":

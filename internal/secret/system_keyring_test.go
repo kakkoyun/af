@@ -21,7 +21,8 @@ type fakeBackend struct {
 
 func (f *fakeBackend) set(service, user, pass string) error {
 	if f.setErr != nil {
-		if err := f.setErr(service, user); err != nil {
+		err := f.setErr(service, user)
+		if err != nil {
 			return err
 		}
 	}
@@ -34,7 +35,8 @@ func (f *fakeBackend) set(service, user, pass string) error {
 
 func (f *fakeBackend) get(service, user string) (string, error) {
 	if f.getErr != nil {
-		if err := f.getErr(service, user); err != nil {
+		err := f.getErr(service, user)
+		if err != nil {
 			return "", err
 		}
 	}
@@ -47,7 +49,8 @@ func (f *fakeBackend) get(service, user string) (string, error) {
 
 func (f *fakeBackend) delete(service, user string) error {
 	if f.delErr != nil {
-		if err := f.delErr(service, user); err != nil {
+		err := f.delErr(service, user)
+		if err != nil {
 			return err
 		}
 	}
@@ -114,14 +117,27 @@ func TestNewSystemKeyring_DefaultsEmptyServiceToAf(t *testing.T) {
 	}
 }
 
+// assertListedKeys verifies List returns exactly the given comma-joined keys.
+func assertListedKeys(t *testing.T, ctx context.Context, k *SystemKeyring, want string) {
+	t.Helper()
+	keys, err := k.List(ctx)
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if strings.Join(keys, ",") != want {
+		t.Fatalf("List() = %#v, want keys %q", keys, want)
+	}
+}
+
 func TestSystemKeyring_RoundTrip(t *testing.T) {
 	installFakeBackend(t)
 	ctx := context.Background()
 	k := NewSystemKeyring("af-test")
 
 	for _, key := range []string{"openai_api_key", "github_token"} {
-		if err := k.Set(ctx, key, "value-"+key); err != nil {
-			t.Fatalf("Set(%s) error = %v", key, err)
+		setErr := k.Set(ctx, key, "value-"+key)
+		if setErr != nil {
+			t.Fatalf("Set(%s) error = %v", key, setErr)
 		}
 	}
 
@@ -132,28 +148,17 @@ func TestSystemKeyring_RoundTrip(t *testing.T) {
 	if got != "value-github_token" {
 		t.Fatalf("Get() = %q, want stored value", got)
 	}
+	assertListedKeys(t, ctx, k, "github_token,openai_api_key")
 
-	keys, err := k.List(ctx)
+	err = k.Delete(ctx, "github_token")
 	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
-	if strings.Join(keys, ",") != "github_token,openai_api_key" {
-		t.Fatalf("List() = %#v, want sorted keys", keys)
-	}
-
-	if err := k.Delete(ctx, "github_token"); err != nil {
 		t.Fatalf("Delete() error = %v", err)
 	}
-	if _, err := k.Get(ctx, "github_token"); !errors.Is(err, ErrNotFound) {
+	_, err = k.Get(ctx, "github_token")
+	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Get(deleted) error = %v, want ErrNotFound", err)
 	}
-	keys, err = k.List(ctx)
-	if err != nil {
-		t.Fatalf("List(after delete) error = %v", err)
-	}
-	if strings.Join(keys, ",") != "openai_api_key" {
-		t.Fatalf("List(after delete) = %#v, want remaining key", keys)
-	}
+	assertListedKeys(t, ctx, k, "openai_api_key")
 }
 
 func TestSystemKeyring_Set_RejectsInvalidKeys(t *testing.T) {
@@ -196,7 +201,8 @@ func TestSystemKeyring_Set_DuplicateKeyKeepsIndexUnique(t *testing.T) {
 	k := NewSystemKeyring("af-test")
 
 	for range 2 {
-		if err := k.Set(ctx, "github_token", "ghp_secret"); err != nil {
+		err := k.Set(ctx, "github_token", "ghp_secret")
+		if err != nil {
 			t.Fatalf("Set() error = %v", err)
 		}
 	}
@@ -294,12 +300,13 @@ func TestSystemKeyring_Delete_IndexReadError(t *testing.T) {
 	fake := installFakeBackend(t)
 	ctx := context.Background()
 	k := NewSystemKeyring("af-test")
-	if err := k.Set(ctx, "github_token", "ghp_secret"); err != nil {
+	err := k.Set(ctx, "github_token", "ghp_secret")
+	if err != nil {
 		t.Fatalf("Set() error = %v", err)
 	}
 
 	fake.getErr = failOn(indexAccount, errFakeIndexRead)
-	err := k.Delete(ctx, "github_token")
+	err = k.Delete(ctx, "github_token")
 	if !errors.Is(err, errFakeIndexRead) {
 		t.Fatalf("Delete() error = %v, want wrapped index read error", err)
 	}
@@ -309,12 +316,13 @@ func TestSystemKeyring_Delete_IndexWriteError(t *testing.T) {
 	fake := installFakeBackend(t)
 	ctx := context.Background()
 	k := NewSystemKeyring("af-test")
-	if err := k.Set(ctx, "github_token", "ghp_secret"); err != nil {
+	err := k.Set(ctx, "github_token", "ghp_secret")
+	if err != nil {
 		t.Fatalf("Set() error = %v", err)
 	}
 
 	fake.setErr = failOn(indexAccount, errFakeIndexWrite)
-	err := k.Delete(ctx, "github_token")
+	err = k.Delete(ctx, "github_token")
 	if !errors.Is(err, errFakeIndexWrite) {
 		t.Fatalf("Delete() error = %v, want wrapped index write error", err)
 	}
@@ -368,8 +376,8 @@ func TestSplitIndex(t *testing.T) {
 func TestJoinIndex(t *testing.T) {
 	tests := []struct {
 		name string
-		keys []string
 		want string
+		keys []string
 	}{
 		{name: "nil keys", keys: nil, want: ""},
 		{name: "single key", keys: []string{"a"}, want: "a"},
@@ -390,7 +398,8 @@ func TestSystemKeyring_ListReflectsAllSetKeys(t *testing.T) {
 	k := NewSystemKeyring("af-test")
 	keys := []string{"alpha", "beta", "gamma", "delta"}
 	for _, key := range keys {
-		if err := k.Set(ctx, key, "v"); err != nil {
+		err := k.Set(ctx, key, "v")
+		if err != nil {
 			t.Fatalf("Set(%s) error = %v", key, err)
 		}
 	}
