@@ -733,10 +733,15 @@ test/CI coverage, docs-vs-reality). All executed on branch
       `EX_GENERAL` rather than `EX_NOPERM`; this is documented in
       `cmd/af/exit_codes.go`. See `cmd/af/exit_codes_test.go` for the
       full table test plus a lock-busy end-to-end test.
-- [ ] I16.13 (issue #7): Post-review follow-up — the deleted Rust-era docs.yml
+- [x] I16.13 (issue #7): Post-review follow-up — the deleted Rust-era docs.yml
       leaves the last-deployed v0 rustdoc GitHub Pages site orphaned.
       Owner decision: disable Pages for the repo or push a tombstone
       redirect.
+
+      Resolved via Option A (2026-07-07): the owner disabled GitHub
+      Pages in the repo settings, so the stale v0 rustdoc is no longer
+      served (old links 404). No workflow references Pages. Issue #7
+      closed.
 
 - [x] I16.14 (issue #3): make unlocked state writes unrepresentable
       (session.Update API), narrow lock windows around gh calls, dedupe
