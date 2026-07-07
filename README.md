@@ -282,12 +282,44 @@ API. See `internal/sandbox/resources.go` (`// ADR-062 §Resolution step
 constitution, `docs/SPEC.md` and `docs/PLAN.md` are frozen; design
 changes go through new ADRs (074+).
 
-**`af session-data sync --continue-host` is accepted but not yet wired.**
-The ADR-066 host-continuation path normalization (rewriting transcript
-metadata so `claude --resume` / `codex resume` / pi can find imported
-sessions from the host worktree) is deferred. The flag prints a stderr
-hint and falls back to the analysis-only import. The runtime notice
-lives in `cmd/af/session_data.go`.
+**`af session-data sync --continue-host` rewrites staged transcripts
+before merge.** Per ADR-066 §Host continuation mode, `--continue-host`
+runs a per-kind rewrite over the staged copy (before the merge/dedup
+step) using `state.SlicerWT.Path` as the VM-side workspace path and
+`state.Worktree.Path` as the host-side path:
+
+- **claude**: renames the staged `~/.claude/projects/<vm-slug>`
+  directory to `~/.claude/projects/<host-slug>` (the Claude Code
+  project-directory slug is the workspace path with `/` and `.`
+  replaced by `-`), then rewrites `cwd`-style path fields inside its
+  `*.jsonl` records so the host destination is discoverable by `claude
+  --resume` / `/resume` from the host worktree.
+- **codex**: rewrites `cwd`-style path fields inside
+  `~/.codex/sessions/**/*.jsonl` in place (no rename — Codex keys
+  sessions by date + rollout ID, not by workspace path).
+- **pi**: pi's on-disk session-index format is not reverse-engineered
+  in this codebase; as a conservative fallback, exact `vmPath` string
+  occurrences inside `~/.pi/agent/sessions/**/*.json(l)` are rewritten
+  in place.
+- **harness**: no host-continuation rewrite is defined; harness files
+  import for analysis only.
+
+The rewrite only ever touches whole JSON string values equal to, or
+prefixed by, the VM path — unrecognized fields and non-JSON lines
+round-trip untouched. Normalization runs before the SHA-256 dedup step,
+so re-running `--continue-host` against unchanged VM content imports 0
+new files. `--dry-run --continue-host` cannot inspect file content
+(ADR-066: dry-run never copies) and instead reports per-kind candidate
+file counts from the manifest alone. See `internal/sandbox/sessiondata/normalize.go`.
+
+**Caveat:** `state.SlicerWT.Path` records the same `<worktree-path>`
+argument `slicer wt push`/`pull` operate on (ADR-065), which today is
+the *host* worktree lease path — in the common case it is identical to
+`state.Worktree.Path`, so normalization is a safe no-op unless the two
+diverge. `af` does not currently track a distinct VM-internal working
+directory in `state.toml`; if a future slicer convention places the
+VM-side clone at a different path, `--continue-host` needs that path
+threaded through before it can rewrite anything in practice.
 
 ## Building
 

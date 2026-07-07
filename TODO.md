@@ -34,11 +34,13 @@ for the narrative log and [`docs/adr/`](docs/adr/) for accepted decisions.
 **Known post-v1 deferrals** (do not block v1.0.0 unless the owner
 explicitly chooses to pull them in):
 
-- **`--continue-host` path normalization for ADR-066.** Currently the
-  flag is accepted and prints a stderr hint but does not rewrite
-  transcript metadata. Implementing it requires per-agent format
-  knowledge (Claude project keys, Codex session IDs, pi sessionDir
-  headers). Runtime notice in `cmd/af/session_data.go`.
+- ~~**`--continue-host` path normalization for ADR-066.**~~ Implemented
+  (issue #5 / I16.16): `internal/sandbox/sessiondata/normalize.go`
+  rewrites staged claude/codex/pi transcripts before merge. See the
+  README `--continue-host` caveat block for the exact per-kind rules
+  and the one open caveat (state.toml has no distinct VM-internal
+  workspace path field today; `state.SlicerWT.Path` is used as a
+  best-effort proxy).
 - ~~**`af clean --force` ADR-067 hook.**~~ Resolved: `clean` now
   auto-syncs any VM-leased target it reaps, matching `suspend` + `done`
   (issue #6 / I16.17).
@@ -661,8 +663,10 @@ explicitly chooses to do so.
       pass: INDEX regenerated (27 stale rows), README command tables
       synced with `--help` reality, CHANGELOG updated.
 - [ ] I15.3: Decide whether known post-v1 deferrals stay deferred:
-      ADR-066 `--continue-host` normalization. (`af clean --force`
-      auto-sync hook shipped in I16.17 / issue #6.)
+      (both original deferrals are now shipped: ADR-066
+      `--continue-host` normalization in I16.16 / issue #5, and the
+      `af clean --force` auto-sync hook in I16.17 / issue #6 — this
+      item is now a confirmation, not a decision.)
 - [ ] I15.4: If approved, cut v1.0.0:
       create the `v1.0.0` tag, run `goreleaser release --clean`, and
       publish the GitHub release.
@@ -726,12 +730,19 @@ test/CI coverage, docs-vs-reality). All executed on branch
       the flock/atomic-write primitives.
 - [x] I16.15 (issue #4): CI gate speed — prebuilt lint/goreleaser
       binaries, fold coverage into the test leg, scope the property job.
-- [ ] I16.16 (issue #5): ADR-066 --continue-host transcript path
-      normalization (was backlog; now specced with acceptance criteria).
+- [x] I16.16 (issue #5): ADR-066 --continue-host transcript path
+      normalization. Implemented in
+      `internal/sandbox/sessiondata/normalize.go` +
+      `internal/sandbox/sessiondata/continue_host_test.go`: per-kind
+      staged-tree rewriters for claude (project-dir rename + cwd
+      rewrite), codex (in-place cwd rewrite), pi (exact-string
+      fallback); wired into `Sync` before merge/dedup so re-sync stays
+      idempotent; `--dry-run --continue-host` reports manifest-only
+      candidate counts. See the README `--continue-host` caveat block.
 - [x] I16.17 (issue #6): ADR-067 auto-sync for af clean --force on
-      VM-backed workstreams (was backlog; now specced). `clean` gained
-      `--discard`; the per-target removal path re-reads state.toml and
-      runs `autoSyncBeforeTeardown` for any VM-leased target before
+      VM-backed workstreams. `clean` gained `--discard`; the per-target
+      removal path re-reads state.toml and runs
+      `autoSyncBeforeTeardown` for any VM-leased target before
       `RemoveAll`. A sync failure skips only that target (keeps its
       state dir, prints the ADR-067 recovery hint) and makes `clean`
       exit non-zero via `errCleanSyncFailed`, without blocking removal
