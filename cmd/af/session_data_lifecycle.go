@@ -58,7 +58,10 @@ func autoSyncBeforeTeardown(cmd *cobra.Command, state session.State, statePath s
 		printAutoSyncRecoveryHint(cmd, state, err)
 		return fmt.Errorf("%w: %w", errSessionDataAutoSyncFailed, err)
 	}
-	err = emitSyncEvent(state, result)
+	// Auto-sync before teardown never requests --continue-host: it is an
+	// analysis-only safety net (ADR-066/ADR-067), not a user-directed
+	// resume-on-host request.
+	err = emitSyncEvent(state, result, false)
 	if err != nil {
 		return fmt.Errorf("auto-sync: emit ledger event: %w", err)
 	}

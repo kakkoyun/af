@@ -38,15 +38,29 @@ type SyncOptions struct {
 	// StagingRoot overrides the default staging directory; when empty
 	// the staging tree lives under HomeDir/.local/share/af/v1/session-import.
 	StagingRoot string
+	// VMPath is the VM-side workspace path recorded in transcripts
+	// (e.g. a Claude "cwd" field) that ContinueHost normalization
+	// rewrites away. Required for live (non-dry-run) syncs when
+	// ContinueHost is true — Sync fails fast when it is empty; ignored
+	// otherwise.
+	VMPath string
+	// HostPath is the host-side workspace path that VMPath references
+	// are rewritten to when ContinueHost is true. Required for live
+	// (non-dry-run) syncs when ContinueHost is true — Sync fails fast
+	// when it is empty; ignored otherwise.
+	HostPath string
 	// Kinds limits the import to specific agent kinds; nil means
 	// AllKinds().
 	Kinds []AgentKind
 	// DryRun reports what would be copied + merged without touching
 	// the host filesystem outside StagingRoot read-checks.
 	DryRun bool
-	// ContinueHost requests format-aware path normalization. ADR-066
-	// §Host continuation. Not yet implemented; setting this prints a
-	// stderr hint via the caller but does not rewrite transcripts.
+	// ContinueHost requests format-aware path normalization per
+	// ADR-066 §Host continuation mode. When true, Sync runs
+	// NormalizeForHost against the staging tree (using VMPath and
+	// HostPath) before merging into the host agent directories. On
+	// DryRun, no staging or normalization occurs; instead Sync reports
+	// CandidateNormalizeCounts computed from the manifest alone.
 	ContinueHost bool
 }
 
@@ -103,6 +117,14 @@ type SyncResult struct {
 	Manifest Manifest
 	// StagingPath is the absolute path to the per-pull staging dir.
 	StagingPath string
+	// Normalize reports the ContinueHost rewrite pass performed against
+	// the staging tree before merge. Zero-value when ContinueHost was
+	// false or DryRun was true.
+	Normalize NormalizeResult
+	// NormalizePreview reports ContinueHost candidate counts computed
+	// from the manifest when both DryRun and ContinueHost were set.
+	// Zero-value otherwise.
+	NormalizePreview NormalizePreview
 	// Merge is the per-kind aggregate of the merge step.
 	Merge MergeReport
 	// DryRun mirrors SyncOptions.DryRun for callers that print
@@ -139,7 +161,7 @@ func Sync(ctx context.Context, s Slicer, opts SyncOptions) (SyncResult, error) {
 		return SyncResult{}, fmt.Errorf("%w: %w", ErrSyncFailed, err)
 	}
 	if opts.DryRun {
-		return SyncResult{Manifest: manifest, DryRun: true}, nil
+		return dryRunSyncResult(manifest, kinds, opts), nil
 	}
 
 	stagingPath, err := makeStaging(opts)
@@ -152,11 +174,40 @@ func Sync(ctx context.Context, s Slicer, opts SyncOptions) (SyncResult, error) {
 		return SyncResult{Manifest: manifest, StagingPath: stagingPath}, err
 	}
 
+	normResult, err := normalizeIfContinueHost(stagingPath, kinds, opts)
+	if err != nil {
+		return SyncResult{Manifest: manifest, StagingPath: stagingPath}, fmt.Errorf("%w: %w", ErrSyncFailed, err)
+	}
+
 	report, mergeErr := mergeStagingIntoHome(stagingPath, opts.HomeDir, manifest)
 	if mergeErr != nil {
-		return SyncResult{Manifest: manifest, StagingPath: stagingPath, Merge: report}, fmt.Errorf("%w: %w", ErrSyncFailed, mergeErr)
+		return SyncResult{Manifest: manifest, StagingPath: stagingPath, Merge: report, Normalize: normResult}, fmt.Errorf("%w: %w", ErrSyncFailed, mergeErr)
 	}
-	return SyncResult{Manifest: manifest, StagingPath: stagingPath, Merge: report}, nil
+	return SyncResult{Manifest: manifest, StagingPath: stagingPath, Merge: report, Normalize: normResult}, nil
+}
+
+// dryRunSyncResult builds the SyncResult returned by Sync's DryRun path.
+// Per ADR-066, dry-run never copies VM content, so a requested
+// ContinueHost normalization is reported as a manifest-only
+// NormalizePreview (candidate counts) rather than an actual
+// NormalizeResult.
+func dryRunSyncResult(manifest Manifest, kinds []AgentKind, opts SyncOptions) SyncResult {
+	result := SyncResult{Manifest: manifest, DryRun: true}
+	if opts.ContinueHost {
+		result.NormalizePreview = CandidateNormalizeCounts(manifest, kinds)
+	}
+	return result
+}
+
+// normalizeIfContinueHost runs NormalizeForHost against the staging
+// tree when opts.ContinueHost is set, before the merge/dedup step reads
+// the staged files' content hashes. Returns a zero-value NormalizeResult
+// when ContinueHost is false.
+func normalizeIfContinueHost(stagingPath string, kinds []AgentKind, opts SyncOptions) (NormalizeResult, error) {
+	if !opts.ContinueHost {
+		return NormalizeResult{}, nil
+	}
+	return NormalizeForHost(stagingPath, kinds, opts.VMPath, opts.HostPath)
 }
 
 func validateSyncOpts(opts SyncOptions) error {
@@ -167,6 +218,18 @@ func validateSyncOpts(opts SyncOptions) error {
 		return fmt.Errorf("%w: empty vm name", ErrSyncFailed)
 	case opts.HomeDir == "":
 		return fmt.Errorf("%w: empty home directory", ErrSyncFailed)
+	}
+	// A live continue-host sync with a missing path would silently skip
+	// normalization (NormalizeForHost's no-op guard) and merge transcripts
+	// that still reference the VM workspace — fail fast instead. Dry-run
+	// only reports manifest candidate counts and never uses the paths.
+	if opts.ContinueHost && !opts.DryRun {
+		switch {
+		case opts.VMPath == "":
+			return fmt.Errorf("%w: continue-host requires the VM workspace path (no slicer worktree path recorded for this session)", ErrSyncFailed)
+		case opts.HostPath == "":
+			return fmt.Errorf("%w: continue-host requires the host worktree path (no worktree path recorded for this session)", ErrSyncFailed)
+		}
 	}
 	return nil
 }

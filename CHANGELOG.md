@@ -62,6 +62,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   leased targets instead of `would remove NAME`. Closes the
   `af clean --force` ADR-067 deferral (issue #6).
 
+### Added (ADR-066 host continuation, issue #5)
+
+- `af session-data sync --continue-host` now rewrites staged transcripts
+  before the merge/dedup step instead of printing a not-yet-implemented
+  notice: Claude Code project directories are renamed from the VM's
+  workspace-path slug to the host's, `cwd` fields are rewritten in
+  claude/codex transcripts, and pi gets an exact-string fallback
+  rewrite. Normalization runs before the SHA-256 dedup step so re-sync
+  is idempotent. `--dry-run --continue-host` reports per-kind candidate
+  counts from the manifest (dry-run never copies VM content). New
+  `internal/sandbox/sessiondata/normalize.go`
+  (`NormalizeForHost`, `CandidateNormalizeCounts`). The ledger's
+  `agent_sessions_synced` event now records the real `continueHost`
+  flag instead of a hardcoded `false`. Pretty-printed `*.json` files
+  spanning multiple lines (pi session metadata) are rewritten as one
+  JSON value instead of being partially rewritten line-by-line, and a
+  live `--continue-host` sync fails fast when the session state records
+  no slicer/host worktree path rather than silently skipping
+  normalization.
+
 ### Added (macOS integration CI)
 
 - `make test-integration` + a `integration / macos` CI job: real macOS

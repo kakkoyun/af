@@ -2013,7 +2013,6 @@ Recommend option 1 — landing ADR-070 alone removes the only major UX
 friction (no `[session]` arg + no cwd inference currently errors loudly
 rather than picking interactively).
 
-
 ## 2026-05-22 — Session 34: ADR-071 multi-command PR refresh wire-up
 
 ### Goal
@@ -2059,7 +2058,6 @@ ADR-070 is now the highest-leverage remaining ADR. After that, finish
 ADR-068 (flock, JSON envelope, exit codes, completion) and ADR-072
 (schema roll-up).
 
-
 ## 2026-05-22 — Session 35: ADR-070 session selection and inference
 
 ### Goal
@@ -2102,7 +2100,6 @@ Only ADR-068 and ADR-072 remain pending. ADR-068 is the last behaviour
 work (session-level flock, JSON envelope, exit codes, completion);
 ADR-072 is a schema-roll-up verification/doc close-out.
 
-
 ## 2026-05-22 — Session 36: ADR-068 operational UX contract
 
 ### Goal
@@ -2144,7 +2141,6 @@ Only ADR-072 remains pending. It should be a verification/doc close-out
 for the state.toml schema roll-up now that ADR-067 and ADR-071 fields
 have landed.
 
-
 ## 2026-05-22 — Session 37: ADR-072 schema roll-up and all ADRs closed
 
 ### Goal
@@ -2178,7 +2174,6 @@ with the implementation after ADR-067 and ADR-071.
 
 All v1 ADRs are closed. Run release-readiness checks (`goreleaser check`
 and a snapshot build) before deciding whether to tag v1.0.0.
-
 
 ## 2026-05-22 — Session 38: merged ADR completion branch to main and opened Stage 15
 
@@ -2215,7 +2210,6 @@ commit.
 Run Stage 15: verify merged `main`, review release notes, decide whether
 to defer optional polish, then cut v1.0.0 if approved.
 
-
 ## 2026-05-22 — Session 39: added owner pre-release smoke-test gate
 
 ### Goal
@@ -2237,7 +2231,6 @@ candidate before any v1.0.0 tag is cut.
 
 Do **not** tag v1.0.0 or run `goreleaser release --clean` until the
 owner reports the smoke-test result.
-
 
 ## 2026-05-22 — Session 40: smoke-test finding — doctor Obsidian and versions
 
@@ -2270,7 +2263,6 @@ for tmux, pi, and slicer.
 The v1.0.0 release remains blocked until the owner reruns the smoke test
 and reports pass/fail.
 
-
 ## 2026-05-22 — Session 41: expanded staged pre-release smoke procedure
 
 ### Goal
@@ -2299,7 +2291,6 @@ stage, while covering the full command surface before release approval.
 
 The v1.0.0 release remains blocked until the owner reruns the staged
 smoke test and reports the required stages 0–10.
-
 
 ## 2026-06-04 — Session 42: version metadata and install iteration path
 
@@ -2460,3 +2451,80 @@ re-ran the entire test suite a second time just to instrument it, and
 ### Blockers / owner items
 
 None new. I16.12/I16.13 owner decisions from session 43 remain open.
+
+## 2026-07-07 — Session 44: ADR-066 --continue-host normalization (issue #5)
+
+### Context
+
+Picked up TODO I16.16 (issue #5): implement the ADR-066 §Host
+continuation mode path normalization that `af session-data sync
+--continue-host` previously stubbed out with a stderr "not yet
+implemented" notice. Branch `claude/issue-5-continue-host`.
+
+### What shipped
+
+- New `internal/sandbox/sessiondata/normalize.go`:
+  `NormalizeForHost(stagingRoot, kinds, vmPath, hostPath)` rewrites the
+  STAGED copy of a sync (before the merge/dedup step) so host-side
+  agents can resume against the host worktree:
+  - **claude**: renames the staged `.claude/projects/<vm-slug>`
+    directory to `.claude/projects/<host-slug>` (slug = workspace path
+    with `/` and `.` replaced by `-`), then rewrites `cwd`-bearing
+    fields in its `*.jsonl` files. A same-second staging-timestamp edge
+    case (two syncs landing in the same staging dir) was caught by a
+    test and hardened: `moveClaudeDir` falls back to a file-by-file
+    merge instead of failing the whole sync when the host-slug
+    directory already exists.
+  - **codex**: in-place `cwd` rewrite under `.codex/sessions/**/*.jsonl`
+    (no rename — Codex keys by date + rollout ID).
+  - **pi**: pi's on-disk format isn't reverse-engineered here, so the
+    fallback rewrites exact `vmPath` string occurrences in
+    `.pi/agent/sessions/**/*.json(l)`.
+  - **harness**: no rewrite defined (ADR-066 is silent on harness
+    continuation) — explicit no-op.
+  - The rewrite is JSON-generic: each JSONL line decodes to
+    `map[string]any` / `[]any` / scalars, any string equal to or
+    prefixed by `vmPath` is rewritten, and the value re-marshals.
+    Non-JSON lines and unmatched fields round-trip byte-for-byte.
+  - `CandidateNormalizeCounts(manifest, kinds)` answers `--dry-run
+    --continue-host`: since ADR-066 dry-run never copies VM content,
+    the preview counts manifest entries by allowlisted-root +
+    extension match rather than confirming an actual rewrite.
+- Wired into `sessiondata.Sync`: `NormalizeForHost` runs on staging
+  between copy and merge, so the merge step's SHA-256 dedup naturally
+  keys on POST-normalization content — re-running `--continue-host`
+  against unchanged VM content imports 0 new files (covered by
+  `TestSync_ContinueHost_IdempotentSecondSyncImportsZero`).
+- `cmd/af/session_data.go`: removed the "not yet implemented" stderr
+  notice; `--continue-host` now threads `state.SlicerWT.Path` (VM) and
+  `state.Worktree.Path` (host) into `SyncOptions`; the
+  `agent_sessions_synced` ledger event's `continueHost` field now
+  reflects the real flag instead of a hardcoded `false`;
+  `renderSyncSummary` prints rewrite/rename/candidate summaries.
+- Tests: `internal/sandbox/sessiondata/normalize_test.go` (table tests
+  against golden fixtures under `testdata/normalize/`),
+  `continue_host_test.go` (Sync-level: rename+rewrite, idempotency,
+  dry-run-no-copy), `cmd/af/session_data_continue_host_test.go`
+  (CLI end-to-end + ledger field assertion). Package coverage: 87.7%.
+- Docs: README `--continue-host` caveat block rewritten to describe the
+  real per-kind behaviour and the one caveat below; TODO.md I16.16
+  checked off, I15.3 narrowed to just the `clean --force` deferral;
+  CHANGELOG `[Unreleased]` entry added. ADR-066 itself needed no edit —
+  its body already specified this exact design and doesn't mention the
+  deferral, so there's nothing to un-defer in the ADR text.
+
+### Open item for the maintainer (could not resolve from the codebase)
+
+`state.SlicerWT.Path` (ADR-065) records the *host* `<worktree-path>`
+argument `slicer wt push`/`pull` operate on — in the common case it
+equals `state.Worktree.Path`, not a distinct VM-internal path. There is
+no state.toml field today for "the path the VM sees its clone at" if
+that ever differs from the host lease path. I used `SlicerWT.Path` as
+`vmPath` per the task's explicit instruction; when the two paths are
+equal (today's normal case), `--continue-host` is a documented,
+tested no-op. If a future slicer convention places the VM-side clone
+at a different path, that path needs to be threaded through (new state
+field or a `slicer` query) before `--continue-host` rewrites anything
+for real transcripts. Recommend this as the first smoke-test item:
+verify a real `claude`/`codex` transcript's `cwd` field against what
+`state.SlicerWT.Path` actually contains after a real `slicer wt push`.
