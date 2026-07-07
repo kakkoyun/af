@@ -49,6 +49,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runs stop paying the 10000-iteration cost for packages with no
   property tests. CI still invokes `make test-property` unchanged.
 
+### Added (`af clean` ADR-067 auto-sync)
+
+- **`af clean` gained `--discard`** and now auto-runs the ADR-067
+  `session-data sync` before removing any target whose worktree is
+  still held by a slicer VM (`lease_state = "held_by_vm"`), matching
+  `af suspend`/`af done`. A sync failure skips (keeps) only that
+  target, prints the existing recovery hint, and makes `clean` exit
+  non-zero — but every other target in the same run is still reaped.
+  `--discard` skips the sync and records `last_sync_status =
+  "discarded"`. `--dry-run` now prints `would sync + remove NAME` for
+  leased targets instead of `would remove NAME`. Closes the
+  `af clean --force` ADR-067 deferral (issue #6).
+
 ### Added (macOS integration CI)
 
 - `make test-integration` + a `integration / macos` CI job: real macOS

@@ -39,9 +39,9 @@ explicitly chooses to pull them in):
   transcript metadata. Implementing it requires per-agent format
   knowledge (Claude project keys, Codex session IDs, pi sessionDir
   headers). Runtime notice in `cmd/af/session_data.go`.
-- **`af clean --force` ADR-067 hook.** `suspend` + `done` are covered;
-  `clean` is a future addition once the clean reaper learns about
-  VM-backed workstreams.
+- ~~**`af clean --force` ADR-067 hook.**~~ Resolved: `clean` now
+  auto-syncs any VM-leased target it reaps, matching `suspend` + `done`
+  (issue #6 / I16.17).
 
 **Where to look first**:
 
@@ -661,8 +661,8 @@ explicitly chooses to do so.
       pass: INDEX regenerated (27 stale rows), README command tables
       synced with `--help` reality, CHANGELOG updated.
 - [ ] I15.3: Decide whether known post-v1 deferrals stay deferred:
-      ADR-066 `--continue-host` normalization and `af clean --force`
-      auto-sync hook.
+      ADR-066 `--continue-host` normalization. (`af clean --force`
+      auto-sync hook shipped in I16.17 / issue #6.)
 - [ ] I15.4: If approved, cut v1.0.0:
       create the `v1.0.0` tag, run `goreleaser release --clean`, and
       publish the GitHub release.
@@ -728,8 +728,15 @@ test/CI coverage, docs-vs-reality). All executed on branch
       binaries, fold coverage into the test leg, scope the property job.
 - [ ] I16.16 (issue #5): ADR-066 --continue-host transcript path
       normalization (was backlog; now specced with acceptance criteria).
-- [ ] I16.17 (issue #6): ADR-067 auto-sync for af clean --force on
-      VM-backed workstreams (was backlog; now specced).
+- [x] I16.17 (issue #6): ADR-067 auto-sync for af clean --force on
+      VM-backed workstreams (was backlog; now specced). `clean` gained
+      `--discard`; the per-target removal path re-reads state.toml and
+      runs `autoSyncBeforeTeardown` for any VM-leased target before
+      `RemoveAll`. A sync failure skips only that target (keeps its
+      state dir, prints the ADR-067 recovery hint) and makes `clean`
+      exit non-zero via `errCleanSyncFailed`, without blocking removal
+      of other targets in the same run. `--dry-run` prints
+      `would sync + remove NAME` for leased targets.
 
 - [x] I16.18: ADR-074 `af doctor --all` host self-smoke with
       paste-actionable report and optional GitHub issue filing
