@@ -25,6 +25,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   issue via `gh` (environment problems never file). Exit is non-zero
   when any step fails, per ADR-068.
 
+### Changed (CI gate speed, issue #4)
+
+- **`lint` and `goreleaser-check` CI jobs** now install prebuilt binaries
+  (`golangci/golangci-lint-action@v7` with `install-mode: goinstall` —
+  the prebuilt v2.3.0 binary is built with go1.24 and rejects the
+  repo's go1.26 target — and `goreleaser/goreleaser-action@v6` with
+  `install-only: true`) instead of `go run .../@version`, which
+  compiled each tool from source on every run (golangci-lint alone took
+  ~5-10 min). Both actions are pinned to the version already declared in
+  the Makefile (`GOLANGCI_LINT_VERSION`, `GORELEASER_VERSION`), read via a
+  `pins` step so there is exactly one source of truth; `make lint` and
+  `make release-check` are unchanged for local use.
+- **Coverage folded into the `test` job**: the separate `coverage` job
+  that re-ran the whole suite a second time is gone. The ubuntu leg of
+  the `test` matrix now runs `go test -race -shuffle=on -covermode=atomic
+  -coverprofile=...` in place of `make test` and follows up with
+  `scripts/coverage-check.sh` and the `go tool cover` step summary; the
+  macOS leg still runs plain `make test`.
+- **`make test-property` scoped to packages that define `TestProperty*`**
+  (`internal/duration`, `internal/lifecycle`, `internal/proxy`,
+  `internal/workstream` today) instead of `./...`, so both CI and local
+  runs stop paying the 10000-iteration cost for packages with no
+  property tests. CI still invokes `make test-property` unchanged.
+
 ### Added (`af clean` ADR-067 auto-sync)
 
 - **`af clean` gained `--discard`** and now auto-runs the ADR-067

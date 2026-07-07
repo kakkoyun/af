@@ -33,8 +33,8 @@ release/build: build
 test:
 	$(GO) test -race -count=1 -shuffle=on ./...
 
-test-property:
-	$(GO) test -run TestProperty -count=10000 -timeout 120s ./...
+test-property: ## Scoped to packages that actually define TestProperty* (CI gate speed, issue #4)
+	$(GO) test -run TestProperty -count=10000 -timeout 120s $$(grep -rl 'func TestProperty' --include='*_test.go' internal/ cmd/ 2>/dev/null | xargs -n1 dirname | sort -u | sed 's|^|./|' | sed 's|$$|/...|')
 
 test-integration: ## Real keychain + tmux integration tests (macOS CI / owner machine)
 	AF_INTEGRATION_KEYRING=1 $(GO) test -race -count=1 -tags integration -run TestIntegration ./internal/secret/ ./internal/mux/

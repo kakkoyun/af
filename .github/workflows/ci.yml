@@ -27,6 +27,10 @@ jobs:
       - run: make fmt-check
 
   # ── Lint ───────────────────────────────────────────────────────────────────
+  # Prebuilt binary via golangci-lint-action instead of `go run .../v2/cmd/golangci-lint@...`,
+  # which compiles the linter from source on every run (~5-10 min). Version is
+  # read from the Makefile pin so there is exactly one source of truth
+  # (issue #4).
   lint:
     name: "lint"
     runs-on: ubuntu-latest
@@ -36,9 +40,25 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: make lint
+      - id: pins
+        run: echo "golangci=v$(sed -n 's/^GOLANGCI_LINT_VERSION *= *//p' Makefile)" >> "$GITHUB_OUTPUT"
+      # install-mode goinstall builds golangci-lint with the repo's own
+      # Go toolchain (go.mod pins 1.26): the prebuilt release binary for
+      # the pinned version is built with an older Go and refuses newer
+      # language targets ("can't load config: the Go language version
+      # used to build golangci-lint is lower than the targeted Go
+      # version"). The action caches the built binary, so warm runs
+      # stay fast.
+      - uses: golangci/golangci-lint-action@v7
+        with:
+          version: ${{ steps.pins.outputs.golangci }}
+          install-mode: goinstall
 
   # ── Tests (race + shuffle, incl. testscript goldens) ──────────────────────
+  # Coverage is folded into the ubuntu leg here rather than run again in a
+  # separate job (issue #4): race + atomic coverage instrumentation compose
+  # fine, so this avoids re-running the whole suite a second time just to
+  # measure it.
   test:
     name: "test / ${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
@@ -52,7 +72,18 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: make test
+      - name: "Test + coverage (ubuntu)"
+        if: matrix.os == 'ubuntu-latest'
+        run: go test -race -count=1 -shuffle=on -covermode=atomic -coverprofile=coverage.out ./...
+      - name: "Test (macos)"
+        if: matrix.os != 'ubuntu-latest'
+        run: make test
+      - name: "Coverage floor check"
+        if: matrix.os == 'ubuntu-latest'
+        run: ./scripts/coverage-check.sh coverage.out
+      - name: "Coverage summary"
+        if: matrix.os == 'ubuntu-latest'
+        run: go tool cover -func=coverage.out >> "$GITHUB_STEP_SUMMARY"
 
   # ── Property tests (10k iterations) ────────────────────────────────────────
   property:
@@ -79,21 +110,6 @@ jobs:
       - run: make build
       - run: ./bin/af version
 
-  # ── Coverage floors ─────────────────────────────────────────────────────────
-  coverage:
-    name: "coverage"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - run: go test -shuffle=on -coverprofile=coverage.out -covermode=atomic ./...
-      - run: ./scripts/coverage-check.sh coverage.out
-      - name: "Coverage summary"
-        run: go tool cover -func=coverage.out >> "$GITHUB_STEP_SUMMARY"
-
   # ── macOS integration: real Keychain + real tmux ───────────────────────────
   integration-macos:
     name: "integration / macos"
@@ -116,6 +132,9 @@ jobs:
       - run: make test-integration
 
   # ── goreleaser config check (local-only release per ADR-053) ───────────────
+  # Prebuilt binary via goreleaser-action (install-only) instead of
+  # `go run .../goreleaser@...`, which compiles from source on every run.
+  # Version is read from the Makefile pin (issue #4).
   goreleaser-check:
     name: "goreleaser-check"
     runs-on: ubuntu-latest
@@ -125,13 +144,20 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: go run github.com/goreleaser/goreleaser/v2@v2.8.2 check --config .goreleaser.yaml
+      - id: pins
+        run: echo "goreleaser=v$(sed -n 's/^GORELEASER_VERSION *= *//p' Makefile)" >> "$GITHUB_OUTPUT"
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: ${{ steps.pins.outputs.goreleaser }}
+          install-only: true
+      - run: goreleaser check --config .goreleaser.yaml
 
   # ── Gate ───────────────────────────────────────────────────────────────────
   required:
     name: "all checks passed"
     if: always()
-    needs: [fmt, lint, test, property, build, coverage, integration-macos, goreleaser-check]
+    needs: [fmt, lint, test, property, build, integration-macos, goreleaser-check]
     runs-on: ubuntu-latest
     steps:
       - name: "Check required jobs"
