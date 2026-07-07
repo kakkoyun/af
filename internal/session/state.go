@@ -2,6 +2,7 @@ package session
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,13 +21,29 @@ const (
 	directoryPerm             = 0o750
 	filePerm                  = 0o600
 	eventBaseFields           = 2
+	// defaultLockTimeout is the acquisition deadline for LockFile absent
+	// AF_LOCK_TIMEOUT, per ADR-068 §4 / SPEC.md §Concurrency ("exclusive
+	// flock, blocking with a 30-second timeout").
+	defaultLockTimeout = 30 * time.Second
+	// lockPollInterval is how often a blocked LockFile call retries a
+	// non-blocking flock attempt while waiting out the deadline.
+	lockPollInterval = 25 * time.Millisecond
+	// lockTimeoutEnv overrides defaultLockTimeout; parsed with
+	// time.ParseDuration. An unset or invalid value falls back to the
+	// default rather than erroring, so a typo never turns into an
+	// instant-fail lock.
+	lockTimeoutEnv = "AF_LOCK_TIMEOUT"
 )
 
 var (
 	// ErrSchemaTooNew reports a state.toml schema newer than this binary supports.
 	ErrSchemaTooNew = errors.New("state schema too new")
 	// ErrNoCurrentWorkstream reports that discovery found no current workstream.
-	ErrNoCurrentWorkstream   = errors.New("no current workstream")
+	ErrNoCurrentWorkstream = errors.New("no current workstream")
+	// ErrLockBusy reports that LockFile could not acquire the flock
+	// before its deadline elapsed (ADR-068 §4, SPEC.md §15.3
+	// EX_TEMPFAIL). Callers map it to a retryable exit code.
+	ErrLockBusy              = errors.New("another af invocation is holding the lock; retry shortly or set AF_LOCK_TIMEOUT")
 	errEmptyLedger           = errors.New("empty ledger")
 	errEventTimestampMissing = errors.New("ledger event timestamp is required")
 	errEventTypeMissing      = errors.New("ledger event type is required")
@@ -260,40 +277,25 @@ func ReadState(path string) (State, error) {
 	return state, nil
 }
 
-// WriteState atomically writes state to path.
+// WriteState atomically writes state to path via WriteFileAtomic.
 func WriteState(path string, state State) error {
 	if state.SchemaVersion == 0 {
 		state.SchemaVersion = currentStateSchemaVersion
 	}
-	err := os.MkdirAll(filepath.Dir(path), directoryPerm)
+	dir := filepath.Dir(path)
+	err := os.MkdirAll(dir, directoryPerm)
 	if err != nil {
-		return fmt.Errorf("create state directory %s: %w", filepath.Dir(path), err)
+		return fmt.Errorf("create state directory %s: %w", dir, err)
 	}
 
-	tmpPath := path + ".tmp"
-	file, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, filePerm) //nolint:gosec // State paths are controlled by af's state store and tests.
+	var buf bytes.Buffer
+	err = toml.NewEncoder(&buf).Encode(state)
 	if err != nil {
-		return fmt.Errorf("create temporary state %s: %w", tmpPath, err)
+		return fmt.Errorf("encode state %s: %w", path, err)
 	}
-	encodeErr := toml.NewEncoder(file).Encode(state)
-	if encodeErr != nil {
-		return closeAfterError(file, fmt.Errorf("encode state %s: %w", tmpPath, encodeErr))
-	}
-	err = file.Sync()
+	err = WriteFileAtomic(path, buf.Bytes(), filePerm)
 	if err != nil {
-		return closeAfterError(file, fmt.Errorf("sync state %s: %w", tmpPath, err))
-	}
-	err = closeNamedFile(file, "state", tmpPath)
-	if err != nil {
-		return err
-	}
-	err = os.Rename(tmpPath, path)
-	if err != nil {
-		return fmt.Errorf("replace state %s: %w", path, err)
-	}
-	err = syncDir(filepath.Dir(path))
-	if err != nil {
-		return err
+		return fmt.Errorf("write state %s: %w", path, err)
 	}
 
 	return nil
@@ -407,7 +409,11 @@ func DiscoverStatePath(opts DiscoverOptions) (string, error) {
 	return "", ErrNoCurrentWorkstream
 }
 
-// LockFile acquires a flock-backed lock file.
+// LockFile acquires a flock-backed lock file. Acquisition is bounded:
+// it retries a non-blocking flock attempt every lockPollInterval until
+// either it succeeds or the AF_LOCK_TIMEOUT deadline (default
+// defaultLockTimeout) elapses, at which point it returns an error
+// wrapping ErrLockBusy.
 func LockFile(path string, mode LockMode) (*Lock, error) {
 	err := os.MkdirAll(filepath.Dir(path), directoryPerm)
 	if err != nil {
@@ -422,12 +428,48 @@ func LockFile(path string, mode LockMode) (*Lock, error) {
 	if mode == LockExclusive {
 		operation = unix.LOCK_EX
 	}
-	err = unix.Flock(int(file.Fd()), operation)
+	err = acquireFlock(file, operation, lockTimeout())
 	if err != nil {
 		return nil, closeAfterError(file, fmt.Errorf("lock %s: %w", path, err))
 	}
 
 	return &Lock{file: file}, nil
+}
+
+// lockTimeout resolves the acquisition deadline from AF_LOCK_TIMEOUT,
+// falling back to defaultLockTimeout when the variable is unset,
+// empty, non-positive, or fails time.ParseDuration.
+func lockTimeout() time.Duration {
+	raw := os.Getenv(lockTimeoutEnv)
+	if raw == "" {
+		return defaultLockTimeout
+	}
+	parsed, err := time.ParseDuration(raw)
+	if err != nil || parsed <= 0 {
+		return defaultLockTimeout
+	}
+	return parsed
+}
+
+// acquireFlock retries a non-blocking flock(2) call on file until it
+// succeeds or timeout elapses, sleeping lockPollInterval between
+// attempts. A non-EWOULDBLOCK/EAGAIN error aborts immediately.
+func acquireFlock(file *os.File, operation int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	fd := int(file.Fd())
+	for {
+		err := unix.Flock(fd, operation|unix.LOCK_NB)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, unix.EWOULDBLOCK) && !errors.Is(err, unix.EAGAIN) {
+			return fmt.Errorf("flock: %w", err)
+		}
+		if time.Now().After(deadline) {
+			return ErrLockBusy
+		}
+		time.Sleep(lockPollInterval)
+	}
 }
 
 // Unlock releases the lock file.

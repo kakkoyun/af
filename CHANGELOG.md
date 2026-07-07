@@ -82,6 +82,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no slicer/host worktree path rather than silently skipping
   normalization.
 
+### Added (exit-code contract + bounded locking; issues #2, #3)
+
+- **ADR-068 §2 exit-code contract implemented**: `exitCodeForError` now
+  maps `exec.ErrNotFound` to `EX_UNAVAILABLE` (69), a lock-acquisition
+  timeout (`session.ErrLockBusy`) to `EX_TEMPFAIL` (75), and
+  `os.ErrPermission` to `EX_NOPERM` (77). Cobra's own parse-time usage
+  errors (unknown command/flag, wrong arg count) now map to
+  `EX_USAGE_COBRA` (2) instead of being conflated with af's own domain
+  validation errors, which stay `EX_USAGE` (64). `main` catches a panic,
+  prints it with a stack trace to stderr, and exits `EX_SOFTWARE` (70)
+  instead of falling through to the Go runtime's default panic exit.
+  OS keyring access denials are not distinguishable from other keyring
+  errors on any backend zalando/go-keyring supports, so they are not
+  specially mapped (documented in code rather than detected via
+  string-matching).
+- **Bounded lock acquisition**: `session.LockFile` now retries a
+  non-blocking `flock` for up to `AF_LOCK_TIMEOUT` (default 30s, per
+  ADR-068 §4) before returning `session.ErrLockBusy`, instead of
+  blocking forever. A malformed `AF_LOCK_TIMEOUT` falls back to the
+  default.
+
+### Changed (session.Update API; issue #3)
+
+- `session.WithDirLock` is now the base directory-lock primitive;
+  `session.WithLock` is a thin wrapper over it, and
+  `lifecycle`'s previously-duplicated state-root lock helper is gone in
+  favor of the shared primitive.
+- New `session.Update(statePath, mutate)` composes
+  `WithLock`+`ReadState`+mutate+`WriteState` into one call so a clean
+  read-modify-write sequence can no longer be represented as an
+  unlocked write by accident. `af stack`/`af unstack` use it; call
+  sites with a side effect (a git/gh/slicer/tmux call, or another read)
+  between the read and the write stay on `WithLock` directly, each with
+  a `//nolint:forbidigo` explaining why — a new `forbidigo` lint rule
+  forbids raw `session.WriteState` calls outside `internal/session` and
+  test files to keep that split visible.
+- New `session.WriteFileAtomic` is the shared temp-file-plus-rename
+  primitive behind both `session.WriteState` and
+  `obsidian.DirStore.Write`, using a unique `os.CreateTemp` name (like
+  obsidian already did) instead of a fixed `<path>.tmp` name.
+
 ### Added (macOS integration CI)
 
 - `make test-integration` + a `integration / macos` CI job: real macOS

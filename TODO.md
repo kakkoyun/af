@@ -714,21 +714,52 @@ test/CI coverage, docs-vs-reality). All executed on branch
 - [x] I16.11: Fix `make lint` GOTOOLCHAIN mismatch and goreleaser pin
       (2.5.0 → 2.8.2); `goreleaser check` green (config half of I15.1).
 
-- [ ] I16.12 (issue #2): Post-review follow-up — the frozen SPEC/ADR-068 exit-code
+- [x] I16.12 (issue #2): Post-review follow-up — the frozen SPEC/ADR-068 exit-code
       table (EX_UNAVAILABLE 69, EX_SOFTWARE 70, EX_TEMPFAIL 75,
       EX_NOPERM 77, cobra usage 2) documents codes the binary never
       emitted; the dead constants were removed in this pass. Owner
       decision: implement the full mapping (new work + tests) or amend
       the contract via a new ADR (074+).
+      Resolved: implemented the full mapping per the existing table
+      (no new ADR needed). `exitCodeForError` now maps
+      `exec.ErrNotFound`→69, `session.ErrLockBusy`→75,
+      `os.ErrPermission`→77, and splits cobra parse-time usage errors
+      (→2) from af's own domain usage sentinels (→64, unchanged).
+      `main` gained a panic-recovery defer that exits 70. Keyring
+      access-denial detection was explicitly *not* added:
+      zalando/go-keyring exposes no distinguishable "access denied"
+      error on any backend (only ErrNotFound/ErrSetDataTooBig/
+      ErrUnsupportedPlatform), so denials fall through to
+      `EX_GENERAL` rather than `EX_NOPERM`; this is documented in
+      `cmd/af/exit_codes.go`. See `cmd/af/exit_codes_test.go` for the
+      full table test plus a lock-busy end-to-end test.
 - [ ] I16.13 (issue #7): Post-review follow-up — the deleted Rust-era docs.yml
       leaves the last-deployed v0 rustdoc GitHub Pages site orphaned.
       Owner decision: disable Pages for the repo or push a tombstone
       redirect.
 
-- [ ] I16.14 (issue #3): make unlocked state writes unrepresentable
+- [x] I16.14 (issue #3): make unlocked state writes unrepresentable
       (session.Update API), narrow lock windows around gh calls, dedupe
       the flock/atomic-write primitives.
 - [x] I16.15 (issue #4): CI gate speed — prebuilt lint/goreleaser
+
+      Resolved (partially deferred): added `session.WithDirLock` (base
+      primitive; `WithLock` and lifecycle's state-root lock both use
+      it now), bounded `LockFile` acquisition (`AF_LOCK_TIMEOUT`,
+      default 30s, `session.ErrLockBusy`), `session.Update` for clean
+      read-modify-write call sites (migrated `af stack`/`af unstack`),
+      and `session.WriteFileAtomic` deduping the atomic-write tail
+      shared by `session.WriteState` and `obsidian.DirStore.Write`. A
+      `forbidigo` lint rule now flags any new raw `session.WriteState`
+      call outside `internal/session`/tests. Deferred: "narrow lock
+      windows around gh calls" — the PR-refresh and session-data-sync
+      call sites still hold the session lock across their gh/slicer
+      network call (documented per-site via `//nolint:forbidigo`);
+      shrinking those lock windows is a distinct, larger behavior
+      change (release-call-reacquire) out of scope for this pass and
+      not requested by the paired issue #2 exit-code work it was
+      bundled with.
+- [ ] I16.15 (issue #4): CI gate speed — prebuilt lint/goreleaser
       binaries, fold coverage into the test leg, scope the property job.
 - [x] I16.16 (issue #5): ADR-066 --continue-host transcript path
       normalization. Implemented in

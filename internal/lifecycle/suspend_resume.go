@@ -51,7 +51,7 @@ func SuspendWorkstream(_ context.Context, opts SuspendOptions) (session.State, e
 	state.Session.Status = string(next)
 	state.Session.SuspendedAt = &now
 
-	err = session.WriteState(opts.StatePath, state)
+	err = session.WriteState(opts.StatePath, state) //nolint:forbidigo // Step of the suspend pipeline; the caller's withSessionLock closure runs autoSyncBeforeTeardown (a sandbox/network side effect) around this step, so it can't collapse into one Update.
 	if err != nil {
 		return state, fmt.Errorf("suspend: write state: %w", err)
 	}
@@ -118,7 +118,7 @@ func maybeRespawnTmux(ctx context.Context, multiplexer mux.Multiplexer, state se
 }
 
 func persistResume(state session.State, opts ResumeOptions, now time.Time) (session.State, error) {
-	err := session.WriteState(opts.StatePath, state)
+	err := session.WriteState(opts.StatePath, state) //nolint:forbidigo // maybeRespawnTmux's mux side effect already ran between ReadState and here; can't collapse into session.Update.
 	if err != nil {
 		return state, fmt.Errorf("resume: write state: %w", err)
 	}

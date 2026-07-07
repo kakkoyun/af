@@ -312,7 +312,7 @@ func writebackSessionExport(statePath string, state session.State, result sessio
 		LastManifest:   result.StagingPath,
 		Sources:        mapSourceRecords(state.SlicerWT.VM, result.Merge.Sources),
 	}
-	err = session.WriteState(statePath, fresh)
+	err = session.WriteState(statePath, fresh) //nolint:forbidigo // The minutes-long sync ran before this; the reread above is deliberately separate from that read so a concurrent write can't be reverted, which session.Update's single ReadState can't express.
 	if err != nil {
 		return fmt.Errorf("writeback session_export state: %w", err)
 	}

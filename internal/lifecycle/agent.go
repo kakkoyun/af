@@ -78,7 +78,7 @@ func AgentAdd(ctx context.Context, deps AgentAddDeps, opts AgentAddOptions) (ses
 		SessionIDs:  []string{},
 	})
 
-	err = session.WriteState(opts.StatePath, state)
+	err = session.WriteState(opts.StatePath, state) //nolint:forbidigo // git worktree add already ran between ReadState and here for non-primary slots; can't collapse into session.Update.
 	if err != nil {
 		return state, plan, fmt.Errorf("agent add: write state: %w", err)
 	}
@@ -147,7 +147,7 @@ func maybeRemoveSubWorktree(ctx context.Context, runner git.Runner, state sessio
 
 func writeAgentStopped(state session.State, idx int, opts AgentStopOptions) error {
 	state.Agents[idx].Status = "stopped"
-	err := session.WriteState(opts.StatePath, state)
+	err := session.WriteState(opts.StatePath, state) //nolint:forbidigo // maybeRemoveSubWorktree's git worktree remove already ran between ReadState and here; can't collapse into session.Update.
 	if err != nil {
 		return fmt.Errorf("agent stop: write state: %w", err)
 	}

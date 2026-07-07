@@ -80,23 +80,15 @@ func runStack(cmd *cobra.Command, name, parent string) error {
 	if err != nil {
 		return err
 	}
-	err = withSessionLock(statePath, func() error {
-		var lockedErr error
-		state, lockedErr = session.ReadState(statePath)
-		if lockedErr != nil {
-			return fmt.Errorf("stack: reread state: %w", lockedErr)
-		}
+	err = session.Update(statePath, func(s *session.State) error {
 		now := time.Now().UTC()
-		state.Stack.ParentSession = parent
-		state.Stack.LinkedAt = &now
-		lockedErr = session.WriteState(statePath, state)
-		if lockedErr != nil {
-			return fmt.Errorf("stack: write state: %w", lockedErr)
-		}
+		s.Stack.ParentSession = parent
+		s.Stack.LinkedAt = &now
+		state = *s
 		return nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("stack: %w", err)
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "stacked %s onto %s\n", state.Session.Name, parent)
 	if err != nil {
@@ -110,23 +102,15 @@ func runUnstack(cmd *cobra.Command, name string) error {
 	if err != nil {
 		return err
 	}
-	err = withSessionLock(statePath, func() error {
-		var lockedErr error
-		state, lockedErr = session.ReadState(statePath)
-		if lockedErr != nil {
-			return fmt.Errorf("unstack: reread state: %w", lockedErr)
-		}
-		state.Stack.ParentSession = ""
-		state.Stack.ParentBranch = ""
-		state.Stack.LinkedAt = nil
-		lockedErr = session.WriteState(statePath, state)
-		if lockedErr != nil {
-			return fmt.Errorf("unstack: write state: %w", lockedErr)
-		}
+	err = session.Update(statePath, func(s *session.State) error {
+		s.Stack.ParentSession = ""
+		s.Stack.ParentBranch = ""
+		s.Stack.LinkedAt = nil
+		state = *s
 		return nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("unstack: %w", err)
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "unstacked %s\n", state.Session.Name)
 	if err != nil {

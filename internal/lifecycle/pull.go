@@ -76,7 +76,7 @@ func Pull(ctx context.Context, deps PullDeps, opts PullOptions) (PullResult, err
 	state.SlicerWT.LeaseState = session.SlicerWTLeasePulled
 	state.SlicerWT.PulledAt = &now
 
-	err = session.WriteState(opts.StatePath, state)
+	err = session.WriteState(opts.StatePath, state) //nolint:forbidigo // sandbox.WTPull's slicer subprocess call already ran between ReadState and here; can't collapse into session.Update.
 	if err != nil {
 		return PullResult{}, fmt.Errorf("pull: write state: %w", err)
 	}

@@ -2528,3 +2528,92 @@ field or a `slicer` query) before `--continue-host` rewrites anything
 for real transcripts. Recommend this as the first smoke-test item:
 verify a real `claude`/`codex` transcript's `cwd` field against what
 `state.SlicerWT.Path` actually contains after a real `slicer wt push`.
+
+## 2026-07-07 — Session 44: I16.12/I16.14 — exit-code contract + lock primitive
+
+### Goal
+
+Close the two owner-decision gaps from Session 43's review: implement
+the frozen ADR-068 §2 exit-code table (issue #2) and make unlocked
+state writes unrepresentable (issue #3). Worked in a dedicated
+worktree on `claude/issue-2-3-locking-exit-codes` since the two share
+the lock primitive.
+
+### Done
+
+- **`session.WithDirLock`**: extracted as the base directory-lock
+  primitive (stat-then-refuse-missing-dir + flock at `<dir>/.af.lock`);
+  `session.WithLock` is now `WithDirLock(filepath.Dir(statePath), ...)`.
+  `lifecycle.withStateRootLock` deleted; `provisionWorkstream` MkdirAlls
+  the state root itself (state roots are expected to auto-create on
+  first use, unlike a per-session dir) then locks it via the shared
+  primitive.
+- **Bounded lock acquisition**: `LockFile` retries a non-blocking
+  `flock` every 25ms until `AF_LOCK_TIMEOUT` elapses (default 30s —
+  ADR-068 §4 and SPEC.md both say 30s; the issue text said 10s, but the
+  frozen docs win per constitution rule 3, noted as a deviation),
+  returning `session.ErrLockBusy` on timeout.
+- **`session.Update(statePath, mutate)`**: composes
+  WithLock+ReadState+mutate+WriteState. Migrated `af stack`/`af
+  unstack`'s clean read-modify-write closures onto it. Deliberately did
+  *not* force-migrate sites with a side effect between read and write
+  (PR refresh's `gh` call, session-data sync's slicer/network call, the
+  done/suspend pipelines' git/tmux calls, agent add/stop's git
+  worktree calls) — those stay on `WithLock` with a documented
+  `//nolint:forbidigo` at each of the 12 production call sites.
+- **`session.WriteFileAtomic`**: extracted the temp-file-plus-rename-
+  plus-parent-fsync tail shared by `session.WriteState` and
+  `obsidian.DirStore.Write`, switching `WriteState` onto the same
+  unique-`os.CreateTemp`-name scheme obsidian already used (a fixed
+  `.tmp` name can no longer collide — one existing test pinned to the
+  old fixed-name failure mode was replaced with a
+  `TestWriteState_SurvivesHostileFixedTmpName` mirroring obsidian's own
+  test).
+- **`forbidigo` lint guard**: forbids the bare `session\.WriteState$`
+  selector (forbidigo matches selector-expression text, not the full
+  call — took a few iterations with a throwaway config to find the
+  right pattern and discover the default `max-same-issues: 3` cap was
+  hiding most violations during development). Test files are exempted
+  via `linters.exclusions.rules` (fixture writes aren't a concurrency
+  concern).
+- **ADR-068 §2 exit-code contract**: re-added
+  `exitUsageCobra`/`exitUnavailable`/`exitSoftware`/`exitTempFail`/
+  `exitNoPerm` (deleted in `bf30b13`). `exitCodeForError` now maps
+  `exec.ErrNotFound`→69, `session.ErrLockBusy`→75,
+  `os.ErrPermission`→77, and splits cobra's own parse-time usage errors
+  (→2, `exitUsageCobra`) from af's domain validation sentinels (→64,
+  unchanged) — this fixes a real bug where
+  `cobra.ExactArgs`-style errors were mapped to 64 instead of 2 (caught
+  by updating the existing `TestExitCodeForErrorMapsKnownClasses`
+  case). `main` gained a panic-recovery defer
+  (`handlePanicOutput`, unit-tested without forking a subprocess) that
+  prints the panic + stack to stderr and exits 70; its `os.Exit` calls
+  moved into a separate `exitOnError` function so they don't share a
+  function scope with the recover defer (gocritic `exitAfterDefer`).
+  Keyring access-denial detection was *not* added: `zalando/go-keyring`
+  exposes no distinguishable "access denied" error on any backend it
+  supports (verified by reading its source — only
+  `ErrNotFound`/`ErrSetDataTooBig`/`ErrUnsupportedPlatform` exist), so
+  per the issue's own guidance this is documented in code rather than
+  guessed at via string-matching.
+- New `cmd/af/exit_codes_test.go` table-tests every mapping row plus a
+  lock-busy end-to-end test (pre-hold the lock in-process, run `note
+  --append` through the real cobra dispatch with a tiny
+  `AF_LOCK_TIMEOUT`, assert the mapped code and retry hint).
+
+### Verification
+
+`gofumpt -l .` / `goimports -l .` clean; `golangci-lint run` (all
+linters, v2.3.0) 0 issues; `go test -race -count=1 -shuffle=on ./...`
+green; `go test -run TestProperty -count=1000
+./internal/workstream/` green.
+
+### Deferred / not done
+
+- "Narrow lock windows around gh calls" (part of I16.14's original
+  wording) was explicitly deferred: shrinking the PR-refresh/
+  session-data-sync lock windows to release-call-reacquire around the
+  network call is a distinct, larger behavior change not requested by
+  the paired exit-code work and out of scope for this pass.
+- Keyring access-denial exit-code mapping: not implemented, for the
+  reason above (no distinguishable error from the library).

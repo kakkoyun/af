@@ -151,10 +151,18 @@ control, and slicer resource capture fields.
 ### Operational UX contracts (ADR-068)
 
 - `--json` commands emit a versioned envelope: `{ "schema": 1, "data": ... }`.
-- `af` maps common failure classes to sysexits-style exit codes
-  (`EX_DATAERR`, `EX_NOINPUT`, `EX_INTERRUPTED`, etc.).
-- Mutating commands can acquire a per-session `.af.lock`; `af note --append`
-  and PR refresh write paths use the shared lock helper.
+- `af` maps common failure classes to the full sysexits-style exit-code
+  table (`EX_OK` 0, `EX_GENERAL` 1, `EX_USAGE_COBRA` 2, `EX_USAGE` 64,
+  `EX_DATAERR` 65, `EX_NOINPUT` 66, `EX_UNAVAILABLE` 69, `EX_SOFTWARE`
+  70, `EX_TEMPFAIL` 75, `EX_NOPERM` 77, `EX_INTERRUPTED` 130). A missing
+  external tool (`gh`, `slicer`, ...) exits `EX_UNAVAILABLE`; a
+  lock-acquisition timeout exits `EX_TEMPFAIL` with a retry hint; a
+  caught internal panic exits `EX_SOFTWARE` after printing the panic
+  and a stack trace to stderr.
+- Mutating commands acquire a per-session `.af.lock` (exclusive flock)
+  across their full read-modify-write span via `session.WithLock` /
+  `session.Update`. Acquisition is bounded: it retries for up to
+  `AF_LOCK_TIMEOUT` (default 30s) before failing with `EX_TEMPFAIL`.
 - Completions include workstream names for `[session]` / `--session` and
   lifecycle states for `af status --filter`.
 

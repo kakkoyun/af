@@ -231,14 +231,22 @@ func ensureGitWorktree(ctx context.Context, runner git.Runner, gitRoot string, p
 // provisionWorkstream runs the collision check, worktree setup, and
 // initial state write. The whole sequence holds the state-root lock so
 // concurrent creates cannot both claim one name (ADR-069 strict
-// collision semantics).
+// collision semantics). Unlike a per-session lock, the state root is
+// expected to be auto-created on first use (nothing ever archives the
+// root itself), so provisionWorkstream ensures it exists before
+// handing off to the shared session.WithDirLock primitive, which
+// otherwise refuses to lock a directory that doesn't already exist.
 func provisionWorkstream(ctx context.Context, deps CreateDeps, opts CreateOptions, resolved resolvedNames) (git.WorktreePlan, string, string, error) {
 	var (
 		plan       git.WorktreePlan
 		statePath  string
 		ledgerPath string
 	)
-	err := withStateRootLock(opts.StateDir, func() error {
+	err := os.MkdirAll(opts.StateDir, stateDirPerm)
+	if err != nil {
+		return plan, statePath, ledgerPath, fmt.Errorf("lock state root %s: %w", opts.StateDir, err)
+	}
+	err = session.WithDirLock(opts.StateDir, func() error {
 		lockedErr := checkNameCollision(opts.StateDir, opts.ArchiveDir, resolved.name)
 		if lockedErr != nil {
 			return lockedErr
@@ -261,19 +269,7 @@ func provisionWorkstream(ctx context.Context, deps CreateDeps, opts CreateOption
 		statePath, ledgerPath, lockedErr = writeInitialState(opts, resolved, plan)
 		return lockedErr
 	})
-	return plan, statePath, ledgerPath, err
-}
-
-// withStateRootLock runs fn while holding the exclusive flock at
-// <stateDir>/.af.lock, serializing create's collision-check +
-// session-dir creation against concurrent af processes.
-func withStateRootLock(stateDir string, fn func() error) error {
-	lock, err := session.LockFile(filepath.Join(stateDir, session.LockFileName), session.LockExclusive)
-	if err != nil {
-		return fmt.Errorf("lock state root %s: %w", stateDir, err)
-	}
-	defer func() { _ = lock.Unlock() }() //nolint:errcheck // Best-effort unlock on return.
-	return fn()
+	return plan, statePath, ledgerPath, err //nolint:wrapcheck // Lock errors are wrapped by session.WithDirLock; fn errors already carry their own context.
 }
 
 // ErrNameCollision reports that the requested session name is already
@@ -329,7 +325,7 @@ func writeInitialState(opts CreateOptions, resolved resolvedNames, plan git.Work
 	ledgerPath := filepath.Join(sessionDir, "ledger.jsonl")
 
 	state := buildInitialState(opts, resolved, plan)
-	err = session.WriteState(statePath, state)
+	err = session.WriteState(statePath, state) //nolint:forbidigo // Create-time initial write inside provisionWorkstream's state-root lock; there is no prior state to read-modify, so session.Update doesn't apply.
 	if err != nil {
 		return "", "", fmt.Errorf("write state.toml: %w", err)
 	}

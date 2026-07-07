@@ -477,7 +477,7 @@ func runPRRefresh(cmd *cobra.Command, name string) error {
 		if lockedErr != nil {
 			return fmt.Errorf("pr --refresh: %w", lockedErr)
 		}
-		lockedErr = session.WriteState(statePath, state)
+		lockedErr = session.WriteState(statePath, state) //nolint:forbidigo // prRefreshFunc's gh network call already ran between ReadState and this write; can't collapse into session.Update.
 		if lockedErr != nil {
 			return fmt.Errorf("pr --refresh: write state: %w", lockedErr)
 		}

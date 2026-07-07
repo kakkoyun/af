@@ -59,7 +59,7 @@ func refreshPRCacheForState(ctx context.Context, statePath string, state *sessio
 // pr_state_changed ledger event on a flip.
 func persistPRRefreshOutcome(statePath string, state *session.State, result pr.Result, refreshErr error) error {
 	if refreshErr != nil || !result.Skipped {
-		writeErr := session.WriteState(statePath, *state)
+		writeErr := session.WriteState(statePath, *state) //nolint:forbidigo // gh pr view network call already ran between the caller's ReadState and this write; can't collapse into session.Update.
 		if writeErr != nil {
 			return fmt.Errorf("write refreshed PR state: %w", writeErr)
 		}
