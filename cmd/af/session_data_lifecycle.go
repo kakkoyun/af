@@ -88,7 +88,7 @@ func recordDiscardedSync(state session.State, statePath string) error {
 		LastSyncAt:     &now,
 		LastSyncStatus: session.ExportSyncDiscarded,
 	}
-	err := session.WriteState(statePath, state)
+	err := session.WriteState(statePath, state) //nolint:forbidigo // Step of the done/suspend teardown pipeline (ADR-067); sibling steps in the same withSessionLock closure make sandbox/mux calls, so the sequence can't collapse into one Update.
 	if err != nil {
 		return fmt.Errorf("auto-sync: record discarded sync: %w", err)
 	}

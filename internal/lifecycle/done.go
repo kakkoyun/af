@@ -127,7 +127,7 @@ func terminalLabels(force bool) (State, string) {
 }
 
 func persistDone(state session.State, opts DoneOptions, eventType string) error {
-	err := session.WriteState(opts.StatePath, state)
+	err := session.WriteState(opts.StatePath, state) //nolint:forbidigo // Done pipeline: tmux kill + git worktree remove(s) already ran between ReadState and here; can't collapse into session.Update.
 	if err != nil {
 		return fmt.Errorf("done: write state: %w", err)
 	}

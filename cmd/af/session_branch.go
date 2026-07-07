@@ -113,7 +113,7 @@ func persistSessionBranchState(root, name, branchName string, now time.Time) err
 		},
 	}
 	err = withSessionLock(statePath, func() error {
-		return session.WriteState(statePath, state)
+		return session.WriteState(statePath, state) //nolint:forbidigo // Initial write for a freshly-registered session; nothing to read-modify, mirrors lifecycle's create-time write.
 	})
 	if err != nil {
 		return fmt.Errorf("session-branch: write state: %w", err)

@@ -267,6 +267,31 @@ func TestCreate_StateRootLockFailureAborts(t *testing.T) {
 	}
 }
 
+// TestCreate_StateRootLockFileExistsAfterCreate pins that provisionWorkstream
+// still serializes through a session.LockFileName flock directly under
+// StateDir (now via the shared session.WithDirLock primitive instead of
+// a duplicated lifecycle-local helper), and that StateDir itself is
+// still auto-created on first use rather than requiring the caller to
+// pre-create it.
+func TestCreate_StateRootLockFileExistsAfterCreate(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	opts := makeCreateOpts(t, home)
+	_, statErr := os.Stat(opts.StateDir)
+	if !os.IsNotExist(statErr) {
+		t.Fatalf("StateDir must not pre-exist for this test, stat err = %v", statErr)
+	}
+
+	_, err := lifecycle.Create(context.Background(), lifecycle.CreateDeps{Git: git.NewFakeRunner()}, opts)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	_, err = os.Stat(filepath.Join(opts.StateDir, session.LockFileName))
+	if err != nil {
+		t.Fatalf("state-root lock file missing: %v", err)
+	}
+}
+
 func TestCreate_NoteWriteFailureAborts(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()

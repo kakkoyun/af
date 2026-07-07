@@ -47,6 +47,20 @@ linters:
     errcheck:
       check-blank: true
       check-type-assertions: true
+    forbidigo:
+      # Issue #3 / ADR-037: a raw WithLock(ReadState + mutate + WriteState)
+      # closure makes an unlocked read-modify-write representable by
+      # accident. session.Update collapses that shape into one call.
+      # Call sites that must interleave an external side effect (a gh/git/
+      # slicer/tmux call, or another read) between the read and the write
+      # cannot use Update and stay on WithLock with a documented
+      # //nolint:forbidigo. internal/session itself is exempt (it calls
+      # WriteState unqualified, so this qualified pattern never matches
+      # there); test files are exempt below since fixture setup writes are
+      # not a concurrency concern.
+      forbid:
+        - pattern: 'session\.WriteState$'
+          msg: "use session.Update for a read-modify-write sequence instead of hand-rolling WithLock+ReadState+WriteState; if this call site truly can't (a side effect must run mid-critical-section), add //nolint:forbidigo with a reason"
     goconst:
       min-len: 3
       min-occurrences: 3
@@ -74,3 +88,12 @@ linters:
     staticcheck:
       checks:
         - all
+  exclusions:
+    rules:
+      # Test files legitimately call session.WriteState directly to seed
+      # fixture state before the code under test runs; that's not the
+      # unlocked-read-modify-write hazard the forbidigo rule above guards
+      # against, so it would just be nolint noise.
+      - path: _test\.go
+        linters:
+          - forbidigo
