@@ -184,6 +184,10 @@ func (ExecExecutor) ExecutePipe(ctx context.Context, dir string, stdout, stderr 
 		_ = c1.Process.Kill() //nolint:errcheck // best-effort kill during error recovery.
 		return fmt.Errorf("diff cmd2 start: %w", err)
 	}
+	// c2 inherited its own copy of the pipe's read end; close ours or
+	// cmd1 never receives EPIPE when cmd2 (a pager) exits early and
+	// both Waits deadlock.
+	_ = pipe.Close() //nolint:errcheck // double-close via c1.Wait is harmless.
 	// Wait for c1 first; broken-pipe from c2 exiting early is non-fatal.
 	_ = c1.Wait() //nolint:errcheck // broken-pipe is expected when c2 exits early.
 	err = c2.Wait()
