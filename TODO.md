@@ -731,6 +731,10 @@ test/CI coverage, docs-vs-reality). All executed on branch
 - [ ] I16.17 (issue #6): ADR-067 auto-sync for af clean --force on
       VM-backed workstreams (was backlog; now specced).
 
+- [x] I16.18: ADR-074 `af doctor --all` host self-smoke with
+      paste-actionable report and optional GitHub issue filing
+      (internal/smoke + doctor flags + doctor-all testscript).
+
 ---
 
 ## Backlog (post-v1, unscheduled)

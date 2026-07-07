@@ -55,6 +55,7 @@ convention defined in [ADR-032](032-adr-conventions.md).
 | [071](071-pr-state-lifecycle.md)                         | PR State Lifecycle — TTL-Cached Refresh                                        | accepted | complete       | go, pr, github, cache, lifecycle     |
 | [072](072-state-toml-schema-rollup.md)                   | state.toml Schema Amendments Roll-up                                           | accepted | complete       | go, state, schema, rollup            |
 | [073](073-af-review-multi-prompt-report.md)              | `af review` — Repo-Aware PR Review Report                                      | accepted | complete       | go, command, agent, review, pr, ai   |
+| [074](074-doctor-self-smoke.md)                          | af doctor --all — host self-smoke with actionable report                      | proposed | complete       | go, doctor, smoke, report, v1        |
 
 43 ADRs total.
 
@@ -175,7 +176,7 @@ ADR-026 was retired without being finalised in v0.
 
 ## How to add a new ADR
 
-1. Pick the next available number (next available is 074 as of this writing).
+1. Pick the next available number (next available is 075 as of this writing).
 2. Create `docs/adr/NNN-kebab-case-title.md` with the frontmatter from ADR-032.
 3. Body: Context → Decision → Consequences → Alternatives → References.
 4. Add a row to the catalogue table above.

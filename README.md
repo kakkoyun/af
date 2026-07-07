@@ -116,6 +116,7 @@ af [--verbose|-v] [--config PATH] [--session NAME] <command>
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `af setup [--force] [--shell SHELL] [--skip-completions] [--skip-gitignore]` | One-shot user-scope setup: state dirs, config file, global gitignore entry, shell completions. Idempotent. |
 | `af doctor [--remote HOST] [--verbose]`                                      | Probe required tools locally or on an SSH host; print install hints. Never auto-installs.                  |
+| `af doctor --all [--report] [--report-dir DIR] [--issue]`                     | Host self-smoke (ADR-074): run real af commands in an isolated scratch HOME, clean up, and summarise. `--report` writes paste-ready markdown + JSON; `--issue` files failures on GitHub via `gh`. Exits non-zero when any step fails. |
 
 ### Notes / Obsidian
 

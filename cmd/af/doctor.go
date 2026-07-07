@@ -17,9 +17,13 @@ import (
 var errDoctorMissingTools = errors.New("missing required tool")
 
 type doctorOptions struct {
-	root    *rootOptions
-	remote  string
-	verbose bool
+	root           *rootOptions
+	remote         string
+	smokeReportDir string
+	verbose        bool
+	smokeAll       bool
+	smokeReport    bool
+	smokeIssue     bool
 }
 
 func newDoctorCmd(opts *rootOptions) *cobra.Command {
@@ -30,11 +34,22 @@ func newDoctorCmd(opts *rootOptions) *cobra.Command {
 		Long:  "doctor probes the local machine (or, with --remote, an SSH host) for the tools af relies on and prints install hints. It never installs anything.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			err := validateDoctorFlags(docOpts)
+			if err != nil {
+				return err
+			}
+			if docOpts.smokeAll {
+				return runDoctorSmoke(cmd, docOpts)
+			}
 			return runDoctor(cmd.Context(), cmd, docOpts)
 		},
 	}
 	cmd.Flags().StringVar(&docOpts.remote, "remote", "", "probe an SSH host instead of the local machine")
 	cmd.Flags().BoolVar(&docOpts.verbose, "verbose", false, "verbose probe output (full version strings)")
+	cmd.Flags().BoolVar(&docOpts.smokeAll, "all", false, "run the host self-smoke: real af commands in an isolated scratch HOME, cleaned up afterwards (ADR-074)")
+	cmd.Flags().BoolVar(&docOpts.smokeReport, "report", false, "with --all: write markdown + json report files")
+	cmd.Flags().StringVar(&docOpts.smokeReportDir, "report-dir", "", "with --report or --issue: directory for report files (default: current directory)")
+	cmd.Flags().BoolVar(&docOpts.smokeIssue, "issue", false, "with --all: file failing steps as a GitHub issue on "+afRepoSlug+" via gh")
 	return cmd
 }
 
@@ -154,4 +169,20 @@ func (localOSRelease) Read() (map[string]string, error) {
 		return nil, fmt.Errorf("read /etc/os-release: %w", err)
 	}
 	return doctor.ParseOSRelease(string(data)), nil
+}
+
+// errDoctorFlagUsage rejects ambiguous doctor flag combinations.
+var errDoctorFlagUsage = errors.New("--report, --report-dir, and --issue require --all; --remote cannot be combined with --all")
+
+// validateDoctorFlags rejects smoke flags without --all and --remote
+// with --all instead of silently ignoring either.
+func validateDoctorFlags(opts *doctorOptions) error {
+	smokeExtras := opts.smokeReport || opts.smokeIssue || opts.smokeReportDir != ""
+	if !opts.smokeAll && smokeExtras {
+		return fmt.Errorf("doctor: %w", errDoctorFlagUsage)
+	}
+	if opts.smokeAll && opts.remote != "" {
+		return fmt.Errorf("doctor: %w", errDoctorFlagUsage)
+	}
+	return nil
 }
