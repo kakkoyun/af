@@ -25,3 +25,12 @@ func TestCheckNameCollision_RefusesEscapingCandidate(t *testing.T) {
 		t.Fatalf("want ErrInvalidSessionName, got %v", err)
 	}
 }
+
+// TestCheckNameCollision_EmptyNameIsNoop verifies that an empty name
+// (auto-generation not yet resolved) never counts as a collision.
+func TestCheckNameCollision_EmptyNameIsNoop(t *testing.T) {
+	err := checkNameCollision(t.TempDir(), t.TempDir(), "")
+	if err != nil {
+		t.Fatalf("checkNameCollision with empty name: %v", err)
+	}
+}
