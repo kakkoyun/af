@@ -141,15 +141,15 @@ func TestSync_ForceRefreshesParentPRBeforeRebase(t *testing.T) {
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	writeTestSessionState(t, home, "parent", "feat/parent", "active")
+	writeTestSessionState(t, home, staleTestParent, "feat/parent", "active")
 	writeTestSessionState(t, home, "child", "feat/child", "active")
-	setTestPRState(t, home, "parent", session.PRState{Number: 17, State: pr.StateOpen})
+	setTestPRState(t, home, staleTestParent, session.PRState{Number: 17, State: pr.StateOpen})
 	childPath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "child", "state.toml")
 	child, err := session.ReadState(childPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	child.Stack.ParentSession = "parent"
+	child.Stack.ParentSession = staleTestParent
 	err = session.WriteState(childPath, child)
 	if err != nil {
 		t.Fatal(err)

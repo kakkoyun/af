@@ -21,11 +21,19 @@ type prCacheRefreshOptions struct {
 }
 
 // refreshPRCacheForState applies the ADR-071 PR state cache policy to one
-// state.toml. The passed State is mutated in place and written back whenever a
-// refresh attempt changes persistent fields (successful fetch, flip, or
-// last_refresh_error update). Callers decide whether refresh errors are soft
-// (status/info) or hard (clean/sync/done).
+// state.toml. Callers hold the session lock; the state is re-read from
+// disk here so the write-back cannot clobber fields committed by a
+// concurrent command between the caller's snapshot and lock acquisition
+// (and a session archived by a racing `af done` fails the re-read
+// instead of being resurrected). The passed State is refreshed in place
+// so callers keep displaying current data. Callers decide whether
+// refresh errors are soft (status/info) or hard (clean/sync/done).
 func refreshPRCacheForState(ctx context.Context, statePath string, state *session.State, opts prCacheRefreshOptions) error {
+	fresh, err := session.ReadState(statePath)
+	if err != nil {
+		return fmt.Errorf("reread state before PR refresh: %w", err)
+	}
+	*state = fresh
 	if state.PR.Number == 0 {
 		if opts.RequirePR {
 			return pr.ErrNoPR
@@ -43,6 +51,13 @@ func refreshPRCacheForState(ctx context.Context, statePath string, state *sessio
 		Force:    opts.Force,
 		Now:      time.Now,
 	})
+	return persistPRRefreshOutcome(statePath, state, result, refreshErr)
+}
+
+// persistPRRefreshOutcome writes the refreshed state back when the
+// refresh attempt changed persistent fields and emits the
+// pr_state_changed ledger event on a flip.
+func persistPRRefreshOutcome(statePath string, state *session.State, result pr.Result, refreshErr error) error {
 	if refreshErr != nil || !result.Skipped {
 		writeErr := session.WriteState(statePath, *state)
 		if writeErr != nil {

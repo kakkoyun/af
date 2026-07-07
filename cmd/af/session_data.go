@@ -263,18 +263,25 @@ func writebackSessionExport(statePath string, state session.State, result sessio
 	if result.DryRun {
 		return nil
 	}
+	// The sync itself can run for minutes; re-read under the caller's
+	// lock so the writeback cannot revert fields committed by a
+	// concurrent command since the pre-sync snapshot was taken.
+	fresh, err := session.ReadState(statePath)
+	if err != nil {
+		return fmt.Errorf("reread state before writeback: %w", err)
+	}
 	now := time.Now().UTC()
 	status := session.ExportSyncOK
 	if result.Merge.Conflicts > 0 {
 		status = session.ExportSyncBlocked
 	}
-	state.SessionExport = session.ExportState{
+	fresh.SessionExport = session.ExportState{
 		LastSyncAt:     &now,
 		LastSyncStatus: status,
 		LastManifest:   result.StagingPath,
 		Sources:        mapSourceRecords(state.SlicerWT.VM, result.Merge.Sources),
 	}
-	err := session.WriteState(statePath, state)
+	err = session.WriteState(statePath, fresh)
 	if err != nil {
 		return fmt.Errorf("writeback session_export state: %w", err)
 	}
