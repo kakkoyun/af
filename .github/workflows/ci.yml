@@ -94,6 +94,27 @@ jobs:
       - name: "Coverage summary"
         run: go tool cover -func=coverage.out >> "$GITHUB_STEP_SUMMARY"
 
+  # ── macOS integration: real Keychain + real tmux ───────────────────────────
+  integration-macos:
+    name: "integration / macos"
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: "Install tmux"
+        run: brew install tmux
+      - name: "Create and unlock a throwaway keychain"
+        run: |
+          security create-keychain -p ci-password af-ci.keychain
+          security set-keychain-settings -lut 21600 af-ci.keychain
+          security unlock-keychain -p ci-password af-ci.keychain
+          security default-keychain -s af-ci.keychain
+          security list-keychains -d user -s af-ci.keychain
+      - run: make test-integration
+
   # ── goreleaser config check (local-only release per ADR-053) ───────────────
   goreleaser-check:
     name: "goreleaser-check"
@@ -110,7 +131,7 @@ jobs:
   required:
     name: "all checks passed"
     if: always()
-    needs: [fmt, lint, test, property, build, coverage, goreleaser-check]
+    needs: [fmt, lint, test, property, build, coverage, integration-macos, goreleaser-check]
     runs-on: ubuntu-latest
     steps:
       - name: "Check required jobs"

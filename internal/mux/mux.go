@@ -145,11 +145,18 @@ func (tmux Tmux) KillSession(ctx context.Context, name string) error {
 // SessionExists reports whether a tmux session exists.
 func (tmux Tmux) SessionExists(ctx context.Context, name string) (bool, error) {
 	_, err := tmux.run(ctx, "has-session", "-t", name)
-	if err != nil {
-		return false, fmt.Errorf("check tmux session %s: %w", name, err)
+	if err == nil {
+		return true, nil
 	}
-
-	return true, nil
+	// has-session exits non-zero both for "can't find session" and for
+	// "no server running" — either way the session does not exist.
+	// Only non-exit failures (missing binary, cancelled context) are
+	// real errors.
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return false, nil
+	}
+	return false, fmt.Errorf("check tmux session %s: %w", name, err)
 }
 
 // Attach attaches the user's terminal to a tmux session.
@@ -213,7 +220,10 @@ func (tmux Tmux) SetOption(ctx context.Context, session, key, value string) erro
 
 // ListSessions returns af-managed tmux sessions.
 func (tmux Tmux) ListSessions(ctx context.Context) ([]Session, error) {
-	output, err := tmux.run(ctx, "list-sessions", "-F", "#{session_name}\t#{session_attached}")
+	// The space-free attached count leads: tmux sanitizes control
+	// characters (including tab) in format output to underscores, so a
+	// tab separator never survives a real server.
+	output, err := tmux.run(ctx, "list-sessions", "-F", "#{session_attached} #{session_name}")
 	if err != nil {
 		return nil, fmt.Errorf("list tmux sessions: %w", err)
 	}
@@ -243,7 +253,8 @@ func (tmux Tmux) KillPane(ctx context.Context, _, pane string) error {
 
 // ListPanes returns panes for a tmux session.
 func (tmux Tmux) ListPanes(ctx context.Context, session string) ([]Pane, error) {
-	output, err := tmux.run(ctx, "list-panes", "-t", session, "-F", "#{pane_id}\t#{pane_current_path}")
+	// pane_id (%N) is space-free and leads; the path may contain spaces.
+	output, err := tmux.run(ctx, "list-panes", "-t", session, "-F", "#{pane_id} #{pane_current_path}")
 	if err != nil {
 		return nil, fmt.Errorf("list tmux panes for %s: %w", session, err)
 	}
@@ -267,9 +278,11 @@ func parseSessions(output string) []Session {
 	}
 	sessions := make([]Session, 0, len(lines))
 	for _, line := range lines {
-		fields := strings.SplitN(line, "\t", splitFieldLimit)
-		attached := len(fields) == splitFieldLimit && fields[1] != "0"
-		sessions = append(sessions, Session{Name: fields[0], Attached: attached})
+		fields := strings.SplitN(line, " ", splitFieldLimit)
+		if len(fields) != splitFieldLimit {
+			continue
+		}
+		sessions = append(sessions, Session{Name: fields[1], Attached: fields[0] != "0"})
 	}
 	sort.Slice(sessions, func(i, j int) bool { return sessions[i].Name < sessions[j].Name })
 
@@ -283,7 +296,7 @@ func parsePanes(output string) []Pane {
 	}
 	panes := make([]Pane, 0, len(lines))
 	for _, line := range lines {
-		fields := strings.SplitN(line, "\t", splitFieldLimit)
+		fields := strings.SplitN(line, " ", splitFieldLimit)
 		pane := Pane{ID: fields[0]}
 		if len(fields) == splitFieldLimit {
 			pane.CWD = fields[1]

@@ -18,7 +18,7 @@ GOFUMPT    ?= $(GO) run mvdan.cc/gofumpt@v$(GOFUMPT_VERSION)
 GOIMPORTS  ?= $(GO) run golang.org/x/tools/cmd/goimports@v$(GOIMPORTS_VERSION)
 GORELEASER ?= $(GO) run github.com/goreleaser/goreleaser/v2@v$(GORELEASER_VERSION)
 
-.PHONY: all build release-build release/build test test-property lint fmt fmt-check \
+.PHONY: all build release-build release/build test test-property test-integration lint fmt fmt-check \
 	check install warn-dirty release-snapshot snapshot clean
 
 all: check
@@ -35,6 +35,9 @@ test:
 
 test-property:
 	$(GO) test -run TestProperty -count=10000 -timeout 120s ./...
+
+test-integration: ## Real keychain + tmux integration tests (macOS CI / owner machine)
+	AF_INTEGRATION_KEYRING=1 $(GO) test -race -count=1 -tags integration -run TestIntegration ./internal/secret/ ./internal/mux/
 
 lint:
 	$(GOLANGCI) run

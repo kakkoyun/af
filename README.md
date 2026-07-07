@@ -131,10 +131,10 @@ These commands run the user-configured executables from `[diff]`, `[pr]`, and
 (`{base}`, `{head}`, `{worktree}`, `{title}`, `{body}`).
 
 | Command                                                                   | Description                                                              |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `af diff [session] [--base REF] [--web] [--interactive]`                  | Run the configured diff command in the workstream worktree; `--web` opens the range via diffity (ADR-064). |
 | `af pr [session] [--title T] [--body B] [--draft] [--web] [--ai] [--ai-model MODEL] [--refresh]` | Run the PR-create command; `--ai` builds the body from the worktree diff via `agent.BodyCmd` (rejects `--ai` + `--web`); `--refresh` force-refreshes the cached PR state (ADR-071) without opening anything. |
-| `af editor [session] [--terminal                                          | -t] [--visual]`                                                          | Open the configured editor at the workstream worktree path. |
+| `af editor [session] [--terminal\|-t] [--visual]`                          | Open the configured editor at the workstream worktree path.              |
 
 
 

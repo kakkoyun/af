@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (macOS integration CI)
+
+- `make test-integration` + a `integration / macos` CI job: real macOS
+  Keychain round-trip (`af`'s system keyring against an unlocked
+  throwaway keychain) and a real tmux session lifecycle, covering the
+  two integrations the hermetic suite can only fake.
+
+### Fixed (found by the real-tmux integration test)
+
+- `ListSessions`/`ListPanes` used a tab separator in `tmux -F` formats,
+  but tmux sanitizes control characters in format output to `_`, so
+  parsing never worked against a real server (session names came back
+  as `name_0`, attached state was always false). Formats now lead with
+  the space-free field and split on a space.
+- `SessionExists` returned an error when `tmux has-session` exited
+  non-zero, but that exit covers both "can't find session" and "no
+  server running" — both now report `false` without an error; only
+  non-exit failures (missing binary, cancelled context) error.
+
 ### Security
 
 - **Session-name path traversal closed**: `af create` accepted names

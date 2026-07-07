@@ -101,7 +101,7 @@ func tmuxArgvCasesMore() []tmuxArgvCase {
 				_, err := tmux.ListPanes(ctx, "work")
 				return wrapErr("list panes", err)
 			},
-			want: []string{"list-panes", "-t", "work", "-F", "#{pane_id}\t#{pane_current_path}"},
+			want: []string{"list-panes", "-t", "work", "-F", "#{pane_id} #{pane_current_path}"},
 		},
 		{
 			name: "list sessions",
@@ -109,7 +109,7 @@ func tmuxArgvCasesMore() []tmuxArgvCase {
 				_, err := tmux.ListSessions(ctx)
 				return wrapErr("list sessions", err)
 			},
-			want: []string{"list-sessions", "-F", "#{session_name}\t#{session_attached}"},
+			want: []string{"list-sessions", "-F", "#{session_attached} #{session_name}"},
 		},
 	}
 }
@@ -225,7 +225,7 @@ func TestTmux_GetEnvUnsetVariable(t *testing.T) {
 
 func TestTmux_ListSessionsParsesAndSorts(t *testing.T) {
 	runner := mux.NewRecordingRunner()
-	runner.QueueOutput("beta\t0\nalpha\t2\nsolo\n")
+	runner.QueueOutput("0 beta\n2 alpha\nmalformed\n1 with space\n")
 	tmux := mux.NewTmuxWithRunner(runner)
 
 	sessions, err := tmux.ListSessions(context.Background())
@@ -233,7 +233,7 @@ func TestTmux_ListSessionsParsesAndSorts(t *testing.T) {
 	want := []mux.Session{
 		{Name: "alpha", Attached: true},
 		{Name: "beta", Attached: false},
-		{Name: "solo", Attached: false},
+		{Name: "with space", Attached: true},
 	}
 	if !reflect.DeepEqual(sessions, want) {
 		t.Fatalf("ListSessions() = %#v, want %#v", sessions, want)
@@ -254,12 +254,12 @@ func TestTmux_ListSessionsEmptyOutput(t *testing.T) {
 
 func TestTmux_ListPanesParsesOptionalCWD(t *testing.T) {
 	runner := mux.NewRecordingRunner()
-	runner.QueueOutput("%0\t/repo\n%1\n")
+	runner.QueueOutput("%0 /repo with space\n%1\n")
 	tmux := mux.NewTmuxWithRunner(runner)
 
 	panes, err := tmux.ListPanes(context.Background(), "work")
 	requireNoError(t, err)
-	want := []mux.Pane{{ID: "%0", CWD: "/repo"}, {ID: "%1"}}
+	want := []mux.Pane{{ID: "%0", CWD: "/repo with space"}, {ID: "%1"}}
 	if !reflect.DeepEqual(panes, want) {
 		t.Fatalf("ListPanes() = %#v, want %#v", panes, want)
 	}
