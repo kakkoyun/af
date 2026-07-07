@@ -15,7 +15,7 @@ env HOME=$WORK/home
 
 # ── Failure 1: unknown session name ───────────────────────────────────────────
 ! exec af done ghost
-stderr 'done: read state'
+stderr 'session directory'
 stderr 'ghost'
 
 # ── Scenario 2: complete demo ─────────────────────────────────────────────────
@@ -37,9 +37,9 @@ grep 'status = "abandoned"' $HOME/.local/share/af/v1/archive/demo2/state.toml
 grep '"event":"abandoned"' $HOME/.local/share/af/v1/archive/demo2/ledger.jsonl
 
 # ── Failure 4: done again on the archived session ─────────────────────────────
-# The state dir moved to the archive, so a second done finds no state.toml.
+# The state dir moved to the archive, so a second done finds no session dir.
 ! exec af done demo
-stderr 'done: read state'
+stderr 'session directory'
 
 # ── Initial file content ───────────────────────────────────────────────────────
 

@@ -2,6 +2,7 @@ package session
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 )
 
@@ -16,7 +17,16 @@ const LockFileName = ".af.lock"
 // until the holder releases; flock is released by the kernel if the
 // holding process dies, so a crash cannot wedge the session.
 func WithLock(statePath string, fn func() error) error {
-	lockPath := filepath.Join(filepath.Dir(statePath), LockFileName)
+	dir := filepath.Dir(statePath)
+	// Refuse to materialize a ghost session dir: LockFile would
+	// MkdirAll, so locking a session that a concurrent `af done`
+	// already archived must fail instead of recreating an empty
+	// directory that the ADR-069 collision check then treats as live.
+	_, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("session lock: session directory %s: %w", dir, err)
+	}
+	lockPath := filepath.Join(dir, LockFileName)
 	lock, err := LockFile(lockPath, LockExclusive)
 	if err != nil {
 		return fmt.Errorf("session lock %s: %w", lockPath, err)

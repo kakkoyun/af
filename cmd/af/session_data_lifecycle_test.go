@@ -10,6 +10,7 @@ import (
 
 	"github.com/kakkoyun/af/internal/sandbox/sessiondata"
 	"github.com/kakkoyun/af/internal/session"
+	"github.com/kakkoyun/af/internal/testutil"
 )
 
 // TestSuspend_AutoSyncRunsForSlicerBacked asserts that suspending a
@@ -167,3 +168,30 @@ func clearLease(t *testing.T, home, name string) {
 
 // Silence unused-import warnings if/when imports change.
 var _ = context.Background
+
+// TestDone_ArchiveContainsNoLockFile verifies ADR-068 §4: the flock
+// file must not travel into the archive with the session directory.
+func TestDone_ArchiveContainsNoLockFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	bin := filepath.Join(home, "bin")
+	for _, name := range []string{"git", "tmux"} {
+		testutil.WriteExecutable(t, bin, name, "exit 0")
+	}
+	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+	writeTestSessionState(t, home, "locked-arch", "feat/locked-arch", "active")
+
+	_, _, err := executeCommand(t, newRootCmd(), "done", "locked-arch")
+	if err != nil {
+		t.Fatalf("done: %v", err)
+	}
+	archived := filepath.Join(home, ".local", "share", "af", "v1", "archive", "locked-arch")
+	_, statErr := os.Stat(filepath.Join(archived, "state.toml"))
+	if statErr != nil {
+		t.Fatalf("archived state.toml missing: %v", statErr)
+	}
+	_, lockStatErr := os.Stat(filepath.Join(archived, session.LockFileName))
+	if !errors.Is(lockStatErr, os.ErrNotExist) {
+		t.Fatalf("archive contains stray %s: stat err = %v", session.LockFileName, lockStatErr)
+	}
+}

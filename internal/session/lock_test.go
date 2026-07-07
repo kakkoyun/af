@@ -99,3 +99,21 @@ func writeLockTestState(t *testing.T, path string, maxAgents int) {
 		t.Fatalf("WriteState: %v", err)
 	}
 }
+
+// TestWithLock_FailsWhenSessionDirMissing verifies WithLock refuses to
+// materialize a ghost session directory: locking a session that a
+// concurrent `af done` already archived must fail, not recreate the
+// directory with only a lock file inside (which would satisfy the
+// ADR-069 collision check forever).
+func TestWithLock_FailsWhenSessionDirMissing(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "gone", "state.toml")
+
+	err := session.WithLock(statePath, func() error { return nil })
+	if err == nil {
+		t.Fatal("WithLock on missing session dir succeeded, want error")
+	}
+	_, statErr := os.Stat(filepath.Dir(statePath))
+	if !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("session dir was recreated by WithLock: stat err = %v", statErr)
+	}
+}

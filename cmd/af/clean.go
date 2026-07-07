@@ -117,7 +117,12 @@ func executeClean(cmd *cobra.Command, targets []sessionSummary, dryRun bool) err
 			}
 			continue
 		}
-		err := os.RemoveAll(filepath.Dir(targets[i].statePath))
+		// Hold the session lock so removal cannot race a concurrent
+		// writer mid-critical-section (the unlinked lock file keeps
+		// serializing via the open fd until release).
+		err := withSessionLock(targets[i].statePath, func() error {
+			return os.RemoveAll(filepath.Dir(targets[i].statePath))
+		})
 		if err != nil {
 			return fmt.Errorf("clean: remove %s: %w", name, err)
 		}

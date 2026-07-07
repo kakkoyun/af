@@ -103,6 +103,10 @@ func finishWorkstreamLocked(cmd *cobra.Command, opts *doneOptions, statePath str
 	if err != nil {
 		return session.State{}, fmt.Errorf("done: %w", err)
 	}
+	// ADR-068 §4: the lock file must not persist in the archive. The
+	// rename moved it along with the session dir; the held fd keeps the
+	// flock valid, so unlinking the archived name is safe.
+	_ = os.Remove(filepath.Join(archiveDir, state.Session.Name, session.LockFileName)) //nolint:errcheck // Best-effort cleanup per ADR-068.
 	return state, nil
 }
 
