@@ -202,11 +202,14 @@ func joinArgs(args []string) string {
 	return result
 }
 
-// TestSync_SkipsFetchWhenNoOriginConfigured verifies local-only stacks
-// (no origin remote) never attempt a fetch and produce no warning.
-func TestSync_SkipsFetchWhenNoOriginConfigured(t *testing.T) {
+// TestSync_NoWarningWhenNoOriginConfigured verifies local-only stacks
+// (fetch fails, no origin remote configured) stay silent: the failed
+// fetch is expected, not a staleness risk.
+func TestSync_NoWarningWhenNoOriginConfigured(t *testing.T) {
 	t.Parallel()
 	runner := newCleanFakeRunner(shaParent, shaAfter)
+	runner.SetResponse([]string{"fetch", "origin", testParentRef},
+		git.FakeResponse{Err: errTestGitFailed, Output: "fatal: not a repo"})
 	runner.SetResponse([]string{"config", "--get", "remote.origin.url"},
 		git.FakeResponse{Err: errTestGitFailed})
 
@@ -217,10 +220,33 @@ func TestSync_SkipsFetchWhenNoOriginConfigured(t *testing.T) {
 	if result.FetchWarning != "" {
 		t.Fatalf("FetchWarning = %q, want empty", result.FetchWarning)
 	}
+}
+
+// TestSync_FetchAttemptedEvenWhenOriginProbeWouldFail pins the
+// fetch-first order: a working fetch must not be skipped because the
+// origin probe errors (multi-valued remote.origin.url, broken config
+// include).
+func TestSync_FetchAttemptedEvenWhenOriginProbeWouldFail(t *testing.T) {
+	t.Parallel()
+	runner := newCleanFakeRunner(shaParent, shaAfter)
+	runner.SetResponse([]string{"config", "--get", "remote.origin.url"},
+		git.FakeResponse{Err: errTestGitFailed})
+
+	result, err := lifecycle.Sync(context.Background(), lifecycle.SyncDeps{Git: runner}, validOpts())
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if result.FetchWarning != "" {
+		t.Fatalf("FetchWarning = %q, want empty (fetch succeeded)", result.FetchWarning)
+	}
+	fetched := false
 	for _, call := range runner.CommandStrings() {
 		if strings.HasPrefix(call, "fetch ") {
-			t.Fatalf("unexpected fetch call %q for local-only stack", call)
+			fetched = true
 		}
+	}
+	if !fetched {
+		t.Fatal("fetch was skipped; it must be attempted before any origin probe")
 	}
 }
 

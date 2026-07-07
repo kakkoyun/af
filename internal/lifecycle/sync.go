@@ -175,18 +175,21 @@ func detectDirtyWorktree(ctx context.Context, runner git.Runner, worktree string
 	return nil
 }
 
-// tryFetchParent attempts `git fetch origin <parentRef>` when an origin
-// remote is configured. Local-only stacks (no origin) skip the fetch
-// entirely. A failed fetch against a configured origin is not fatal —
-// sync proceeds against the local parent ref — but the failure detail
-// is returned so callers can warn about rebasing onto a stale parent.
+// tryFetchParent attempts `git fetch origin <parentRef>`. The fetch is
+// tried unconditionally (probing origin first would wrongly classify
+// probe failures — multi-valued remote.origin.url, unreadable config —
+// as "local-only" and skip a fetch that would have worked). Only when
+// the fetch fails is origin probed to distinguish a local-only stack
+// (no origin configured: silent, expected) from a real fetch failure,
+// whose detail is returned so callers can warn about rebasing onto a
+// stale parent. Sync proceeds either way.
 func tryFetchParent(ctx context.Context, runner git.Runner, worktree, parentRef string) string {
-	originOut, originErr := runner.Run(ctx, worktree, "config", "--get", "remote.origin.url")
-	if originErr != nil || strings.TrimSpace(string(originOut)) == "" {
-		return ""
-	}
 	fetchOut, fetchErr := runner.Run(ctx, worktree, "fetch", "origin", parentRef)
 	if fetchErr == nil {
+		return ""
+	}
+	originOut, originErr := runner.Run(ctx, worktree, "config", "--get", "remote.origin.url")
+	if originErr != nil || strings.TrimSpace(string(originOut)) == "" {
 		return ""
 	}
 	detail := strings.TrimSpace(string(fetchOut))
