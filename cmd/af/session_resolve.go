@@ -16,6 +16,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/kakkoyun/af/internal/session"
+	"github.com/kakkoyun/af/internal/workstream"
 )
 
 var (
@@ -41,13 +42,21 @@ func resolveLifecycleStatePathForCommand(cmd *cobra.Command, positional string) 
 	if err != nil {
 		return "", fmt.Errorf("resolve state path: %w", err)
 	}
-	if statePath := explicitSessionStatePath(cmd, stateDir, positional); statePath != "" {
+	statePath, err := explicitSessionStatePath(cmd, stateDir, positional)
+	if err != nil {
+		return "", err
+	}
+	if statePath != "" {
 		return statePath, nil
 	}
-	if statePath := envSessionStatePath(stateDir); statePath != "" {
+	statePath, err = envSessionStatePath(stateDir)
+	if err != nil {
+		return "", err
+	}
+	if statePath != "" {
 		return statePath, nil
 	}
-	statePath, err := cwdSessionStatePath(stateDir)
+	statePath, err = cwdSessionStatePath(stateDir)
 	if err != nil {
 		return "", err
 	}
@@ -57,7 +66,7 @@ func resolveLifecycleStatePathForCommand(cmd *cobra.Command, positional string) 
 	return pickerSessionStatePath(cmd, stateDir)
 }
 
-func explicitSessionStatePath(cmd *cobra.Command, stateDir, positional string) string {
+func explicitSessionStatePath(cmd *cobra.Command, stateDir, positional string) (string, error) {
 	name := strings.TrimSpace(positional)
 	flagName := rootSessionFlag(cmd)
 	if flagName != "" {
@@ -67,15 +76,15 @@ func explicitSessionStatePath(cmd *cobra.Command, stateDir, positional string) s
 		name = flagName
 	}
 	if name == "" {
-		return ""
+		return "", nil
 	}
 	return statePathForSessionName(stateDir, name)
 }
 
-func envSessionStatePath(stateDir string) string {
+func envSessionStatePath(stateDir string) (string, error) {
 	envName := strings.TrimSpace(os.Getenv("AF_SESSION"))
 	if envName == "" {
-		return ""
+		return "", nil
 	}
 	return statePathForSessionName(stateDir, envName)
 }
@@ -111,15 +120,23 @@ func pickerSessionStatePath(cmd *cobra.Command, stateDir string) (string, error)
 	if selected == "" {
 		return "", noInputSessionError()
 	}
-	return statePathForSessionName(stateDir, selected), nil
+	return statePathForSessionName(stateDir, selected)
 }
 
 func noInputSessionError() error {
 	return fmt.Errorf("resolve state path: %w. pass [session], set --session NAME, set AF_SESSION, or run inside a workstream worktree (cwd contains a .af/state.toml symlink)", errSessionResolutionNoInput)
 }
 
-func statePathForSessionName(stateDir, name string) string {
-	return filepath.Join(stateDir, name, "state.toml")
+// statePathForSessionName is the single chokepoint turning a session
+// name (positional arg, --session, AF_SESSION, picker selection, stack
+// parent) into an on-disk state path. Validation here keeps every
+// command's state access contained in the sessions root (ADR-069).
+func statePathForSessionName(stateDir, name string) (string, error) {
+	err := workstream.ValidateSessionName(name)
+	if err != nil {
+		return "", fmt.Errorf("resolve state path: %w", err)
+	}
+	return filepath.Join(stateDir, name, "state.toml"), nil
 }
 
 func rootSessionFlag(cmd *cobra.Command) string {

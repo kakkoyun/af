@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -177,7 +176,7 @@ func resolveAgentStatePath(opts *agentOptions) (string, error) {
 		return "", fmt.Errorf("resolve state path: %w", err)
 	}
 	if opts.session != "" {
-		return filepath.Join(stateDir, opts.session, "state.toml"), nil
+		return statePathForSessionName(stateDir, opts.session)
 	}
 	cwd, err := os.Getwd()
 	if err != nil {

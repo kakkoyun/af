@@ -10,6 +10,7 @@ import (
 	"github.com/kakkoyun/af/internal/git"
 	"github.com/kakkoyun/af/internal/lifecycle"
 	"github.com/kakkoyun/af/internal/session"
+	"github.com/kakkoyun/af/internal/workstream"
 )
 
 var (
@@ -70,6 +71,10 @@ func newSyncCmd(_ *rootOptions) *cobra.Command {
 func runStack(cmd *cobra.Command, name, parent string) error {
 	if parent == "" {
 		return fmt.Errorf("stack: %w", errStackParentRequired)
+	}
+	err := workstream.ValidateSessionName(parent)
+	if err != nil {
+		return fmt.Errorf("stack: %w", err)
 	}
 	state, statePath, err := loadStackState(cmd, name)
 	if err != nil {
@@ -215,7 +220,10 @@ func loadStackStateByName(name string) (session.State, string, error) {
 	if err != nil {
 		return session.State{}, "", fmt.Errorf("stack: %w", err)
 	}
-	statePath := statePathForSessionName(stateDir, name)
+	statePath, err := statePathForSessionName(stateDir, name)
+	if err != nil {
+		return session.State{}, "", fmt.Errorf("stack: %w", err)
+	}
 	state, err := session.ReadState(statePath)
 	if err != nil {
 		return session.State{}, "", fmt.Errorf("stack: %w: %v", errStackNoState, err) //nolint:errorlint // primary sentinel is errStackNoState; underlying read error is informational.

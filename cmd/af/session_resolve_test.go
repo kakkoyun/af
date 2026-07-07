@@ -71,7 +71,7 @@ func TestSessionResolution_WalksUpCwdDiscoverySymlink(t *testing.T) {
 		t.Fatalf("note from nested cwd: %v", err)
 	}
 	ledgerPath := filepath.Join(filepath.Dir(statePath), "ledger.jsonl")
-	events, err := session.ReadLedgerTail(ledgerPath, 5)
+	events, err := session.ReadLedgerTail(t.Context(), ledgerPath, 5)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,4 +145,40 @@ func TestDefaultSessionPicker_FzfFailureIsInterrupted(t *testing.T) {
 	if !errors.Is(err, errSessionPickerInterrupted) {
 		t.Fatalf("err = %v, want errSessionPickerInterrupted", err)
 	}
+}
+
+// TestSessionResolution_RejectsTraversalNames verifies session names from
+// positional args, --session, and AF_SESSION cannot escape the state
+// root — validation must hold at the resolve chokepoint, not only in
+// create (ADR-069 containment).
+func TestSessionResolution_RejectsTraversalNames(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionState(t, home, "safe", "feat/safe", "active")
+
+	t.Run("positional", func(t *testing.T) {
+		_, _, err := executeCommand(t, newRootCmd(), "info", "../../../etc/passwd")
+		if err == nil || !strings.Contains(err.Error(), "invalid session name") {
+			t.Fatalf("info with traversal positional = %v, want invalid session name", err)
+		}
+	})
+	t.Run("session flag", func(t *testing.T) {
+		_, _, err := executeCommand(t, newRootCmd(), "--session", "../evil", "info")
+		if err == nil || !strings.Contains(err.Error(), "invalid session name") {
+			t.Fatalf("info with traversal --session = %v, want invalid session name", err)
+		}
+	})
+	t.Run("env", func(t *testing.T) {
+		t.Setenv("AF_SESSION", "../evil")
+		_, _, err := executeCommand(t, newRootCmd(), "info")
+		if err == nil || !strings.Contains(err.Error(), "invalid session name") {
+			t.Fatalf("info with traversal AF_SESSION = %v, want invalid session name", err)
+		}
+	})
+	t.Run("stack parent", func(t *testing.T) {
+		_, _, err := executeCommand(t, newRootCmd(), "stack", "safe", "--parent", "../evil")
+		if err == nil || !strings.Contains(err.Error(), "invalid session name") {
+			t.Fatalf("stack with traversal --parent = %v, want invalid session name", err)
+		}
+	})
 }
