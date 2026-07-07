@@ -121,11 +121,13 @@ func runSessionDataSync(cmd *cobra.Command, name string, opts sessionDataSyncOpt
 		return fmt.Errorf("session-data sync: %w", err)
 	}
 
-	err = emitSyncEvent(state, result)
-	if err != nil {
-		return fmt.Errorf("session-data sync: %w", err)
-	}
-	err = writebackSessionExport(statePath, state, result)
+	err = withSessionLock(statePath, func() error {
+		lockedErr := emitSyncEvent(state, result)
+		if lockedErr != nil {
+			return lockedErr
+		}
+		return writebackSessionExport(statePath, state, result)
+	})
 	if err != nil {
 		return fmt.Errorf("session-data sync: %w", err)
 	}

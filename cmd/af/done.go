@@ -10,6 +10,7 @@ import (
 	"github.com/kakkoyun/af/internal/git"
 	"github.com/kakkoyun/af/internal/lifecycle"
 	"github.com/kakkoyun/af/internal/mux"
+	"github.com/kakkoyun/af/internal/session"
 )
 
 type doneOptions struct {
@@ -43,43 +44,50 @@ func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
 	if err != nil {
 		return err
 	}
-	preState, err := readStateForAutoSync(cmd.Context(), statePath)
-	if err != nil {
-		return fmt.Errorf("done: %w", err)
-	}
-	err = autoSyncBeforeTeardown(cmd, preState, statePath, opts.discard)
-	if err != nil {
-		return fmt.Errorf("done: %w", err)
-	}
-	stateForRefresh, err := readStateForAutoSync(cmd.Context(), statePath)
-	if err != nil {
-		return fmt.Errorf("done: %w", err)
-	}
-	if stateForRefresh.PR.Number != 0 {
-		err = refreshPRCacheForState(cmd.Context(), statePath, &stateForRefresh, prCacheRefreshOptions{
-			Command: "done",
-			Force:   true,
-		})
-		if err != nil {
-			return fmt.Errorf("done: refresh PR state: %w", err)
+	var state session.State
+	err = withSessionLock(statePath, func() error {
+		preState, lockedErr := readStateForAutoSync(cmd.Context(), statePath)
+		if lockedErr != nil {
+			return fmt.Errorf("done: %w", lockedErr)
 		}
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = ""
-	}
-	archiveDir := filepath.Join(home, ".local", "share", "af", "v1", "archive")
+		lockedErr = autoSyncBeforeTeardown(cmd, preState, statePath, opts.discard)
+		if lockedErr != nil {
+			return fmt.Errorf("done: %w", lockedErr)
+		}
+		stateForRefresh, lockedErr := readStateForAutoSync(cmd.Context(), statePath)
+		if lockedErr != nil {
+			return fmt.Errorf("done: %w", lockedErr)
+		}
+		if stateForRefresh.PR.Number != 0 {
+			lockedErr = refreshPRCacheForState(cmd.Context(), statePath, &stateForRefresh, prCacheRefreshOptions{
+				Command: "done",
+				Force:   true,
+			})
+			if lockedErr != nil {
+				return fmt.Errorf("done: refresh PR state: %w", lockedErr)
+			}
+		}
+		home, homeErr := os.UserHomeDir()
+		if homeErr != nil {
+			home = ""
+		}
+		archiveDir := filepath.Join(home, ".local", "share", "af", "v1", "archive")
 
-	state, finishErr := lifecycle.FinishWorkstream(cmd.Context(), lifecycle.DoneDeps{
-		Git: git.NewExecRunner(),
-		Mux: mux.NewTmux(),
-	}, lifecycle.DoneOptions{
-		StatePath:  statePath,
-		ArchiveDir: archiveDir,
-		Force:      opts.force,
+		state, lockedErr = lifecycle.FinishWorkstream(cmd.Context(), lifecycle.DoneDeps{
+			Git: git.NewExecRunner(),
+			Mux: mux.NewTmux(),
+		}, lifecycle.DoneOptions{
+			StatePath:  statePath,
+			ArchiveDir: archiveDir,
+			Force:      opts.force,
+		})
+		if lockedErr != nil {
+			return fmt.Errorf("done: %w", lockedErr)
+		}
+		return nil
 	})
-	if finishErr != nil {
-		return fmt.Errorf("done: %w", finishErr)
+	if err != nil {
+		return err
 	}
 
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "workstream %s -> %s\n", state.Session.Name, state.Session.Status)

@@ -134,9 +134,11 @@ func refreshCleanTargetPRs(cmd *cobra.Command, targets []sessionSummary) error {
 		if targets[i].state.PR.Number == 0 {
 			continue
 		}
-		err := refreshPRCacheForState(cmd.Context(), targets[i].statePath, &targets[i].state, prCacheRefreshOptions{
-			Command: "clean",
-			Force:   true,
+		err := withSessionLock(targets[i].statePath, func() error {
+			return refreshPRCacheForState(cmd.Context(), targets[i].statePath, &targets[i].state, prCacheRefreshOptions{
+				Command: "clean",
+				Force:   true,
+			})
 		})
 		if err != nil {
 			return fmt.Errorf("clean: refresh PR state for %s: %w", targets[i].state.Session.Name, err)

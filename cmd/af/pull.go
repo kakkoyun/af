@@ -35,10 +35,15 @@ func runPull(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("pull: %w", err)
 	}
 
-	res, err := lifecycle.Pull(cmd.Context(), lifecycle.PullDeps{
-		Runner: sandbox.ExecRunner{},
-	}, lifecycle.PullOptions{
-		StatePath: statePath,
+	var res lifecycle.PullResult
+	err = withSessionLock(statePath, func() error {
+		var lockedErr error
+		res, lockedErr = lifecycle.Pull(cmd.Context(), lifecycle.PullDeps{
+			Runner: sandbox.ExecRunner{},
+		}, lifecycle.PullOptions{
+			StatePath: statePath,
+		})
+		return lockedErr
 	})
 	if err != nil {
 		return fmt.Errorf("pull: %w", err)

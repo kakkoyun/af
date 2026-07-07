@@ -2,8 +2,10 @@ package main
 
 import (
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kakkoyun/af/internal/lifecycle"
 	"github.com/kakkoyun/af/internal/sandbox/sessiondata"
@@ -76,4 +78,45 @@ func installNoopSlicerFactory(t *testing.T) {
 	t.Cleanup(func() { sessiondataSlicerFactory = orig })
 	empty := t.TempDir()
 	sessiondataSlicerFactory = func() sessiondata.Slicer { return &sessiondata.FakeSlicer{Source: empty} }
+}
+
+// TestSuspend_WaitsForHeldSessionLock verifies mutating commands
+// serialize behind the per-session flock instead of interleaving with a
+// concurrent af process.
+func TestSuspend_WaitsForHeldSessionLock(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionState(t, home, "locked-ws", "feat/locked", "active")
+
+	lockPath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "locked-ws", session.LockFileName)
+	lock, err := session.LockFile(lockPath, session.LockExclusive)
+	if err != nil {
+		t.Fatalf("pre-hold lock: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, _, execErr := executeCommand(t, newRootCmd(), "suspend", "locked-ws")
+		done <- execErr
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("suspend completed while the session lock was held")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	err = lock.Unlock()
+	if err != nil {
+		t.Fatalf("unlock: %v", err)
+	}
+
+	select {
+	case execErr := <-done:
+		if execErr != nil {
+			t.Fatalf("suspend after lock release: %v", execErr)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("suspend did not complete after the lock was released")
+	}
 }

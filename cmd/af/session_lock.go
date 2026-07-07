@@ -1,22 +1,12 @@
 package main
 
 import (
-	"fmt"
-	"path/filepath"
-
 	"github.com/kakkoyun/af/internal/session"
 )
 
+// withSessionLock serializes a read-modify-write sequence on a session's
+// state.toml/ledger against concurrent af processes. Every command that
+// mutates session state must run the whole sequence under this lock.
 func withSessionLock(statePath string, fn func() error) error {
-	lockPath := filepath.Join(filepath.Dir(statePath), ".af.lock")
-	lock, err := session.LockFile(lockPath, session.LockExclusive)
-	if err != nil {
-		return fmt.Errorf("session lock %s: %w", lockPath, err)
-	}
-	defer func() { _ = lock.Unlock() }() //nolint:errcheck // Best-effort unlock on command exit.
-	err = fn()
-	if err != nil {
-		return err
-	}
-	return nil
+	return session.WithLock(statePath, fn)
 }

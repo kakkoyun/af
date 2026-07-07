@@ -75,12 +75,23 @@ func runStack(cmd *cobra.Command, name, parent string) error {
 	if err != nil {
 		return err
 	}
-	now := time.Now().UTC()
-	state.Stack.ParentSession = parent
-	state.Stack.LinkedAt = &now
-	err = session.WriteState(statePath, state)
+	err = withSessionLock(statePath, func() error {
+		var lockedErr error
+		state, lockedErr = session.ReadState(statePath)
+		if lockedErr != nil {
+			return fmt.Errorf("stack: reread state: %w", lockedErr)
+		}
+		now := time.Now().UTC()
+		state.Stack.ParentSession = parent
+		state.Stack.LinkedAt = &now
+		lockedErr = session.WriteState(statePath, state)
+		if lockedErr != nil {
+			return fmt.Errorf("stack: write state: %w", lockedErr)
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("stack: write state: %w", err)
+		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "stacked %s onto %s\n", state.Session.Name, parent)
 	if err != nil {
@@ -94,12 +105,23 @@ func runUnstack(cmd *cobra.Command, name string) error {
 	if err != nil {
 		return err
 	}
-	state.Stack.ParentSession = ""
-	state.Stack.ParentBranch = ""
-	state.Stack.LinkedAt = nil
-	err = session.WriteState(statePath, state)
+	err = withSessionLock(statePath, func() error {
+		var lockedErr error
+		state, lockedErr = session.ReadState(statePath)
+		if lockedErr != nil {
+			return fmt.Errorf("unstack: reread state: %w", lockedErr)
+		}
+		state.Stack.ParentSession = ""
+		state.Stack.ParentBranch = ""
+		state.Stack.LinkedAt = nil
+		lockedErr = session.WriteState(statePath, state)
+		if lockedErr != nil {
+			return fmt.Errorf("unstack: write state: %w", lockedErr)
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("unstack: write state: %w", err)
+		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "unstacked %s\n", state.Session.Name)
 	if err != nil {
@@ -122,9 +144,11 @@ func runSync(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("sync: read parent state: %w", err)
 	}
 	if parentState.PR.Number != 0 {
-		err = refreshPRCacheForState(cmd.Context(), parentStatePath, &parentState, prCacheRefreshOptions{
-			Command: "sync",
-			Force:   true,
+		err = withSessionLock(parentStatePath, func() error {
+			return refreshPRCacheForState(cmd.Context(), parentStatePath, &parentState, prCacheRefreshOptions{
+				Command: "sync",
+				Force:   true,
+			})
 		})
 		if err != nil {
 			return fmt.Errorf("sync: refresh parent PR state for %s: %w", parentState.Session.Name, err)

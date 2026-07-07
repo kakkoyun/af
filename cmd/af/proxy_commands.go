@@ -450,36 +450,47 @@ func runPRRefresh(cmd *cobra.Command, name string) error {
 	if err != nil {
 		return fmt.Errorf("pr --refresh: %w", err)
 	}
-	state, err := session.ReadState(statePath)
-	if err != nil {
-		return fmt.Errorf("pr --refresh: read state: %w", err)
-	}
-	if state.PR.Number == 0 {
-		return fmt.Errorf("%w", errPRRefreshNoPR)
-	}
-	cfg, err := loadConfigForRefresh(cmd.Context())
-	if err != nil {
-		return fmt.Errorf("pr --refresh: %w", err)
-	}
-	result, err := prRefreshFunc(cmd.Context(), &state.PR, pr.Options{
-		Runner:   sandbox.ExecRunner{},
-		RepoSlug: state.Worktree.RepoSlug,
-		TTL:      cfg.PR.RefreshTTL,
-		Force:    true,
-		Now:      time.Now,
+	var (
+		state  session.State
+		result pr.Result
+	)
+	err = withSessionLock(statePath, func() error {
+		var lockedErr error
+		state, lockedErr = session.ReadState(statePath)
+		if lockedErr != nil {
+			return fmt.Errorf("pr --refresh: read state: %w", lockedErr)
+		}
+		if state.PR.Number == 0 {
+			return fmt.Errorf("%w", errPRRefreshNoPR)
+		}
+		cfg, lockedErr := loadConfigForRefresh(cmd.Context())
+		if lockedErr != nil {
+			return fmt.Errorf("pr --refresh: %w", lockedErr)
+		}
+		result, lockedErr = prRefreshFunc(cmd.Context(), &state.PR, pr.Options{
+			Runner:   sandbox.ExecRunner{},
+			RepoSlug: state.Worktree.RepoSlug,
+			TTL:      cfg.PR.RefreshTTL,
+			Force:    true,
+			Now:      time.Now,
+		})
+		if lockedErr != nil {
+			return fmt.Errorf("pr --refresh: %w", lockedErr)
+		}
+		lockedErr = session.WriteState(statePath, state)
+		if lockedErr != nil {
+			return fmt.Errorf("pr --refresh: write state: %w", lockedErr)
+		}
+		if result.Changed {
+			lockedErr = emitPRStateChangedEvent(statePath, &state, result)
+			if lockedErr != nil {
+				return fmt.Errorf("pr --refresh: %w", lockedErr)
+			}
+		}
+		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("pr --refresh: %w", err)
-	}
-	err = session.WriteState(statePath, state)
-	if err != nil {
-		return fmt.Errorf("pr --refresh: write state: %w", err)
-	}
-	if result.Changed {
-		err = emitPRStateChangedEvent(statePath, &state, result)
-		if err != nil {
-			return fmt.Errorf("pr --refresh: %w", err)
-		}
+		return err
 	}
 	writef(cmd.OutOrStdout(),
 		"pr: %s: %s → %s (refreshed=%t skipped=%t)\n",
