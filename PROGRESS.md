@@ -2331,3 +2331,71 @@ about dirty state without breaking the smoke flow.
 - Targeted version tests pass.
 - `make build` produces an `af version` report containing commit, date,
   Go version, os/arch, and dirty status.
+
+## 2026-07-03 — Session 43: repo audit remediation — CI, security, locking, full test sweep
+
+### Context
+
+Three-way audit of the repo (source weak points, test/CI coverage,
+docs-vs-reality) ahead of the v1.0.0 gate, followed by a full
+remediation pass on branch `claude/repo-audit-testing-6xfmdi`.
+Owner decisions: ratify all v1 ADRs to `accepted` (freezing SPEC/PLAN),
+implement the Obsidian disk store, run the full-sweep test scope.
+
+### Findings → fixes
+
+- **CI was Rust-era**: all three workflows ran cargo against the
+  removed v0 tree — the Go module was never built, tested, or linted in
+  Actions. Replaced with a Go pipeline (fmt, lint, race+shuffle test
+  matrix on ubuntu/macos, 10k property run, build smoke, per-package
+  coverage floors via `scripts/coverage-check.sh`, goreleaser check,
+  aggregate `required` gate). `docs.yml`/`release.yml`/`book-gen.sh`
+  deleted per ADR-053 and constitution rule 10.
+- **Security (HIGH)**: session names were never validated —
+  `af create ../evil` escaped the state root and bypassed the ADR-069
+  collision check. Added `workstream.ValidateSessionName` (reject, not
+  sanitize; slash-nested slugs stay legal) + containment backstops,
+  with table + property tests.
+- **Locking**: `.af.lock` was only taken by `af note`. Promoted the
+  helper to `session.WithLock` and wrapped every state read-modify-write
+  span; `lifecycle.Create` now runs collision-check → state-write under
+  a state-root lock (concurrent same-name creates: exactly one wins).
+- **`af diff` deadlock (found by new tests)**: `ExecutePipe` left the
+  parent's pipe read-end open, so an early-exiting pager hung the
+  command forever. Fixed with a one-line close + regression tests.
+- **ADR-047 was a production no-op**: `af create` passed a nil note
+  store. Implemented `obsidian.DirStore` (atomic writes) and wired it;
+  `examples/obsidian/` now shows the real config + note layout.
+- **`af sync`**: parent fetch failures surfaced as stderr warnings via
+  `SyncResult.FetchWarning`; no-origin stacks skip the fetch.
+- **LOW batch**: retro warns on corrupt archived notes; ledger tail
+  skips corrupt lines; fzf exec moved behind a test seam; dead
+  assignments and unused exit codes removed.
+- **Toolchain**: `make lint` hard-failed (golangci-lint built with
+  go1.24 vs repo go1.26) — fixed with GOTOOLCHAIN; goreleaser pin
+  2.5.0 → 2.8.2 (first version accepting `archives.formats`).
+
+### Test sweep (parallel subagent fan-out)
+
+Coverage before → after: proxy 0→100, secret 34.4→100, mux 41.3→100,
+diff 47.8→98.5, git 55.2→97.0, agent 58.5→100, sandbox 59.1→97.5,
+sessiondata 65.3→91.3, session 71.6→93.3, obsidian 73.4→95.8,
+remote 76.6→100, setup 77.6→99.4, lifecycle 63.2→(see below).
+13 new testscript goldens (create, list, status, info, note, stack,
+done, clean, pull, retro, review, auth, setup) drive the real binary
+hermetically; smoke stages 2/3/5/6/7/8/9/10 annotated as CI-automated.
+
+### Docs
+
+All 43 v1 ADRs ratified `proposed` → `accepted`; INDEX.md regenerated
+(27 stale implementation rows); SPEC.md/PLAN.md frozen per constitution
+rule 4; `internal/doccheck` guards INDEX-vs-frontmatter drift in CI;
+README command tables synced against real `--help` output (`af sync`
+is not a stub; control/pull rows added; missing flags documented).
+
+### Blockers / owner items
+
+- I15.1a remains: the owner smoke-test run on real hardware is still
+  the release gate (now smaller — stages 0/1/4 + optional 11–13).
+- Post-v1 deferrals unchanged: ADR-066 `--continue-host`
+  normalization, ADR-067 `clean --force` auto-sync hook (I15.3).
