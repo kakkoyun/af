@@ -42,7 +42,7 @@ jobs:
           cache: true
       - id: pins
         run: echo "golangci=v$(sed -n 's/^GOLANGCI_LINT_VERSION *= *//p' Makefile)" >> "$GITHUB_OUTPUT"
-      - uses: golangci/golangci-lint-action@v6
+      - uses: golangci/golangci-lint-action@v7
         with:
           version: ${{ steps.pins.outputs.golangci }}
 
