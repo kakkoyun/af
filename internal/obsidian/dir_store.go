@@ -57,15 +57,48 @@ func (DirStore) Write(ctx context.Context, path string, note Note) error {
 	if err != nil {
 		return fmt.Errorf("write obsidian note %s: create parent: %w", path, err)
 	}
-	tmpPath := path + ".tmp"
-	err = os.WriteFile(tmpPath, content, noteFilePerm)
+	// A unique temp name keeps concurrent writers from interleaving in
+	// a shared .tmp file, and the fsync before rename makes the atomic
+	// claim hold across power loss, matching session.WriteState.
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
 	if err != nil {
+		return fmt.Errorf("write obsidian note %s: create temp: %w", path, err)
+	}
+	tmpPath := tmp.Name()
+	err = writeAndSyncNote(tmp, content)
+	if err != nil {
+		_ = os.Remove(tmpPath) //nolint:errcheck // Best-effort tmp cleanup on write failure.
 		return fmt.Errorf("write obsidian note %s: %w", path, err)
+	}
+	err = os.Chmod(tmpPath, noteFilePerm)
+	if err != nil {
+		_ = os.Remove(tmpPath) //nolint:errcheck // Best-effort tmp cleanup on chmod failure.
+		return fmt.Errorf("write obsidian note %s: chmod: %w", path, err)
 	}
 	err = os.Rename(tmpPath, path)
 	if err != nil {
 		_ = os.Remove(tmpPath) //nolint:errcheck // Best-effort tmp cleanup on rename failure.
 		return fmt.Errorf("write obsidian note %s: replace: %w", path, err)
+	}
+	return nil
+}
+
+// writeAndSyncNote writes content and fsyncs before close so the
+// subsequent rename installs fully-persisted bytes.
+func writeAndSyncNote(file *os.File, content []byte) error {
+	_, err := file.Write(content)
+	if err != nil {
+		_ = file.Close() //nolint:errcheck // Write error takes precedence.
+		return fmt.Errorf("write temp: %w", err)
+	}
+	err = file.Sync()
+	if err != nil {
+		_ = file.Close() //nolint:errcheck // Sync error takes precedence.
+		return fmt.Errorf("sync: %w", err)
+	}
+	err = file.Close()
+	if err != nil {
+		return fmt.Errorf("close temp: %w", err)
 	}
 	return nil
 }

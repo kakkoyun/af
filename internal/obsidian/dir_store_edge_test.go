@@ -56,7 +56,11 @@ func TestDirStore_WriteParentIsFileFails(t *testing.T) {
 	}
 }
 
-func TestDirStore_WriteTmpPathIsDirectoryFails(t *testing.T) {
+// TestDirStore_WriteSurvivesHostileTmpName pins the unique-temp-name
+// behavior: a directory squatting on the old fixed "<path>.tmp" name
+// must not break the write (concurrent writers each get their own
+// temp file).
+func TestDirStore_WriteSurvivesHostileTmpName(t *testing.T) {
 	store := obsidian.NewDirStore()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "note.md")
@@ -66,8 +70,12 @@ func TestDirStore_WriteTmpPathIsDirectoryFails(t *testing.T) {
 	}
 
 	err = store.Write(context.Background(), path, dirStoreNote())
-	if err == nil {
-		t.Fatal("Write(tmp blocked) error = nil, want write error")
+	if err != nil {
+		t.Fatalf("Write with squatted .tmp name: %v", err)
+	}
+	_, err = store.Read(context.Background(), path)
+	if err != nil {
+		t.Fatalf("Read back: %v", err)
 	}
 }
 
