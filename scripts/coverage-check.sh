@@ -16,7 +16,8 @@ module=github.com/kakkoyun/af
 floor_for() {
     case $1 in
     "$module"/cmd/af) echo 65 ;;
-    "$module"/internal/testutil) echo 0 ;; # test-only helpers
+    "$module"/internal/testutil) echo 0 ;;  # test-only helpers
+    "$module"/internal/doccheck) echo 0 ;;  # test-only doc guard
     "$module"/internal/*) echo 80 ;;
     "$module"/cmd/*) echo 65 ;;
     *) echo 0 ;;
@@ -39,6 +40,24 @@ report=$(awk '
 ' "$profile" | sort)
 
 status=0
+
+# Packages with no test files never appear in the profile; without this
+# sweep a 0%-covered package silently passes the gate.
+for pkg in $(go list ./... 2>/dev/null); do
+    case $report in
+    *"$pkg "*) ;;
+    *)
+        floor=$(floor_for "$pkg")
+        if [ "$floor" -gt 0 ]; then
+            printf 'FAIL %-60s missing from profile (no tests?) < floor %s%%\n' "$pkg" "$floor"
+            status=1
+        else
+            printf 'ok   %-60s absent from profile (floor %s%%)\n' "$pkg" "$floor"
+        fi
+        ;;
+    esac
+done
+
 while IFS=' ' read -r pkg pct; do
     floor=$(floor_for "$pkg")
     if awk "BEGIN { exit !($pct < $floor) }"; then
