@@ -359,7 +359,12 @@ func TestExecRunner_RunReturnsCombinedOutput(t *testing.T) {
 	requireNoError(t, err)
 	want, err := filepath.EvalSymlinks(dir)
 	requireNoError(t, err)
-	if got := strings.TrimSpace(string(output)); got != want {
+	// Resolve the reported path too: on macOS the temp dir sits under
+	// the /var -> /private/var symlink and the shell may report either
+	// form depending on how it derives its working directory.
+	got, err := filepath.EvalSymlinks(strings.TrimSpace(string(output)))
+	requireNoError(t, err)
+	if got != want {
 		t.Fatalf("Run() output = %q, want %q", got, want)
 	}
 }
