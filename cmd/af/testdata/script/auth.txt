@@ -1,0 +1,39 @@
+# auth: af auth manages credentials in the OS keyring via
+# zalando/go-keyring (internal/secret.SystemKeyring). Real set/get/list
+# operations require an OS keychain (macOS Keychain or a dbus Secret
+# Service), which is not available hermetically, so this script covers
+# only the usage/error surface that never reaches the keyring backend:
+#
+#   1. `af auth` with no args prints usage and exits 0.
+#   2. unknown subcommand — usage error.
+#   3. `auth set` with empty (non-TTY) stdin fails on the empty value
+#      before the keyring is contacted.
+#   4. `auth get ''` fails key validation before the keyring is contacted.
+
+env HOME=$WORK/home
+mkdir $WORK/home
+
+# ── Scenario 1: bare `af auth` prints help ────────────────────────────────────
+exec af auth
+stdout 'Usage:'
+stdout 'af auth \[command\]'
+stdout 'set'
+stdout 'get'
+stdout 'status'
+stdout 'clear'
+stdout 'list'
+
+# ── Scenario 2: unknown subcommand ────────────────────────────────────────────
+! exec af auth frobnicate
+stderr 'frobnicate'
+
+# ── Scenario 3: set with empty stdin fails cleanly ────────────────────────────
+# testscript runs commands with empty stdin and no TTY, so the secret
+# reader gets EOF -> empty value -> hard error before any keyring call.
+! exec af auth set anthropic_api_key
+stderr 'auth set anthropic_api_key'
+stderr 'empty value'
+
+# ── Scenario 4: get with an empty key fails validation ────────────────────────
+! exec af auth get ''
+stderr 'invalid secret key'

@@ -1,0 +1,92 @@
+# review: af review drives gh + the agent hermetically via script-local
+# fakes (same recipe as docs/PRE_RELEASE_SMOKE.md stage 9) and writes a
+# draft report under .af/reviews/ without ever posting (ADR-073).
+#
+# No workstream state exists, so review runs in the "--pr required"
+# mode: the report base directory falls back to the cwd ($WORK).
+# The default agent resolves to "claude"; the fake answers `claude -p`.
+#
+# Scenarios:
+#   1. --stdout prints the rendered report.
+#   2. default run writes <cwd>/.af/reviews/<ts>-pr123.md.
+#   3. --out overrides the report path.
+#   4. empty PR diff — hard error.
+#   5. gh failure — hard error.
+
+env HOME=$WORK/home
+mkdir $WORK/home
+
+chmod 755 smbin/gh
+chmod 755 smbin/claude
+env PATH=$WORK/smbin:$PATH
+
+# ── Scenario 1: --stdout ──────────────────────────────────────────────────────
+exec af review --pr 123 --stdout
+stdout 'Review draft'
+stdout 'PR #123 Test PR'
+stdout 'Base: main  Head: feat/x'
+stdout 'Agent: claude'
+stdout 'do not post as-is'
+stdout 'Automated review body from fake agent'
+
+# ── Scenario 2: default write goes under .af/reviews/ ─────────────────────────
+exec af review --pr 123
+stdout 'review: wrote'
+stdout '\.af/reviews/.+-pr123\.md'
+exists .af/reviews
+
+# ── Scenario 3: --out override ────────────────────────────────────────────────
+exec af review --pr 123 --out $WORK/.af/reviews/fixed-pr123.md
+stdout 'review: wrote'
+exists $WORK/.af/reviews/fixed-pr123.md
+grep 'PR #123 Test PR' $WORK/.af/reviews/fixed-pr123.md
+grep 'do not post as-is' $WORK/.af/reviews/fixed-pr123.md
+grep 'Automated review body from fake agent' $WORK/.af/reviews/fixed-pr123.md
+
+# ── Scenario 4: empty diff is a hard error ────────────────────────────────────
+# The fake gh returns an empty body for `gh pr diff 777`.
+! exec af review --pr 777
+stderr 'pr diff is empty'
+
+# ── Scenario 5: gh failure surfaces as command failed ─────────────────────────
+# The fake gh exits 1 for `gh pr diff 500`.
+! exec af review --pr 500
+stderr 'gh: command failed'
+
+# ── Fakes ─────────────────────────────────────────────────────────────────────
+
+-- smbin/gh --
+#!/bin/sh
+# Fake gh for af review integration tests (ADR-073).
+# `pr view <n> --json ...` echoes canned metadata for PR <n>.
+# `pr diff 123` returns a small unified diff; `pr diff 777` returns an
+# empty diff; anything else fails.
+if [ "$1" = "pr" ] && [ "$2" = "view" ]; then
+  printf '{"number":%s,"title":"Test PR","headRefName":"feat/x","baseRefName":"main"}\n' "$3"
+  exit 0
+fi
+if [ "$1" = "pr" ] && [ "$2" = "diff" ]; then
+  case "$3" in
+    123)
+      printf 'diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -0,0 +1 @@\n+hello\n'
+      exit 0
+      ;;
+    777)
+      exit 0
+      ;;
+  esac
+fi
+echo "fake gh: unexpected argv: $*" >&2
+exit 1
+
+-- smbin/claude --
+#!/bin/sh
+# Fake claude agent: BodyCmd argv is `claude -p`; consume the prompt on
+# stdin and print a canned review body.
+if [ "$1" = "-p" ]; then
+  cat >/dev/null
+  echo "Automated review body from fake agent"
+  exit 0
+fi
+echo "fake claude $*"
+exit 0

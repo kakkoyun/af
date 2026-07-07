@@ -1,0 +1,85 @@
+# pull: af pull runs `slicer wt pull <vm> <path>` for a slicer-leased
+# workstream, flips lease_state to "pulled", and releases the lease.
+#
+# Uses a script-local smart slicer fake (at $WORK/myslicer/slicer) that
+# records its argv in $WORK/slicer-calls.txt so the exact slicer wt pull
+# invocation can be asserted (ADR-065).
+#
+# Scenarios:
+#   1. pull on a held_by_vm lease — succeeds, slicer called, state updated.
+#   2. pull again — fails: lease already pulled.
+#   3. pull on a session with no lease at all — fails.
+
+env HOME=$WORK/home
+
+# Activate the argv-recording slicer fake ahead of the global echo fake.
+chmod 755 myslicer/slicer
+env PATH=$WORK/myslicer:$PATH
+
+# ── Scenario 1: pull a held_by_vm lease ───────────────────────────────────────
+exec af pull demo
+stdout 'pull: demo: pulled commits from VM sbox-abc \(lease released\)'
+
+# The fake slicer must have been invoked with the exact ADR-065 argv.
+exists slicer-calls.txt
+grep 'wt pull sbox-abc /tmp/worktree-demo' slicer-calls.txt
+
+# state.toml must record the released lease.
+grep 'lease_state = "pulled"' $HOME/.local/share/af/v1/sessions/demo/state.toml
+grep 'pulled_at' $HOME/.local/share/af/v1/sessions/demo/state.toml
+
+# ── Scenario 2: double pull fails ─────────────────────────────────────────────
+! exec af pull demo
+stderr 'lease already pulled'
+
+# ── Scenario 3: session without a lease fails ─────────────────────────────────
+! exec af pull no-lease
+stderr 'no active slicer worktree lease'
+
+# The failing pulls must not have touched slicer again: exactly one call.
+exec wc -l slicer-calls.txt
+stdout '^\s*1\s'
+
+# ── Fixtures ──────────────────────────────────────────────────────────────────
+
+-- home/.local/share/af/v1/sessions/demo/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-000000000001"
+name = "demo"
+status = "active"
+created_at = 2026-05-22T10:00:00Z
+
+[worktree]
+path = "/tmp/worktree-demo"
+branch = "feat/demo"
+base_branch = "main"
+repo_slug = "github.com/owner/repo"
+
+[slicer_wt]
+vm = "sbox-abc"
+path = "/tmp/worktree-demo"
+pushed_at = 2026-05-22T11:00:00Z
+lease_state = "held_by_vm"
+
+-- home/.local/share/af/v1/sessions/no-lease/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-000000000002"
+name = "no-lease"
+status = "active"
+created_at = 2026-05-22T10:00:00Z
+
+[worktree]
+path = "/tmp/worktree-no-lease"
+branch = "feat/no-lease"
+base_branch = "main"
+repo_slug = "github.com/owner/repo"
+
+-- myslicer/slicer --
+#!/bin/sh
+# Argv-recording fake slicer for af pull integration tests (ADR-065).
+echo "$@" >> "$WORK/slicer-calls.txt"
+exit 0

@@ -1,0 +1,120 @@
+# retro: af retro mines archived workstream notes under
+# $HOME/.local/share/af/v1/archive/<name>/note.md (ADR-058).
+#
+# Fixtures: two archived notes with af_* YAML frontmatter (alpha tagged
+# "infra", beta tagged "ui"), plus one bare archive entry without a
+# note.md (skipped silently). A script-local pi fake serves the --ai
+# narrative so no real agent is contacted.
+#
+# Scenarios:
+#   1. no archive dir at all — hard error.
+#   2. plain listing — one line per note.
+#   3. --tag / --search filters narrow the set.
+#   4. --ai appends a narrative from the (fake) agent.
+#   5. bad --since duration — usage error.
+#   6. --ai with zero matching notes — hard error.
+
+# ── Scenario 1: no archive directory ──────────────────────────────────────────
+env HOME=$WORK/home-empty
+mkdir $WORK/home-empty
+
+! exec af retro
+stderr 'archive directory does not exist'
+
+# ── Scenario 2: listing ───────────────────────────────────────────────────────
+env HOME=$WORK/home
+
+# A bare archive entry without note.md predates note archiving; it must
+# be skipped without a warning or error.
+mkdir $HOME/.local/share/af/v1/archive/bare-entry
+
+exec af retro
+stdout '- 2026-05-01 \[alpha\] feat/alpha'
+stdout '- 2026-06-01 \[beta\] feat/beta'
+
+# ── Scenario 3: filters ───────────────────────────────────────────────────────
+# --tag matches af_tags (alpha has "infra"; beta does not).
+exec af retro --tag infra
+stdout 'alpha'
+! stdout 'beta'
+
+# --search is a substring match on the note body.
+exec af retro --search 'frontend polish'
+stdout 'beta'
+! stdout 'alpha'
+
+# Filters that match nothing report cleanly (exit 0).
+exec af retro --tag nonexistent-tag
+stdout 'no archived workstreams matched'
+
+# ── Scenario 4: --ai narrative via the fake agent ─────────────────────────────
+chmod 755 mypi/pi
+env PATH=$WORK/mypi:$PATH
+
+exec af retro --ai
+stdout '## Narrative'
+stdout 'FAKE RETRO NARRATIVE'
+
+# ── Scenario 5: invalid --since ───────────────────────────────────────────────
+! exec af retro --since bogus
+stderr 'parse --since'
+
+# ── Scenario 6: --ai with no matching notes ───────────────────────────────────
+! exec af retro --ai --tag nonexistent-tag
+stderr 'requires at least one matching note'
+
+# ── Fixtures ──────────────────────────────────────────────────────────────────
+
+-- home/.local/share/af/v1/archive/alpha/note.md --
+---
+af_schema: 1
+af_session: alpha
+af_repo: repo
+af_branch: feat/alpha
+af_base_branch: main
+af_status: completed
+af_started_at: 2026-05-01T10:00:00Z
+af_completed_at: null
+af_pr_number: 0
+af_pr_url: ""
+af_pr_state: ""
+tags: [af]
+af_tags: [infra]
+---
+# alpha
+
+## Log
+
+database migration work
+-- home/.local/share/af/v1/archive/beta/note.md --
+---
+af_schema: 1
+af_session: beta
+af_repo: repo
+af_branch: feat/beta
+af_base_branch: main
+af_status: completed
+af_started_at: 2026-06-01T09:00:00Z
+af_completed_at: null
+af_pr_number: 0
+af_pr_url: ""
+af_pr_state: ""
+tags: [af]
+af_tags: [ui]
+---
+# beta
+
+## Log
+
+frontend polish pass
+-- mypi/pi --
+#!/bin/sh
+# Fake pi agent for af retro --ai: consumes the prompt on stdin and
+# prints a canned narrative (BodyCmd argv is `pi --print`).
+if [ "$1" = "--print" ]; then
+  cat >/dev/null
+  echo "FAKE RETRO NARRATIVE"
+  exit 0
+fi
+echo "fake pi $*"
+exit 0
