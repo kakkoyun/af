@@ -13,6 +13,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (lock windows, issue #3)
+
+- **PR-refresh flows no longer hold the session lock across the `gh`
+  network call.** `refreshPRCacheForState` (used by `af status`,
+  `af info`, `af clean`, and `af sync`'s parent-PR refresh) and `af pr
+  --refresh` now fetch via `gh pr view` entirely outside any lock, on a
+  copy of the cached PR state, then reacquire the session lock only for
+  the short merge-back: re-read state, merge in the refreshed PR
+  fields, write, and emit the `pr_state_changed` ledger event on a
+  flip. Concurrent `af` commands on the same session no longer stall
+  behind a slow GitHub round trip. `af done`'s teardown still runs its
+  PR refresh inside its single teardown critical section, on purpose —
+  releasing the lock mid-`done` would let a concurrent command observe
+  or write into a session that is being archived — via the new
+  `refreshPRCacheLocked`. A session archived by a racing `af done`
+  between the fetch and the merge-back fails the merge instead of
+  resurrecting the session directory.
+
 ### Added (doctor self-smoke, ADR-074)
 
 - `af doctor --all` runs the local command surface for real inside an
