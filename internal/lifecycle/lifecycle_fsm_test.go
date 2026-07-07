@@ -68,16 +68,16 @@ func TestIsTerminal_Table(t *testing.T) {
 func TestEventFromIndex_Mapping(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		index uint8
 		want  lifecycle.Event
+		index uint8
 	}{
-		{0, lifecycle.Suspend},
-		{1, lifecycle.Resume},
-		{2, lifecycle.Done},
-		{3, lifecycle.DoneForce},
-		{4, lifecycle.Suspend},
-		{7, lifecycle.DoneForce},
-		{255, lifecycle.DoneForce},
+		{lifecycle.Suspend, 0},
+		{lifecycle.Resume, 1},
+		{lifecycle.Done, 2},
+		{lifecycle.DoneForce, 3},
+		{lifecycle.Suspend, 4},
+		{lifecycle.DoneForce, 7},
+		{lifecycle.DoneForce, 255},
 	}
 	for _, tt := range cases {
 		if got := lifecycle.EventFromIndex(tt.index); got != tt.want {

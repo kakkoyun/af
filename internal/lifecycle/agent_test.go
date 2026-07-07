@@ -112,6 +112,13 @@ func TestAgentAdd_NonPrimaryCreatesSubWorktree(t *testing.T) {
 	if len(state.Agents) != 2 {
 		t.Fatalf("returned agents = %d, want 2", len(state.Agents))
 	}
+	assertPersistedReviewerSlot(t, path, wantPlan)
+}
+
+// assertPersistedReviewerSlot re-reads the state at path and verifies
+// the reviewer slot was persisted with its sub-worktree plan.
+func assertPersistedReviewerSlot(t *testing.T, path string, wantPlan git.SubWorktreePlan) {
+	t.Helper()
 	persisted, err := session.ReadState(path)
 	if err != nil {
 		t.Fatalf("re-read state: %v", err)

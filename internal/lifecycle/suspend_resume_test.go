@@ -3,6 +3,7 @@ package lifecycle_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,6 +50,7 @@ func writeLifecycleState(t *testing.T, dir, status, tmuxSession string) string {
 // inject SessionExists failures.
 type trackingMux struct {
 	*mux.FakeMultiplexer
+
 	existsErr   error
 	createCalls int
 }
@@ -57,12 +59,20 @@ func (m *trackingMux) SessionExists(ctx context.Context, name string) (bool, err
 	if m.existsErr != nil {
 		return false, m.existsErr
 	}
-	return m.FakeMultiplexer.SessionExists(ctx, name)
+	exists, err := m.FakeMultiplexer.SessionExists(ctx, name)
+	if err != nil {
+		return exists, fmt.Errorf("fake session exists: %w", err)
+	}
+	return exists, nil
 }
 
 func (m *trackingMux) CreateSession(ctx context.Context, name, cwd string) error {
 	m.createCalls++
-	return m.FakeMultiplexer.CreateSession(ctx, name, cwd)
+	err := m.FakeMultiplexer.CreateSession(ctx, name, cwd)
+	if err != nil {
+		return fmt.Errorf("fake create session: %w", err)
+	}
+	return nil
 }
 
 func TestSuspendWorkstream_TransitionsToSuspended(t *testing.T) {

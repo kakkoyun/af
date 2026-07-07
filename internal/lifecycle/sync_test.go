@@ -26,16 +26,17 @@ const (
 )
 
 // newCleanFakeRunner returns a FakeRunner pre-configured with the
-// responses needed for a clean worktree + known SHAs.
-func newCleanFakeRunner(mergeBaseSHA, parentSHA, afterSHA string) *git.FakeRunner {
+// responses needed for a clean worktree + known SHAs. The merge-base
+// is always shaCommon.
+func newCleanFakeRunner(parentSHA, afterSHA string) *git.FakeRunner {
 	r := git.NewFakeRunner()
 	r.SetResponse([]string{"status", "--porcelain"}, git.FakeResponse{Output: ""})
 	r.SetResponse([]string{"fetch", "origin", testParentRef}, git.FakeResponse{})
 	r.SetResponse([]string{"rev-parse", "HEAD"}, git.FakeResponse{Output: shaBase + "\n"})
-	r.SetResponse([]string{"merge-base", "HEAD", testParentRef}, git.FakeResponse{Output: mergeBaseSHA + "\n"})
+	r.SetResponse([]string{"merge-base", "HEAD", testParentRef}, git.FakeResponse{Output: shaCommon + "\n"})
 	r.SetResponse([]string{"rev-parse", testParentRef}, git.FakeResponse{Output: parentSHA + "\n"})
 	if afterSHA != "" {
-		r.SetResponse([]string{"rebase", "--onto", testParentRef, mergeBaseSHA, testBranch},
+		r.SetResponse([]string{"rebase", "--onto", testParentRef, shaCommon, testBranch},
 			git.FakeResponse{Output: "Successfully rebased.\n"})
 	}
 	return r
@@ -85,7 +86,7 @@ func TestSync_RejectsDirtyWorktree(t *testing.T) {
 func TestSync_NoOpWhenAlreadyOnParent(t *testing.T) {
 	t.Parallel()
 	// merge-base == parent SHA → already on top of parent
-	r := newCleanFakeRunner(shaCommon, shaCommon, "")
+	r := newCleanFakeRunner(shaCommon, "")
 
 	result, err := lifecycle.Sync(context.Background(), lifecycle.SyncDeps{Git: r}, validOpts())
 	if err != nil {
@@ -205,7 +206,7 @@ func joinArgs(args []string) string {
 // (no origin remote) never attempt a fetch and produce no warning.
 func TestSync_SkipsFetchWhenNoOriginConfigured(t *testing.T) {
 	t.Parallel()
-	runner := newCleanFakeRunner(shaCommon, shaParent, shaAfter)
+	runner := newCleanFakeRunner(shaParent, shaAfter)
 	runner.SetResponse([]string{"config", "--get", "remote.origin.url"},
 		git.FakeResponse{Err: errTestGitFailed})
 
@@ -228,7 +229,7 @@ func TestSync_SkipsFetchWhenNoOriginConfigured(t *testing.T) {
 // rebases against the (possibly stale) local parent ref.
 func TestSync_ReportsFetchWarningWhenOriginFetchFails(t *testing.T) {
 	t.Parallel()
-	runner := newCleanFakeRunner(shaCommon, shaParent, shaAfter)
+	runner := newCleanFakeRunner(shaParent, shaAfter)
 	runner.SetResponse([]string{"config", "--get", "remote.origin.url"},
 		git.FakeResponse{Output: "git@github.com:owner/repo.git\n"})
 	runner.SetResponse([]string{"fetch", "origin", testParentRef},
@@ -254,7 +255,7 @@ func TestSync_ReportsFetchWarningWhenOriginFetchFails(t *testing.T) {
 // configured, fetch succeeds, no warning.
 func TestSync_NoWarningWhenOriginFetchSucceeds(t *testing.T) {
 	t.Parallel()
-	runner := newCleanFakeRunner(shaCommon, shaParent, shaAfter)
+	runner := newCleanFakeRunner(shaParent, shaAfter)
 	runner.SetResponse([]string{"config", "--get", "remote.origin.url"},
 		git.FakeResponse{Output: "git@github.com:owner/repo.git\n"})
 

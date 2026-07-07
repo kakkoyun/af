@@ -16,12 +16,12 @@ import (
 func TestSync_ValidatesRemainingRequiredFields(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name   string
 		mutate func(*lifecycle.SyncOptions)
+		name   string
 	}{
-		{"empty worktree", func(o *lifecycle.SyncOptions) { o.Worktree = "" }},
-		{"empty branch", func(o *lifecycle.SyncOptions) { o.Branch = "" }},
-		{"empty parent ref", func(o *lifecycle.SyncOptions) { o.ParentRef = "" }},
+		{func(o *lifecycle.SyncOptions) { o.Worktree = "" }, "empty worktree"},
+		{func(o *lifecycle.SyncOptions) { o.Branch = "" }, "empty branch"},
+		{func(o *lifecycle.SyncOptions) { o.ParentRef = "" }, "empty parent ref"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -52,7 +52,7 @@ func TestSync_GitStatusFailure(t *testing.T) {
 
 func TestSync_CaptureHEADFailure(t *testing.T) {
 	t.Parallel()
-	r := newCleanFakeRunner(shaCommon, shaParent, shaAfter)
+	r := newCleanFakeRunner(shaParent, shaAfter)
 	r.SetResponse([]string{"rev-parse", "HEAD"}, git.FakeResponse{Err: errTestGitFailed})
 
 	_, err := lifecycle.Sync(context.Background(), lifecycle.SyncDeps{Git: r}, validOpts())
@@ -66,7 +66,7 @@ func TestSync_CaptureHEADFailure(t *testing.T) {
 
 func TestSync_MergeBaseFailure(t *testing.T) {
 	t.Parallel()
-	r := newCleanFakeRunner(shaCommon, shaParent, shaAfter)
+	r := newCleanFakeRunner(shaParent, shaAfter)
 	r.SetResponse([]string{"merge-base", "HEAD", testParentRef}, git.FakeResponse{Err: errTestGitFailed})
 
 	_, err := lifecycle.Sync(context.Background(), lifecycle.SyncDeps{Git: r}, validOpts())
@@ -80,7 +80,7 @@ func TestSync_MergeBaseFailure(t *testing.T) {
 
 func TestSync_RevParseParentFailure(t *testing.T) {
 	t.Parallel()
-	r := newCleanFakeRunner(shaCommon, shaParent, shaAfter)
+	r := newCleanFakeRunner(shaParent, shaAfter)
 	r.SetResponse([]string{"rev-parse", testParentRef}, git.FakeResponse{Err: errTestGitFailed})
 
 	_, err := lifecycle.Sync(context.Background(), lifecycle.SyncDeps{Git: r}, validOpts())
@@ -94,7 +94,7 @@ func TestSync_RevParseParentFailure(t *testing.T) {
 
 func TestSync_RebaseNonConflictFailure(t *testing.T) {
 	t.Parallel()
-	r := newCleanFakeRunner(shaCommon, shaParent, "")
+	r := newCleanFakeRunner(shaParent, "")
 	r.SetResponse(
 		[]string{"rebase", "--onto", testParentRef, shaCommon, testBranch},
 		git.FakeResponse{Output: "fatal: invalid upstream\n", Err: errTestGitFailed},
@@ -113,7 +113,7 @@ func TestSync_RebaseNonConflictFailure(t *testing.T) {
 // output marker (without a CONFLICT line) mapping to ErrSyncConflict.
 func TestSync_RebaseCouldNotApplyIsConflict(t *testing.T) {
 	t.Parallel()
-	r := newCleanFakeRunner(shaCommon, shaParent, "")
+	r := newCleanFakeRunner(shaParent, "")
 	r.SetResponse(
 		[]string{"rebase", "--onto", testParentRef, shaCommon, testBranch},
 		git.FakeResponse{Output: "error: could not apply abc1234... commit subject\n", Err: errTestGitFailed},
@@ -153,7 +153,7 @@ func TestSync_PostRebaseHEADFailure(t *testing.T) {
 // itself becomes the warning.
 func TestSync_FetchWarningFallsBackToErrorString(t *testing.T) {
 	t.Parallel()
-	r := newCleanFakeRunner(shaCommon, shaCommon, "")
+	r := newCleanFakeRunner(shaCommon, "")
 	r.SetResponse([]string{"config", "--get", "remote.origin.url"},
 		git.FakeResponse{Output: "git@github.com:owner/repo.git\n"})
 	r.SetResponse([]string{"fetch", "origin", testParentRef},

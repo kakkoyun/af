@@ -2,6 +2,7 @@ package session_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -10,6 +11,9 @@ import (
 
 	"github.com/kakkoyun/af/internal/session"
 )
+
+// errLockBoom is a test-only sentinel propagated through WithLock.
+var errLockBoom = errors.New("boom")
 
 func TestWithLock_SerializesReadModifyWrite(t *testing.T) {
 	dir := t.TempDir()
@@ -26,10 +30,14 @@ func TestWithLock_SerializesReadModifyWrite(t *testing.T) {
 			errs <- session.WithLock(statePath, func() error {
 				state, err := session.ReadState(statePath)
 				if err != nil {
-					return err
+					return fmt.Errorf("read state: %w", err)
 				}
 				state.Session.MaxAgents++
-				return session.WriteState(statePath, state)
+				err = session.WriteState(statePath, state)
+				if err != nil {
+					return fmt.Errorf("write state: %w", err)
+				}
+				return nil
 			})
 		}()
 	}
@@ -67,11 +75,10 @@ func TestWithLock_CreatesLockFileBesideState(t *testing.T) {
 func TestWithLock_PropagatesFnError(t *testing.T) {
 	dir := t.TempDir()
 	statePath := filepath.Join(dir, "state.toml")
-	sentinel := errors.New("boom")
 
-	err := session.WithLock(statePath, func() error { return sentinel })
-	if !errors.Is(err, sentinel) {
-		t.Fatalf("WithLock = %v, want %v", err, sentinel)
+	err := session.WithLock(statePath, func() error { return errLockBoom })
+	if !errors.Is(err, errLockBoom) {
+		t.Fatalf("WithLock = %v, want %v", err, errLockBoom)
 	}
 }
 

@@ -3,6 +3,7 @@ package lifecycle_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,7 +47,11 @@ func (r worktreeAddFailRunner) Run(ctx context.Context, dir string, args ...stri
 	if len(args) >= 2 && args[0] == "worktree" && args[1] == "add" {
 		return nil, r.err
 	}
-	return r.inner.Run(ctx, dir, args...)
+	out, err := r.inner.Run(ctx, dir, args...)
+	if err != nil {
+		return out, fmt.Errorf("fake git run: %w", err)
+	}
+	return out, nil
 }
 
 // errNoteStoreWrite is returned by failingNoteStore for every operation.
@@ -68,6 +73,7 @@ var errMuxBoom = errors.New("mux boom")
 
 type failMux struct {
 	*mux.FakeMultiplexer
+
 	failCreate   bool
 	failSetEnv   bool
 	failSendKeys bool
@@ -77,21 +83,33 @@ func (m *failMux) CreateSession(ctx context.Context, name, cwd string) error {
 	if m.failCreate {
 		return errMuxBoom
 	}
-	return m.FakeMultiplexer.CreateSession(ctx, name, cwd)
+	err := m.FakeMultiplexer.CreateSession(ctx, name, cwd)
+	if err != nil {
+		return fmt.Errorf("fake create session: %w", err)
+	}
+	return nil
 }
 
 func (m *failMux) SetEnv(ctx context.Context, sessionName, key, value string) error {
 	if m.failSetEnv {
 		return errMuxBoom
 	}
-	return m.FakeMultiplexer.SetEnv(ctx, sessionName, key, value)
+	err := m.FakeMultiplexer.SetEnv(ctx, sessionName, key, value)
+	if err != nil {
+		return fmt.Errorf("fake set env: %w", err)
+	}
+	return nil
 }
 
 func (m *failMux) SendKeys(ctx context.Context, sessionName, pane, keys string) error {
 	if m.failSendKeys {
 		return errMuxBoom
 	}
-	return m.FakeMultiplexer.SendKeys(ctx, sessionName, pane, keys)
+	err := m.FakeMultiplexer.SendKeys(ctx, sessionName, pane, keys)
+	if err != nil {
+		return fmt.Errorf("fake send keys: %w", err)
+	}
+	return nil
 }
 
 // emptyLaunchAgent is an agent whose LaunchCmd is empty, so create must
@@ -106,13 +124,13 @@ func TestCreate_WritesResolvedControlToState(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name      string
-		mode      agent.ApprovalMode
 		wantMode  string
+		mode      agent.ApprovalMode
 		maxAgents int
 	}{
-		{"auto", agent.ApprovalAuto, "auto", 3},
-		{"yolo", agent.ApprovalYolo, "yolo", 0},
-		{"default", agent.ApprovalDefault, "", 0},
+		{"auto", "auto", agent.ApprovalAuto, 3},
+		{"yolo", "yolo", agent.ApprovalYolo, 0},
+		{"default", "", agent.ApprovalDefault, 0},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -176,25 +194,25 @@ func TestCreate_ValidatesOptionsAndDeps(t *testing.T) {
 	base := makeCreateOpts(t, home)
 
 	cases := []struct {
-		name   string
 		mutate func(*lifecycle.CreateOptions)
 		deps   lifecycle.CreateDeps
+		name   string
 	}{
-		{"empty git root", func(o *lifecycle.CreateOptions) { o.GitRoot = "" }, lifecycle.CreateDeps{Git: git.NewFakeRunner()}},
-		{"empty repo slug", func(o *lifecycle.CreateOptions) { o.RepoSlug = "" }, lifecycle.CreateDeps{Git: git.NewFakeRunner()}},
-		{"empty worktree root", func(o *lifecycle.CreateOptions) { o.WorktreeRoot = "" }, lifecycle.CreateDeps{Git: git.NewFakeRunner()}},
-		{"empty state dir", func(o *lifecycle.CreateOptions) { o.StateDir = "" }, lifecycle.CreateDeps{Git: git.NewFakeRunner()}},
-		{"empty from-branch", func(o *lifecycle.CreateOptions) { o.FromBranch = "" }, lifecycle.CreateDeps{Git: git.NewFakeRunner()}},
-		{"nil git runner", func(*lifecycle.CreateOptions) {}, lifecycle.CreateDeps{}},
+		{func(o *lifecycle.CreateOptions) { o.GitRoot = "" }, lifecycle.CreateDeps{Git: git.NewFakeRunner()}, "empty git root"},
+		{func(o *lifecycle.CreateOptions) { o.RepoSlug = "" }, lifecycle.CreateDeps{Git: git.NewFakeRunner()}, "empty repo slug"},
+		{func(o *lifecycle.CreateOptions) { o.WorktreeRoot = "" }, lifecycle.CreateDeps{Git: git.NewFakeRunner()}, "empty worktree root"},
+		{func(o *lifecycle.CreateOptions) { o.StateDir = "" }, lifecycle.CreateDeps{Git: git.NewFakeRunner()}, "empty state dir"},
+		{func(o *lifecycle.CreateOptions) { o.FromBranch = "" }, lifecycle.CreateDeps{Git: git.NewFakeRunner()}, "empty from-branch"},
+		{func(*lifecycle.CreateOptions) {}, lifecycle.CreateDeps{}, "nil git runner"},
 		{
-			"nil mux for non-bare",
 			func(o *lifecycle.CreateOptions) { o.Bare = false },
 			lifecycle.CreateDeps{Git: git.NewFakeRunner()},
+			"nil mux for non-bare",
 		},
 		{
-			"nil agent for non-bare",
 			func(o *lifecycle.CreateOptions) { o.Bare = false },
 			lifecycle.CreateDeps{Git: git.NewFakeRunner(), Mux: mux.NewFakeMultiplexer()},
+			"nil agent for non-bare",
 		},
 	}
 	for _, tt := range cases {
@@ -224,7 +242,8 @@ func TestCreate_GitWorktreeAddFailureAborts(t *testing.T) {
 		t.Fatalf("err = %v, want git worktree add context", err)
 	}
 	// No session dir may be left behind after the aborted create.
-	if _, statErr := os.Stat(filepath.Join(opts.StateDir, "demo")); !os.IsNotExist(statErr) {
+	_, statErr := os.Stat(filepath.Join(opts.StateDir, "demo"))
+	if !os.IsNotExist(statErr) {
 		t.Fatalf("session dir created despite git failure (stat: %v)", statErr)
 	}
 }
@@ -266,12 +285,12 @@ func TestCreate_NoteWriteFailureAborts(t *testing.T) {
 func TestCreate_MuxFailuresAbort(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name string
 		mux  *failMux
+		name string
 	}{
-		{"create session fails", &failMux{FakeMultiplexer: mux.NewFakeMultiplexer(), failCreate: true}},
-		{"set env fails", &failMux{FakeMultiplexer: mux.NewFakeMultiplexer(), failSetEnv: true}},
-		{"send keys fails", &failMux{FakeMultiplexer: mux.NewFakeMultiplexer(), failSendKeys: true}},
+		{&failMux{FakeMultiplexer: mux.NewFakeMultiplexer(), failCreate: true}, "create session fails"},
+		{&failMux{FakeMultiplexer: mux.NewFakeMultiplexer(), failSetEnv: true}, "set env fails"},
+		{&failMux{FakeMultiplexer: mux.NewFakeMultiplexer(), failSendKeys: true}, "send keys fails"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

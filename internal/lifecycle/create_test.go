@@ -20,6 +20,10 @@ import (
 	"github.com/kakkoyun/af/internal/workstream"
 )
 
+// demoName is the canonical session name used across the create-test
+// suite.
+const demoName = "demo"
+
 // repoSlug is a fixed logical identifier used across the create-test
 // suite. It is path-shaped (host/owner/repo) so primary-worktree
 // planning produces a recognisable filesystem layout under the host's
@@ -51,7 +55,7 @@ func TestCreate_ProducesStateLedgerWorktreeAndTmuxSession(t *testing.T) {
 		Agent: agent.NewFake("pi"),
 		Notes: noteStore,
 	}, lifecycle.CreateOptions{
-		Name:         "demo",
+		Name:         demoName,
 		FromBranch:   "main",
 		GitRoot:      gitRoot,
 		RepoSlug:     repoSlug(),
@@ -77,10 +81,10 @@ func assertCreateResult(t *testing.T, res lifecycle.CreateResult, gitRoot string
 
 func assertCreateResultIdentity(t *testing.T, res lifecycle.CreateResult) {
 	t.Helper()
-	if res.SessionName != "demo" {
+	if res.SessionName != demoName {
 		t.Fatalf("SessionName = %q, want demo", res.SessionName)
 	}
-	if !strings.HasSuffix(res.WorktreePath, filepath.Join(repoSlug(), "demo")) {
+	if !strings.HasSuffix(res.WorktreePath, filepath.Join(repoSlug(), demoName)) {
 		t.Fatalf("WorktreePath = %q", res.WorktreePath)
 	}
 	if !strings.Contains(res.TmuxSession, "af-demo") {
@@ -94,7 +98,7 @@ func assertCreateResultState(t *testing.T, res lifecycle.CreateResult, gitRoot s
 	if err != nil {
 		t.Fatalf("ReadState: %v", err)
 	}
-	if state.Session.Name != "demo" {
+	if state.Session.Name != demoName {
 		t.Fatalf("state.session.name = %q, want demo", state.Session.Name)
 	}
 	if state.Worktree.Branch == "" || state.Worktree.GitRoot != gitRoot {
@@ -384,7 +388,10 @@ func TestCreate_ConcurrentSameNameExactlyOneWins(t *testing.T) {
 			AgentName:    "pi",
 			Now:          time.Date(2026, 7, 3, 1, 0, 0, 0, time.UTC),
 		})
-		return err
+		if err != nil {
+			return fmt.Errorf("create: %w", err)
+		}
+		return nil
 	}
 
 	const attempts = 4

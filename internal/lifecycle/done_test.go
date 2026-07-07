@@ -15,11 +15,11 @@ import (
 	"github.com/kakkoyun/af/internal/session"
 )
 
-// writeFinishState writes sessions/<name>/state.toml in the given status
+// writeFinishState writes sessions/demo/state.toml in the given status
 // with the supplied agents and tmux session name, returning the state path.
-func writeFinishState(t *testing.T, sessionsDir, name, status, tmuxSession string, agents []session.AgentState) string {
+func writeFinishState(t *testing.T, sessionsDir, status, tmuxSession string, agents []session.AgentState) string {
 	t.Helper()
-	sessionDir := filepath.Join(sessionsDir, name)
+	sessionDir := filepath.Join(sessionsDir, demoName)
 	err := os.MkdirAll(sessionDir, 0o750)
 	if err != nil {
 		t.Fatalf("mkdir session dir: %v", err)
@@ -29,13 +29,13 @@ func writeFinishState(t *testing.T, sessionsDir, name, status, tmuxSession strin
 		SchemaVersion: 1,
 		Session: session.Info{
 			ID:        "sess-done-test",
-			Name:      name,
+			Name:      demoName,
 			Status:    status,
 			CreatedAt: time.Date(2026, 5, 1, 8, 0, 0, 0, time.UTC),
 		},
 		Worktree: session.WorktreeState{
-			Path:    filepath.Join(sessionsDir, "wt", name),
-			Branch:  name,
+			Path:    filepath.Join(sessionsDir, "wt", demoName),
+			Branch:  demoName,
 			GitRoot: filepath.Join(sessionsDir, "repo"),
 		},
 		Execution: session.ExecutionState{
@@ -57,7 +57,7 @@ func TestFinishWorkstream_CompletesAndArchives(t *testing.T) {
 	home := t.TempDir()
 	sessionsDir := filepath.Join(home, "sessions")
 	archiveDir := filepath.Join(home, "archive")
-	path := writeFinishState(t, sessionsDir, "demo", "active", "af-demo", nil)
+	path := writeFinishState(t, sessionsDir, "active", "af-demo", nil)
 
 	runner := git.NewFakeRunner()
 	muxFake := mux.NewFakeMultiplexer()
@@ -96,10 +96,11 @@ func TestFinishWorkstream_CompletesAndArchives(t *testing.T) {
 	}
 
 	// The session dir must have moved into the archive with its ledger.
-	if _, statErr := os.Stat(filepath.Dir(path)); !os.IsNotExist(statErr) {
+	_, statErr := os.Stat(filepath.Dir(path))
+	if !os.IsNotExist(statErr) {
 		t.Fatalf("session dir still present after archive (stat: %v)", statErr)
 	}
-	archivedLedger, err := os.ReadFile(filepath.Join(archiveDir, "demo", "ledger.jsonl"))
+	archivedLedger, err := os.ReadFile(filepath.Join(archiveDir, "demo", "ledger.jsonl")) //nolint:gosec // test path under t.TempDir.
 	if err != nil {
 		t.Fatalf("read archived ledger: %v", err)
 	}
@@ -112,7 +113,7 @@ func TestFinishWorkstream_ForceAbandons(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
 	sessionsDir := filepath.Join(home, "sessions")
-	path := writeFinishState(t, sessionsDir, "demo", "active", "", nil)
+	path := writeFinishState(t, sessionsDir, "active", "", nil)
 
 	state, err := lifecycle.FinishWorkstream(context.Background(),
 		lifecycle.DoneDeps{Git: git.NewFakeRunner()},
@@ -134,7 +135,7 @@ func TestFinishWorkstream_RejectsTerminalStates(t *testing.T) {
 		t.Run(status, func(t *testing.T) {
 			t.Parallel()
 			home := t.TempDir()
-			path := writeFinishState(t, filepath.Join(home, "sessions"), "demo", status, "", nil)
+			path := writeFinishState(t, filepath.Join(home, "sessions"), status, "", nil)
 
 			_, err := lifecycle.FinishWorkstream(context.Background(),
 				lifecycle.DoneDeps{Git: git.NewFakeRunner()},
@@ -162,7 +163,7 @@ func TestFinishWorkstream_RemovesSubWorktrees(t *testing.T) {
 	sessionsDir := filepath.Join(home, "sessions")
 	subA := filepath.Join(home, "wt", "demo--a")
 	subB := filepath.Join(home, "wt", "demo--b")
-	path := writeFinishState(t, sessionsDir, "demo", "active", "", []session.AgentState{
+	path := writeFinishState(t, sessionsDir, "active", "", []session.AgentState{
 		{Slot: "primary"}, // no sub-worktree — must be skipped
 		{Slot: "a", SubWorktree: subA, SubBranch: "demo--a"},
 		{Slot: "b", SubWorktree: subB, SubBranch: "demo--b"},
@@ -188,7 +189,7 @@ func TestFinishWorkstream_SubWorktreeRemoveErrorAborts(t *testing.T) {
 	home := t.TempDir()
 	sessionsDir := filepath.Join(home, "sessions")
 	sub := filepath.Join(home, "wt", "demo--a")
-	path := writeFinishState(t, sessionsDir, "demo", "active", "", []session.AgentState{
+	path := writeFinishState(t, sessionsDir, "active", "", []session.AgentState{
 		{Slot: "a", SubWorktree: sub, SubBranch: "demo--a"},
 	})
 	runner := git.NewFakeRunner()
@@ -215,7 +216,7 @@ func TestFinishWorkstream_PrimaryWorktreeRemoveErrorAborts(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
 	sessionsDir := filepath.Join(home, "sessions")
-	path := writeFinishState(t, sessionsDir, "demo", "active", "", nil)
+	path := writeFinishState(t, sessionsDir, "active", "", nil)
 	runner := git.NewFakeRunner()
 	primary := filepath.Join(sessionsDir, "wt", "demo")
 	runner.SetResponse([]string{"worktree", "remove", primary, "--force"}, git.FakeResponse{Err: errTestGitFailed})
@@ -236,7 +237,7 @@ func TestFinishWorkstream_ForceIgnoresGitRemovalErrors(t *testing.T) {
 	home := t.TempDir()
 	sessionsDir := filepath.Join(home, "sessions")
 	sub := filepath.Join(home, "wt", "demo--a")
-	path := writeFinishState(t, sessionsDir, "demo", "active", "", []session.AgentState{
+	path := writeFinishState(t, sessionsDir, "active", "", []session.AgentState{
 		{Slot: "a", SubWorktree: sub, SubBranch: "demo--a"},
 	})
 	runner := git.NewFakeRunner()
@@ -259,7 +260,7 @@ func TestFinishWorkstream_EmptyArchiveDirSkipsArchive(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
 	sessionsDir := filepath.Join(home, "sessions")
-	path := writeFinishState(t, sessionsDir, "demo", "active", "", nil)
+	path := writeFinishState(t, sessionsDir, "active", "", nil)
 
 	_, err := lifecycle.FinishWorkstream(context.Background(),
 		lifecycle.DoneDeps{Git: git.NewFakeRunner()},
@@ -267,7 +268,8 @@ func TestFinishWorkstream_EmptyArchiveDirSkipsArchive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FinishWorkstream: %v", err)
 	}
-	if _, statErr := os.Stat(path); statErr != nil {
+	_, statErr := os.Stat(path)
+	if statErr != nil {
 		t.Fatalf("state.toml missing without ArchiveDir: %v", statErr)
 	}
 }
@@ -276,7 +278,7 @@ func TestFinishWorkstream_ArchiveRootCreateFails(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
 	sessionsDir := filepath.Join(home, "sessions")
-	path := writeFinishState(t, sessionsDir, "demo", "active", "", nil)
+	path := writeFinishState(t, sessionsDir, "active", "", nil)
 
 	// A regular file blocks MkdirAll for any path nested beneath it.
 	blocker := filepath.Join(home, "blocker")
@@ -300,7 +302,7 @@ func TestFinishWorkstream_AppendEventFailure(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
 	sessionsDir := filepath.Join(home, "sessions")
-	path := writeFinishState(t, sessionsDir, "demo", "active", "", nil)
+	path := writeFinishState(t, sessionsDir, "active", "", nil)
 	// A directory at ledger.jsonl makes session.AppendEvent fail.
 	err := os.MkdirAll(filepath.Join(filepath.Dir(path), "ledger.jsonl"), 0o750)
 	if err != nil {
@@ -320,7 +322,7 @@ func TestFinishWorkstream_ArchiveRenameFails(t *testing.T) {
 	home := t.TempDir()
 	sessionsDir := filepath.Join(home, "sessions")
 	archiveDir := filepath.Join(home, "archive")
-	path := writeFinishState(t, sessionsDir, "demo", "active", "", nil)
+	path := writeFinishState(t, sessionsDir, "active", "", nil)
 
 	// Pre-create a non-empty archive/<name> so os.Rename fails.
 	err := os.MkdirAll(filepath.Join(archiveDir, "demo"), 0o750)

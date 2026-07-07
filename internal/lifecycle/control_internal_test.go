@@ -12,13 +12,13 @@ func TestApprovalModeToString_RoundTrip(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name string
-		mode agent.ApprovalMode
 		want string
+		mode agent.ApprovalMode
 	}{
-		{"default", agent.ApprovalDefault, ""},
-		{"auto", agent.ApprovalAuto, "auto"},
-		{"yolo", agent.ApprovalYolo, "yolo"},
-		{"out of range", agent.ApprovalMode(99), ""},
+		{"default", "", agent.ApprovalDefault},
+		{"auto", "auto", agent.ApprovalAuto},
+		{"yolo", "yolo", agent.ApprovalYolo},
+		{"out of range", "", agent.ApprovalMode(99)},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
