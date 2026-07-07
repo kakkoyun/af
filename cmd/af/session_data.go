@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -60,7 +61,7 @@ func newSessionDataSyncCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&opts.agents, "agent", "all", "comma-separated agent kinds (claude,codex,pi,harness) or 'all'")
-	cmd.Flags().BoolVar(&opts.continueHost, "continue-host", false, "request host-continuation path normalization (ADR-066 §Host continuation; not yet implemented)")
+	cmd.Flags().BoolVar(&opts.continueHost, "continue-host", false, "rewrite staged transcript paths so claude/codex/pi can resume from the host worktree (ADR-066 §Host continuation)")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "print the manifest without copying")
 	return cmd
 }
@@ -98,9 +99,6 @@ func runSessionDataSync(cmd *cobra.Command, name string, opts sessionDataSyncOpt
 	if err != nil {
 		return fmt.Errorf("session-data sync: %w", err)
 	}
-	if opts.continueHost {
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "session-data: --continue-host is not yet implemented; importing for analysis only") //nolint:errcheck // Informational warning.
-	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -115,14 +113,22 @@ func runSessionDataSync(cmd *cobra.Command, name string, opts sessionDataSyncOpt
 		Kinds:        kinds,
 		DryRun:       opts.dryRun,
 		ContinueHost: opts.continueHost,
-		Now:          time.Now,
+		// VMPath / HostPath drive ADR-066 §Host continuation path
+		// normalization. state.SlicerWT.Path records the <worktree-path>
+		// argument slicer wt push/pull operate on (ADR-065); in the
+		// common case it equals state.Worktree.Path (the same host
+		// worktree, leased to the VM), so normalization is a documented
+		// no-op unless the two diverge.
+		VMPath:   state.SlicerWT.Path,
+		HostPath: state.Worktree.Path,
+		Now:      time.Now,
 	})
 	if err != nil {
 		return fmt.Errorf("session-data sync: %w", err)
 	}
 
 	err = withSessionLock(statePath, func() error {
-		lockedErr := emitSyncEvent(state, result)
+		lockedErr := emitSyncEvent(state, result, opts.continueHost)
 		if lockedErr != nil {
 			return lockedErr
 		}
@@ -179,7 +185,7 @@ func loadSessionDataState(cmd *cobra.Command, name string) (session.State, strin
 	return state, statePath, nil
 }
 
-func emitSyncEvent(state session.State, result sessiondata.SyncResult) error {
+func emitSyncEvent(state session.State, result sessiondata.SyncResult, continueHost bool) error {
 	if result.DryRun {
 		return nil
 	}
@@ -195,7 +201,7 @@ func emitSyncEvent(state session.State, result sessiondata.SyncResult) error {
 			"skipped":      result.Merge.Skipped,
 			"conflicts":    result.Merge.Conflicts,
 			"staging":      result.StagingPath,
-			"continueHost": false,
+			"continueHost": continueHost,
 		},
 	}
 	err := session.AppendEvent(ledgerPath, event)
@@ -230,6 +236,11 @@ func renderSyncSummary(cmd *cobra.Command, state session.State, result sessionda
 		writef(cmd.OutOrStdout(),
 			"session-data: %s: dry-run on VM %s — manifest: %s\n",
 			state.Session.Name, state.SlicerWT.VM, sessiondata.ManifestSummary(result.Manifest))
+		if len(result.NormalizePreview.CandidateFiles) > 0 {
+			writef(cmd.OutOrStdout(),
+				"session-data: continue-host would inspect for rewriting: %s\n",
+				formatKindCounts(result.NormalizePreview.CandidateFiles))
+		}
 		return
 	}
 	writef(cmd.OutOrStdout(),
@@ -241,6 +252,26 @@ func renderSyncSummary(cmd *cobra.Command, state session.State, result sessionda
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  %s\n", path) //nolint:errcheck // Informational note.
 		}
 	}
+	if len(result.Normalize.RewrittenFiles) > 0 {
+		writef(cmd.OutOrStdout(), "session-data: continue-host rewrote: %s\n", formatKindCounts(result.Normalize.RewrittenFiles))
+	}
+	for _, renamed := range result.Normalize.RenamedDirs {
+		writef(cmd.OutOrStdout(), "session-data: continue-host renamed %s\n", renamed)
+	}
+}
+
+// formatKindCounts renders a per-kind count map (claude/codex/pi/harness
+// → int) as a stable, sorted "kind=N kind=N" string for CLI output.
+func formatKindCounts(counts map[sessiondata.AgentKind]int) string {
+	parts := make([]string, 0, len(counts))
+	for _, kind := range sessiondata.AllKinds() {
+		n, ok := counts[kind]
+		if !ok || n == 0 {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s=%d", kind, n))
+	}
+	return strings.Join(parts, " ")
 }
 
 func renderListSummary(cmd *cobra.Command, manifest sessiondata.Manifest) {
