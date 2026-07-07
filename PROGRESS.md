@@ -2399,3 +2399,19 @@ is not a stub; control/pull rows added; missing flags documented).
   the release gate (now smaller — stages 0/1/4 + optional 11–13).
 - Post-v1 deferrals unchanged: ADR-066 `--continue-host`
   normalization, ADR-067 `clean --force` auto-sync hook (I15.3).
+
+### Post-gate adversarial review (same session)
+
+An 8-angle review pass over the full branch diff surfaced and fixed:
+session-name validation moved to the resolve chokepoint (positional/
+--session/AF_SESSION/picker/stack-parent all contained now, not just
+create); PR-cache refresh and session-data writeback re-read state
+under the lock (stale pre-lock snapshots could clobber concurrent
+writes); session.WithLock refuses to materialize ghost session dirs
+after a racing done; clean's RemoveAll now runs under the session
+lock; done removes the stray .af.lock from the archive (ADR-068 §4);
+sync fetches before probing origin (probe failures no longer masquerade
+as local-only); coverage floors fail for packages missing from the
+profile; DirStore uses unique temp names + fsync; ReadLedgerTail
+threads a context. Two gaps recorded as owner decisions (I16.12 exit
+codes vs frozen SPEC, I16.13 orphaned Pages site).
