@@ -104,7 +104,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: go run github.com/goreleaser/goreleaser/v2@v2.5.0 check --config .goreleaser.yaml
+      - run: go run github.com/goreleaser/goreleaser/v2@v2.8.2 check --config .goreleaser.yaml
 
   # ── Gate ───────────────────────────────────────────────────────────────────
   required:

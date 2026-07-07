@@ -2,7 +2,7 @@
 GOLANGCI_LINT_VERSION = 2.3.0
 GOFUMPT_VERSION       = 0.7.0
 GOIMPORTS_VERSION     = 0.38.0
-GORELEASER_VERSION    = 2.5.0
+GORELEASER_VERSION    = 2.8.2
 
 VERSION_PKG   = github.com/kakkoyun/af/internal/version
 BUILD_VERSION ?= dev
@@ -11,7 +11,9 @@ BUILD_DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LD_FLAGS      ?= -X $(VERSION_PKG).Version=$(BUILD_VERSION) -X $(VERSION_PKG).Commit=$(GIT_COMMIT) -X $(VERSION_PKG).Date=$(BUILD_DATE)
 
 GO         ?= go
-GOLANGCI   ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_LINT_VERSION)
+# golangci-lint refuses to run when built with a Go older than the
+# repo's target; force the repo toolchain for the build.
+GOLANGCI   ?= GOTOOLCHAIN=$(shell $(GO) env GOVERSION) $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_LINT_VERSION)
 GOFUMPT    ?= $(GO) run mvdan.cc/gofumpt@v$(GOFUMPT_VERSION)
 GOIMPORTS  ?= $(GO) run golang.org/x/tools/cmd/goimports@v$(GOIMPORTS_VERSION)
 GORELEASER ?= $(GO) run github.com/goreleaser/goreleaser/v2@v$(GORELEASER_VERSION)
