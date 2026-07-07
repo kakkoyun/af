@@ -2,6 +2,7 @@ package session
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -44,7 +45,10 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 // writeSyncCloseTemp writes data to file, fsyncs it, and closes it so
 // the subsequent rename installs fully-persisted bytes.
 func writeSyncCloseTemp(file *os.File, data []byte) error {
-	_, err := file.Write(data)
+	n, err := file.Write(data)
+	if err == nil && n < len(data) {
+		err = io.ErrShortWrite
+	}
 	if err != nil {
 		_ = file.Close() //nolint:errcheck // Write error takes precedence.
 		return fmt.Errorf("write: %w", err)

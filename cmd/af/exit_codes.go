@@ -125,9 +125,12 @@ func isDomainUsageError(err error) bool {
 // unknown-command, unknown-flag, and wrong-arg-count errors.
 func isCobraUsageError(err error) bool {
 	message := err.Error()
+	// The arg-count match pins cobra's exact "accepts N arg(s)" wording:
+	// a bare "accepts " would misclassify af's own domain errors (e.g.
+	// "--sandbox only accepts ...") as parse-time usage.
 	return strings.Contains(message, "unknown command") ||
 		strings.Contains(message, "unknown flag") ||
-		strings.Contains(message, "accepts ")
+		(strings.Contains(message, "accepts ") && strings.Contains(message, "arg(s)"))
 }
 
 // handlePanicOutput formats a recovered panic value and stack trace to

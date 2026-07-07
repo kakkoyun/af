@@ -61,10 +61,14 @@ func TestLockFile_InvalidTimeoutFallsBackToDefault(t *testing.T) {
 		close(released)
 	}()
 
-	_, err = session.LockFile(path, session.LockExclusive)
+	waiter, err := session.LockFile(path, session.LockExclusive)
 	<-released
 	if err != nil {
 		t.Fatalf("LockFile(waiter) error = %v, want success once default timeout tolerates a 150ms hold", err)
+	}
+	err = waiter.Unlock()
+	if err != nil {
+		t.Fatalf("Unlock(waiter): %v", err)
 	}
 }
 
