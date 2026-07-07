@@ -19,9 +19,7 @@ import (
 )
 
 const (
-	stateFilePerm    = 0o600
 	stateDirPerm     = 0o750
-	noteFilePerm     = 0o600
 	executionLocal   = "local"
 	primaryAgentSlot = "primary"
 )
@@ -472,9 +470,3 @@ func launchTmuxAndAgent(ctx context.Context, deps CreateDeps, resolved resolvedN
 	}
 	return resolved.tmuxSession, nil
 }
-
-// Suppress unused imports during early skeletons; remove once all paths covered.
-var (
-	_ = stateFilePerm
-	_ = noteFilePerm
-)

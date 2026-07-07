@@ -213,7 +213,7 @@ func defaultCreateContext(_ *rootOptions) *createContext {
 	return &createContext{
 		git:   git.NewExecRunner(),
 		mux:   mux.NewTmux(),
-		notes: nil,
+		notes: obsidian.NewDirStore(),
 		getwd: os.Getwd,
 	}
 }
