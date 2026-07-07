@@ -42,9 +42,17 @@ jobs:
           cache: true
       - id: pins
         run: echo "golangci=v$(sed -n 's/^GOLANGCI_LINT_VERSION *= *//p' Makefile)" >> "$GITHUB_OUTPUT"
+      # install-mode goinstall builds golangci-lint with the repo's own
+      # Go toolchain (go.mod pins 1.26): the prebuilt release binary for
+      # the pinned version is built with an older Go and refuses newer
+      # language targets ("can't load config: the Go language version
+      # used to build golangci-lint is lower than the targeted Go
+      # version"). The action caches the built binary, so warm runs
+      # stay fast.
       - uses: golangci/golangci-lint-action@v7
         with:
           version: ${{ steps.pins.outputs.golangci }}
+          install-mode: goinstall
 
   # ── Tests (race + shuffle, incl. testscript goldens) ──────────────────────
   # Coverage is folded into the ubuntu leg here rather than run again in a
