@@ -24,7 +24,7 @@ func TestReadLedgerTail_SkipsCorruptLines(t *testing.T) {
 		t.Fatalf("write ledger: %v", err)
 	}
 
-	events, err := session.ReadLedgerTail(path, 0)
+	events, err := session.ReadLedgerTail(t.Context(), path, 0)
 	if err != nil {
 		t.Fatalf("ReadLedgerTail: %v", err)
 	}

@@ -115,7 +115,7 @@ func TestSessionDataSync_ListsAndPullsSlicerBacked(t *testing.T) {
 	}
 	// A ledger event must have been appended.
 	ledgerPath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "sd-pull", "ledger.jsonl")
-	events, err := session.ReadLedgerTail(ledgerPath, 10)
+	events, err := session.ReadLedgerTail(t.Context(), ledgerPath, 10)
 	if err != nil {
 		t.Fatalf("ReadLedgerTail: %v", err)
 	}

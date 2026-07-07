@@ -66,7 +66,7 @@ func runInfo(cmd *cobra.Command, opts *infoOptions, name string) error {
 	ledgerPath := filepath.Join(filepath.Dir(statePath), "ledger.jsonl")
 	var events []session.Event
 	if opts.ledgerN > 0 {
-		events, err = session.ReadLedgerTail(ledgerPath, opts.ledgerN)
+		events, err = session.ReadLedgerTail(cmd.Context(), ledgerPath, opts.ledgerN)
 		if err != nil {
 			return fmt.Errorf("info: read ledger: %w", err)
 		}

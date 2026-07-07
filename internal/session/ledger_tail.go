@@ -17,7 +17,7 @@ import (
 // zero or negative, all events are returned. A missing file returns an
 // empty slice and nil error. Blank and unparseable lines are skipped
 // (with an slog warning) rather than failing the read.
-func ReadLedgerTail(path string, n int) ([]Event, error) {
+func ReadLedgerTail(ctx context.Context, path string, n int) ([]Event, error) {
 	file, err := os.Open(path) //nolint:gosec // Caller controls the ledger path.
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -37,7 +37,6 @@ func ReadLedgerTail(path string, n int) ([]Event, error) {
 	scanner.Buffer(make([]byte, 0, initialBufBytes), maxBufBytes)
 	events := make([]Event, 0)
 	line := 0
-	skipped := 0
 	for scanner.Scan() {
 		line++
 		if len(bytes.TrimSpace(scanner.Bytes())) == 0 {
@@ -47,14 +46,10 @@ func ReadLedgerTail(path string, n int) ([]Event, error) {
 		if parseErr != nil {
 			// One corrupt line must not poison the whole ledger; the
 			// remaining events still carry the session's history.
-			skipped++
-			slog.WarnContext(context.Background(), "skipping corrupt ledger line", "path", path, "line", line, "error", parseErr)
+			slog.WarnContext(ctx, "skipping corrupt ledger line", "path", path, "line", line, "error", parseErr)
 			continue
 		}
 		events = append(events, event)
-	}
-	if skipped > 0 {
-		slog.WarnContext(context.Background(), "ledger contained corrupt lines", "path", path, "skipped", skipped)
 	}
 	err = scanner.Err()
 	if err != nil {
