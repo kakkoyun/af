@@ -2415,3 +2415,48 @@ as local-only); coverage floors fail for packages missing from the
 profile; DirStore uses unique temp names + fsync; ReadLedgerTail
 threads a context. Two gaps recorded as owner decisions (I16.12 exit
 codes vs frozen SPEC, I16.13 orphaned Pages site).
+
+## 2026-07-07 — Session 44: CI gate speed (issue #4)
+
+### Context
+
+Issue #4: the CI gate was slow because `lint` and `goreleaser-check`
+each compiled their tool from source via `go run .../@version` on
+every run (golangci-lint alone ~5-10 min), a dedicated `coverage` job
+re-ran the entire test suite a second time just to instrument it, and
+`make test-property` ran 10000 iterations over every package in
+`./...` even though only four define `TestProperty*`.
+
+### Fixes
+
+- `lint` job now uses `golangci/golangci-lint-action@v6` (prebuilt
+  binary) and `goreleaser-check` uses `goreleaser/goreleaser-action@v6`
+  with `install-only: true`. Both read their version from the existing
+  Makefile pins (`GOLANGCI_LINT_VERSION`, `GORELEASER_VERSION`) via a
+  `pins` step (`sed -n 's/^VAR *= *//p' Makefile`) so the pin has one
+  source of truth; `make lint` / `make release-check` are unchanged for
+  local use.
+- Deleted the standalone `coverage` job. The ubuntu leg of the `test`
+  matrix now runs `go test -race -count=1 -shuffle=on -covermode=atomic
+  -coverprofile=coverage.out ./...` (instead of `make test`) followed
+  by `scripts/coverage-check.sh` and the `go tool cover` step summary;
+  the macOS leg is untouched (`make test`). Race + atomic coverage
+  compose without conflict.
+- `make test-property`'s target now scopes its package list via
+  `grep -rl 'func TestProperty' --include='*_test.go' internal/ cmd/`
+  piped through `dirname | sort -u` into `./pkg/...` args, instead of
+  `./...`. Today that resolves to `internal/duration`,
+  `internal/lifecycle`, `internal/proxy`, `internal/workstream`. CI
+  still calls plain `make test-property`, so both CI and local runs get
+  the speedup.
+- `required.needs` updated to drop `coverage` from the aggregate gate.
+- Validated locally: pin-extraction `sed` commands against the real
+  Makefile, `make test-property` (green, 4 packages, ~16s), a full
+  `go test -race -shuffle=on -covermode=atomic` run piped through
+  `scripts/coverage-check.sh` (all packages pass their floors), and
+  `actionlint` (via `go run github.com/rhysd/actionlint/cmd/actionlint@latest`)
+  against the rewritten workflow — clean, no findings.
+
+### Blockers / owner items
+
+None new. I16.12/I16.13 owner decisions from session 43 remain open.

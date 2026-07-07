@@ -724,7 +724,7 @@ test/CI coverage, docs-vs-reality). All executed on branch
 - [ ] I16.14 (issue #3): make unlocked state writes unrepresentable
       (session.Update API), narrow lock windows around gh calls, dedupe
       the flock/atomic-write primitives.
-- [ ] I16.15 (issue #4): CI gate speed — prebuilt lint/goreleaser
+- [x] I16.15 (issue #4): CI gate speed — prebuilt lint/goreleaser
       binaries, fold coverage into the test leg, scope the property job.
 - [ ] I16.16 (issue #5): ADR-066 --continue-host transcript path
       normalization (was backlog; now specced with acceptance criteria).
