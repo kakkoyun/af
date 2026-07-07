@@ -20,7 +20,10 @@ func TestExitCodeForErrorMapsKnownClasses(t *testing.T) {
 		{err: errSessionResolutionNoInput, want: exitNoInput},
 		{err: errPRRefreshNoPR, want: exitDataErr},
 		{err: errSessionPickerInterrupted, want: exitInterrupted},
-		{err: cobra.ExactArgs(1)(nil, []string{}), want: exitUsage},
+		// Cobra's own parse-time errors (unknown command/flag, wrong arg
+		// count) map to EX_USAGE_COBRA (2) per ADR-068 §2, distinct from
+		// af's own domain validation sentinels, which stay EX_USAGE (64).
+		{err: cobra.ExactArgs(1)(nil, []string{}), want: exitUsageCobra},
 		{err: errOperationalUXBoom, want: exitGeneral},
 	}
 	for _, tt := range tests {
