@@ -35,6 +35,10 @@ const maxCapturedBytes = 8 * 1024
 // scratchDirPerm is the mode for directories inside the scratch root.
 const scratchDirPerm = 0o750
 
+// skippedExitCode marks steps that never executed in the JSON report,
+// disambiguating them from a successful exit 0.
+const skippedExitCode = -1
+
 // StepResult records one executed (or skipped) smoke step.
 type StepResult struct {
 	Name     string        `json:"name"`
@@ -188,7 +192,7 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 	for i := range suite {
 		st := &suite[i]
 		if reason := missingRequirement(opts, st, gitReady); reason != "" {
-			report.Steps = append(report.Steps, StepResult{Name: st.name, Expect: st.expect, Status: StatusSkip, Reason: reason})
+			report.Steps = append(report.Steps, StepResult{Name: st.name, Expect: st.expect, Status: StatusSkip, Reason: reason, ExitCode: skippedExitCode})
 			continue
 		}
 		res := runStep(ctx, opts, lay, st)
@@ -250,13 +254,14 @@ func prepareRepo(ctx context.Context, opts Options, lay layout, report *Report) 
 		_, stderr, exit, execErr := opts.Exec(ctx, lay.repo, isolatedEnv(lay), argv[0], argv[1:]...)
 		if execErr != nil || exit != 0 {
 			report.Steps = append(report.Steps, StepResult{
-				Name:   "prepare-scratch-repo",
-				Argv:   argv,
-				Dir:    lay.repo,
-				Stderr: truncateOutput(string(stderr)),
-				Expect: "scratch git repo initialises",
-				Status: StatusSkip,
-				Reason: "git repo preparation failed; repo-dependent steps skipped",
+				Name:     "prepare-scratch-repo",
+				Argv:     argv,
+				Dir:      lay.repo,
+				ExitCode: exit,
+				Stderr:   truncateOutput(string(stderr)),
+				Expect:   "scratch git repo initialises",
+				Status:   StatusSkip,
+				Reason:   "git repo preparation failed; repo-dependent steps skipped",
 			})
 			return false
 		}
@@ -304,9 +309,12 @@ func runStep(ctx context.Context, opts Options, lay layout, st *step) StepResult
 	return res
 }
 
-// evaluate applies the step expectations to the captured outcome.
+// evaluate applies the step expectations to the captured outcome. A
+// non-nil execErr always fails: per the ExecFunc contract it means the
+// command could not run at all, which wantExit=-1 (ignore the exit
+// code) must not mask.
 func evaluate(st *step, exit int, stdout, stderr string, execErr error) (Status, string) {
-	if execErr != nil && exit == 0 {
+	if execErr != nil {
 		return StatusFail, fmt.Sprintf("could not execute: %v", execErr)
 	}
 	if st.wantExit >= 0 && exit != st.wantExit {

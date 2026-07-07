@@ -68,15 +68,12 @@ func compliantExec() *fakeExec {
 		"af sync smoke-ws":                     "sync requires Stack.ParentSession to be set",
 		"af info ghost-session-does-not-exist": "session directory missing",
 	} {
-		f.queue(key, fakeResult{stderr: msg, exit: 1, err: errFakeExit})
+		f.queue(key, fakeResult{stderr: msg, exit: 1})
 	}
 	return f
 }
 
-var (
-	errFakeExit    = errors.New("exit status 1")
-	errToolMissing = errors.New("not found")
-)
+var errToolMissing = errors.New("not found")
 
 func allToolsPresent(string) (string, error) { return "/usr/bin/fake", nil }
 
@@ -114,7 +111,7 @@ func TestRun_AllStepsPassWithCompliantBinary(t *testing.T) {
 
 func TestRun_FailingStepIsReportedWithDetail(t *testing.T) {
 	exec := compliantExec()
-	exec.responses["af setup --shell bash"] = []fakeResult{{stderr: "boom: disk full", exit: 1, err: errFakeExit}}
+	exec.responses["af setup --shell bash"] = []fakeResult{{stderr: "boom: disk full", exit: 1}}
 
 	report, err := smoke.Run(context.Background(), newOptions(t, exec))
 	if err != nil {

@@ -154,3 +154,21 @@ func installFakeGH(t *testing.T) {
 	}
 	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
 }
+
+// TestDoctorFlagValidation rejects smoke flags without --all and
+// --remote combined with --all (Copilot review, PR #8).
+func TestDoctorFlagValidation(t *testing.T) {
+	for _, args := range [][]string{
+		{"doctor", "--report"},
+		{"doctor", "--issue"},
+		{"doctor", "--report-dir", "/tmp/x"},
+		{"doctor", "--all", "--remote", "host"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			_, _, err := executeCommand(t, newRootCmd(), args...)
+			if !errors.Is(err, errDoctorFlagUsage) {
+				t.Fatalf("%v: err = %v, want errDoctorFlagUsage", args, err)
+			}
+		})
+	}
+}
