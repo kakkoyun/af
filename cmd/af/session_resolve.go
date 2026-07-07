@@ -161,6 +161,20 @@ type sessionPickerRow struct {
 	state   session.State
 }
 
+type fzfCommandFn func(ctx context.Context, input string, stderr io.Writer) ([]byte, error)
+
+// fzfCommandFunc is the test seam wrapping the interactive fzf process.
+//
+//nolint:gochecknoglobals // Test seam: same pattern as sessionPickerFunc above.
+var fzfCommandFunc fzfCommandFn = defaultFzfCommand
+
+func defaultFzfCommand(ctx context.Context, input string, stderr io.Writer) ([]byte, error) {
+	fzf := exec.CommandContext(ctx, "fzf", "--prompt", "af> session ", "--delimiter", "\t", "--with-nth", "1,2,3,4,5")
+	fzf.Stdin = strings.NewReader(input)
+	fzf.Stderr = stderr
+	return fzf.Output() //nolint:wrapcheck // Callers wrap with picker-specific sentinels.
+}
+
 func defaultSessionPicker(ctx context.Context, opts sessionPickerOptions) (string, error) {
 	rows, err := sessionPickerRows(opts.StateDir)
 	if err != nil {
@@ -170,10 +184,7 @@ func defaultSessionPicker(ctx context.Context, opts sessionPickerOptions) (strin
 		return "", nil
 	}
 	input := renderSessionPickerRows(rows)
-	fzf := exec.CommandContext(ctx, "fzf", "--prompt", "af> session ", "--delimiter", "\t", "--with-nth", "1,2,3,4,5")
-	fzf.Stdin = strings.NewReader(input)
-	fzf.Stderr = opts.Stderr
-	out, err := fzf.Output()
+	out, err := fzfCommandFunc(ctx, input, opts.Stderr)
 	if err != nil {
 		if ctx.Err() != nil {
 			return "", fmt.Errorf("%w: %w", errSessionPickerInterrupted, ctx.Err())

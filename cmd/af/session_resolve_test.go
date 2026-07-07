@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -89,5 +91,55 @@ func TestSessionResolution_NoInputReturnsHelpfulError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "pass [session]") || !strings.Contains(err.Error(), "AF_SESSION") {
 		t.Fatalf("error should include resolution hints, got %v", err)
+	}
+}
+
+// TestDefaultSessionPicker_ParsesFzfSelection drives the picker through
+// the fzf command seam: rows are rendered to fzf stdin and the selected
+// row's first field becomes the session name.
+func TestDefaultSessionPicker_ParsesFzfSelection(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionState(t, home, "picked", "feat/picked", "active")
+	writeTestSessionState(t, home, "other", "feat/other", "active")
+	stateDir := filepath.Join(home, ".local", "share", "af", "v1", "sessions")
+
+	var sawInput string
+	restore := fzfCommandFunc
+	fzfCommandFunc = func(_ context.Context, input string, _ io.Writer) ([]byte, error) {
+		sawInput = input
+		return []byte("picked\tactive\tfeat/picked\n"), nil
+	}
+	t.Cleanup(func() { fzfCommandFunc = restore })
+
+	selected, err := defaultSessionPicker(context.Background(), sessionPickerOptions{StateDir: stateDir})
+	if err != nil {
+		t.Fatalf("defaultSessionPicker: %v", err)
+	}
+	if selected != "picked" {
+		t.Fatalf("selected = %q, want picked", selected)
+	}
+	if !strings.Contains(sawInput, "other") {
+		t.Fatalf("fzf input missing candidate rows; got %q", sawInput)
+	}
+}
+
+// TestDefaultSessionPicker_FzfFailureIsInterrupted maps a non-zero fzf
+// exit (e.g. Esc) to errSessionPickerInterrupted.
+func TestDefaultSessionPicker_FzfFailureIsInterrupted(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionState(t, home, "one", "feat/one", "active")
+	stateDir := filepath.Join(home, ".local", "share", "af", "v1", "sessions")
+
+	restore := fzfCommandFunc
+	fzfCommandFunc = func(context.Context, string, io.Writer) ([]byte, error) {
+		return nil, errors.New("exit status 130")
+	}
+	t.Cleanup(func() { fzfCommandFunc = restore })
+
+	_, err := defaultSessionPicker(context.Background(), sessionPickerOptions{StateDir: stateDir})
+	if !errors.Is(err, errSessionPickerInterrupted) {
+		t.Fatalf("err = %v, want errSessionPickerInterrupted", err)
 	}
 }
