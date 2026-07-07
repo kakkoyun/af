@@ -710,16 +710,26 @@ test/CI coverage, docs-vs-reality). All executed on branch
 - [x] I16.11: Fix `make lint` GOTOOLCHAIN mismatch and goreleaser pin
       (2.5.0 → 2.8.2); `goreleaser check` green (config half of I15.1).
 
-- [ ] I16.12: Post-review follow-up — the frozen SPEC/ADR-068 exit-code
+- [ ] I16.12 (issue #2): Post-review follow-up — the frozen SPEC/ADR-068 exit-code
       table (EX_UNAVAILABLE 69, EX_SOFTWARE 70, EX_TEMPFAIL 75,
       EX_NOPERM 77, cobra usage 2) documents codes the binary never
       emitted; the dead constants were removed in this pass. Owner
       decision: implement the full mapping (new work + tests) or amend
       the contract via a new ADR (074+).
-- [ ] I16.13: Post-review follow-up — the deleted Rust-era docs.yml
+- [ ] I16.13 (issue #7): Post-review follow-up — the deleted Rust-era docs.yml
       leaves the last-deployed v0 rustdoc GitHub Pages site orphaned.
       Owner decision: disable Pages for the repo or push a tombstone
       redirect.
+
+- [ ] I16.14 (issue #3): make unlocked state writes unrepresentable
+      (session.Update API), narrow lock windows around gh calls, dedupe
+      the flock/atomic-write primitives.
+- [ ] I16.15 (issue #4): CI gate speed — prebuilt lint/goreleaser
+      binaries, fold coverage into the test leg, scope the property job.
+- [ ] I16.16 (issue #5): ADR-066 --continue-host transcript path
+      normalization (was backlog; now specced with acceptance criteria).
+- [ ] I16.17 (issue #6): ADR-067 auto-sync for af clean --force on
+      VM-backed workstreams (was backlog; now specced).
 
 ---
 
