@@ -27,11 +27,11 @@ exists $WORK/reports
 
 # exactly one md and one json artifact
 exec sh -c 'ls $WORK/reports/af-doctor-smoke-*.md | wc -l'
-stdout '^1$'
+stdout '^\s*1$'
 exec sh -c 'ls $WORK/reports/af-doctor-smoke-*.json | wc -l'
-stdout '^1$'
+stdout '^\s*1$'
 exec sh -c 'grep -c "## Passed" $WORK/reports/af-doctor-smoke-*.md'
-stdout '^1$'
+stdout '^\s*1$'
 
 # Failure: report dir blocked by an existing file
 exec sh -c 'touch $WORK/blocked'
