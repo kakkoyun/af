@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (doctor self-smoke, ADR-074)
+
+- `af doctor --all` runs the local command surface for real inside an
+  isolated scratch HOME (created and removed per run): version, help,
+  setup, config, create incl. traversal rejection, list/status/info,
+  note, stack/sync validation, suspend/resume, done + archive, clean
+  --dry-run, retro, completions. Missing tools skip their steps rather
+  than failing. `--report` writes an AI-paste-ready markdown report
+  plus a JSON sidecar; `--issue` files the failure section as a GitHub
+  issue via `gh` (environment problems never file). Exit is non-zero
+  when any step fails, per ADR-068.
+
 ### Added (macOS integration CI)
 
 - `make test-integration` + a `integration / macos` CI job: real macOS

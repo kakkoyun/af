@@ -37,3 +37,4 @@ Thumbs.db
 
 # goreleaser snapshot artifacts
 /af
+.claude/
