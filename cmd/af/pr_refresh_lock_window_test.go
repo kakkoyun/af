@@ -109,6 +109,64 @@ func TestRefreshPRCacheForState_DoesNotHoldLockAcrossNetworkFetch(t *testing.T) 
 	}
 }
 
+// TestRefreshPRCacheForState_SkippedRefreshKeepsFreshDiskState pins the
+// skip semantics under release-call-reacquire (Copilot review, PR #13):
+// a Skipped result means prRefreshFunc made no network call and mutated
+// nothing, so the merge-back must NOT stamp the pre-fetch PR copy over
+// the re-read state — a concurrent refresh that landed between the
+// initial unlocked read and the merge-back would otherwise be hidden
+// from the caller's in-memory state (diverging from disk) even though
+// nothing is written.
+func TestRefreshPRCacheForState_SkippedRefreshKeepsFreshDiskState(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionState(t, home, "skipwin", "feat/skipwin", "active")
+	statePath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "skipwin", "state.toml")
+
+	onDisk, err := session.ReadState(statePath)
+	if err != nil {
+		t.Fatalf("ReadState: %v", err)
+	}
+	onDisk.PR.Number = 33
+	onDisk.PR.State = pr.StateOpen
+	err = session.WriteState(statePath, onDisk)
+	if err != nil {
+		t.Fatalf("WriteState: %v", err)
+	}
+
+	restore := prRefreshFunc
+	prRefreshFunc = func(_ context.Context, prState *session.PRState, _ pr.Options) (pr.Result, error) {
+		// Simulate a concurrent command refreshing the PR to merged
+		// between this refresh's pre-fetch read and its merge-back.
+		updateErr := session.Update(statePath, func(s *session.State) error {
+			s.PR.State = pr.StateMerged
+			return nil
+		})
+		if updateErr != nil {
+			t.Fatalf("simulate concurrent refresh: %v", updateErr)
+		}
+		// TTL still fresh: no network call, prState untouched.
+		return pr.Result{Old: prState.State, New: prState.State, Skipped: true}, nil
+	}
+	t.Cleanup(func() { prRefreshFunc = restore })
+
+	state := onDisk
+	err = refreshPRCacheForState(context.Background(), statePath, &state, prCacheRefreshOptions{Command: "test"})
+	if err != nil {
+		t.Fatalf("refreshPRCacheForState: %v", err)
+	}
+	if state.PR.State != pr.StateMerged {
+		t.Fatalf("in-memory PR.State = %q, want %q (skipped refresh must keep the fresher re-read, not the stale pre-fetch copy)", state.PR.State, pr.StateMerged)
+	}
+	final, err := session.ReadState(statePath)
+	if err != nil {
+		t.Fatalf("ReadState final: %v", err)
+	}
+	if final.PR.State != pr.StateMerged {
+		t.Fatalf("on-disk PR.State = %q, want %q (skipped refresh must not write stale state)", final.PR.State, pr.StateMerged)
+	}
+}
+
 // TestRefreshPRCacheForState_SessionArchivedDuringFetchFailsWithoutResurrecting
 // pins the race semantics required when release-call-reacquire is used:
 // if a racing `af done` archives the session between the network fetch

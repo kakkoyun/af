@@ -81,7 +81,14 @@ func mergeBackPRRefresh(statePath string, state *session.State, refreshedPR sess
 		if readErr != nil {
 			return fmt.Errorf("reread state after PR refresh: %w", readErr)
 		}
-		fresh.PR = refreshedPR
+		// A skipped refresh made no network call and mutated nothing, so
+		// the re-read is the freshest truth (a concurrent refresh may have
+		// landed since the pre-fetch read) — merge the fetched copy only
+		// when the refresh actually ran, or errored (persisting
+		// LastRefreshError). Mirrors persistPRRefreshOutcome's write gate.
+		if refreshErr != nil || !result.Skipped {
+			fresh.PR = refreshedPR
+		}
 		outcomeErr := persistPRRefreshOutcome(statePath, &fresh, result, refreshErr)
 		*state = fresh
 		return outcomeErr
