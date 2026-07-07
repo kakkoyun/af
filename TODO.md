@@ -741,25 +741,22 @@ test/CI coverage, docs-vs-reality). All executed on branch
 - [x] I16.14 (issue #3): make unlocked state writes unrepresentable
       (session.Update API), narrow lock windows around gh calls, dedupe
       the flock/atomic-write primitives.
-- [x] I16.15 (issue #4): CI gate speed — prebuilt lint/goreleaser
 
-      Resolved (partially deferred): added `session.WithDirLock` (base
-      primitive; `WithLock` and lifecycle's state-root lock both use
-      it now), bounded `LockFile` acquisition (`AF_LOCK_TIMEOUT`,
-      default 30s, `session.ErrLockBusy`), `session.Update` for clean
+      Resolved: added `session.WithDirLock` (base primitive; `WithLock`
+      and lifecycle's state-root lock both use it now), bounded
+      `LockFile` acquisition (`AF_LOCK_TIMEOUT`, default 30s,
+      `session.ErrLockBusy`), `session.Update` for clean
       read-modify-write call sites (migrated `af stack`/`af unstack`),
       and `session.WriteFileAtomic` deduping the atomic-write tail
       shared by `session.WriteState` and `obsidian.DirStore.Write`. A
       `forbidigo` lint rule now flags any new raw `session.WriteState`
-      call outside `internal/session`/tests. Deferred: "narrow lock
-      windows around gh calls" — the PR-refresh and session-data-sync
-      call sites still hold the session lock across their gh/slicer
-      network call (documented per-site via `//nolint:forbidigo`);
-      shrinking those lock windows is a distinct, larger behavior
-      change (release-call-reacquire) out of scope for this pass and
-      not requested by the paired issue #2 exit-code work it was
-      bundled with.
-- [ ] I16.15 (issue #4): CI gate speed — prebuilt lint/goreleaser
+      call outside `internal/session`/tests. "Narrow lock windows
+      around gh calls" is now DONE (see I16.19): the PR-refresh call
+      sites (`af status`/`info`/`clean`/`sync`, `af pr --refresh`) use
+      release-call-reacquire so the `gh pr view` network call runs
+      outside any lock; `af done`'s teardown deliberately keeps its
+      refresh inside its single archival critical section instead.
+- [x] I16.15 (issue #4): CI gate speed — prebuilt lint/goreleaser
       binaries, fold coverage into the test leg, scope the property job.
 - [x] I16.16 (issue #5): ADR-066 --continue-host transcript path
       normalization. Implemented in
@@ -783,6 +780,10 @@ test/CI coverage, docs-vs-reality). All executed on branch
 - [x] I16.18: ADR-074 `af doctor --all` host self-smoke with
       paste-actionable report and optional GitHub issue filing
       (internal/smoke + doctor flags + doctor-all testscript).
+- [x] I16.19 (issue #3 follow-up): release-call-reacquire for PR
+      refresh flows — `refreshPRCacheForState`/`af pr --refresh` now
+      fetch via `gh pr view` outside the session lock and only
+      reacquire it for the short merge-back write + ledger emit.
 
 ---
 

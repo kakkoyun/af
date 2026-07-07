@@ -2617,3 +2617,87 @@ green; `go test -run TestProperty -count=1000
   the paired exit-code work and out of scope for this pass.
 - Keyring access-denial exit-code mapping: not implemented, for the
   reason above (no distinguishable error from the library).
+
+## 2026-07-07 — Session 45: lock-window narrowing (issue #3 remainder)
+
+### Goal
+
+Close the remaining I16.14/I16.15 deferral: PR-refresh call sites were
+still holding the exclusive session flock across the `gh pr view`
+network call, so a slow GitHub round trip stalled every concurrent `af`
+command on that session for up to `AF_LOCK_TIMEOUT` (30s). Worked in
+`.claude/worktrees/issue-3-lock-windows` on
+`claude/issue-3-lock-windows`.
+
+### Done
+
+- **Release-call-reacquire for `refreshPRCacheForState`**
+  (`cmd/af/pr_refresh_cache.go`): now reads state with a plain
+  `session.ReadState` (safe — writes are atomic-rename), loads config
+  and runs `prRefreshFunc` on a copy of the cached `PRState` entirely
+  outside any lock, then hands off to a new `mergeBackPRRefresh` helper
+  that reacquires the session lock for a short critical section only:
+  re-read state.toml (failing instead of resurrecting if a racing `af
+  done` archived the session meanwhile), merge in just the refreshed PR
+  fields, persist the write + `pr_state_changed` ledger emit together
+  (`persistPRRefreshOutcome`, unchanged write-back policy: write when
+  `refreshErr != nil || !result.Skipped`), and copy the final merged
+  state back into the caller's pointer. `af status`, `af info`, `af
+  clean`, and `af sync`'s parent-PR refresh dropped their
+  `withSessionLock` wrappers around this call — the four callers named
+  in the issue.
+- **`af pr --refresh`** (`cmd/af/proxy_commands.go`, `runPRRefresh`):
+  same restructuring, reusing the shared `mergeBackPRRefresh` instead of
+  duplicating the merge-back logic, since its write policy was already
+  equivalent (`Force: true` makes `Skipped` always false). Preserves
+  `errPRRefreshNoPR` semantics and the final printed summary line.
+- **`af done` deliberately NOT touched behaviorally**: its refresh runs
+  inside `finishWorkstreamLocked`'s single teardown critical section on
+  purpose (releasing the lock mid-`done` would let a concurrent command
+  read stale state or write into a session being archived). Since
+  `refreshPRCacheForState` now reacquires the lock internally, calling
+  it from inside an already-held lock would self-block on `flock` (a
+  second `os.OpenFile`+`flock` from the same process blocks against the
+  first, same as a different process, until `AF_LOCK_TIMEOUT`) —
+  so `done.go` now calls a new sibling, `refreshPRCacheLocked`, which is
+  exactly the old single-critical-section behavior under a new name.
+  Added a comment in `done.go` explaining why. This is the one
+  necessary deviation from "do not touch done.go": the call target
+  needed to change to avoid a deadlock, though the teardown's locking
+  *behavior* is unchanged.
+- **Tests** (`cmd/af/pr_refresh_lock_window_test.go`, new):
+  - `TestRefreshPRCacheForState_DoesNotHoldLockAcrossNetworkFetch` — the
+    issue's acceptance criterion, made deterministic: a fake
+    `prRefreshFunc` signals "fetch started" over a channel then blocks
+    on a release channel; while blocked, a concurrent `session.Update`
+    on the same statePath must complete within a 5s guard (it completes
+    near-instantly in practice — the guard only exists to fail fast if
+    the lock regresses to being held across the fetch); after release,
+    asserts both the refreshed PR field and the concurrent update's
+    field are present in the final state (no clobber).
+  - `TestRefreshPRCacheForState_SessionArchivedDuringFetchFailsWithoutResurrecting`
+    — the fake `prRefreshFunc` deletes the whole session directory
+    mid-fetch (simulating a racing `af done`); asserts
+    `refreshPRCacheForState` returns an error and the directory stays
+    gone (relies on `WithDirLock`'s existing stat-then-refuse-missing-dir
+    guard, which was already in place from Session 44's `I16.14` lock
+    work).
+  - Existing regression tests
+    (`TestRefreshPRCache_DoesNotClobberConcurrentWrites` and the
+    `TestStatus_RefreshFlagRefreshesPRState` /
+    `TestInfo_RefreshFailureRendersQuestionMarkAndPersistsError` /
+    `TestClean_ForceRefreshFailureIsHardError` /
+    `TestSync_ForceRefreshesParentPRBeforeRebase` /
+    `TestDone_ForceRefreshFailureStopsBeforeTeardown` /
+    `TestPR_Refresh*` families) pass unmodified.
+
+### Verification
+
+`gofumpt -l cmd/ internal/` clean; `golangci-lint run` (v2.3.0, all
+linters) 0 issues; `go test -race -count=1 ./...` green across every
+package.
+
+### Deferred / not done
+
+None new. I16.13 (issue #7, Pages tombstone) remains an open owner
+decision from Session 43.

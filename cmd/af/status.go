@@ -125,11 +125,9 @@ func refreshStatusSummaries(cmd *cobra.Command, summaries []sessionSummary, forc
 		if summaries[i].state.PR.Number == 0 {
 			continue
 		}
-		err := withSessionLock(summaries[i].statePath, func() error {
-			return refreshPRCacheForState(cmd.Context(), summaries[i].statePath, &summaries[i].state, prCacheRefreshOptions{
-				Command: "status",
-				Force:   force,
-			})
+		err := refreshPRCacheForState(cmd.Context(), summaries[i].statePath, &summaries[i].state, prCacheRefreshOptions{
+			Command: "status",
+			Force:   force,
 		})
 		if err != nil {
 			summaries[i].prRefreshFailed = true
