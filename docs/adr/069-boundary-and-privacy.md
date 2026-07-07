@@ -1,10 +1,10 @@
 ---
 adr: 069
 title: "Boundary & Privacy — Telemetry, Multi-Machine, Name Collisions"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-21
-last_modified: 2026-05-22
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["031", "037", "038", "040", "041", "047", "063"]

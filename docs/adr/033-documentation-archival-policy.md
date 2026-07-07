@@ -1,10 +1,10 @@
 ---
 adr: 033
 title: "Documentation Archival Policy (v0 → v1)"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-06
-last_modified: 2026-05-06
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["031", "032"]

@@ -1,10 +1,10 @@
 ---
 adr: 055
 title: "af info — Workstream Detail View"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-08
-last_modified: 2026-05-21
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["031", "035", "037", "038", "039", "054"]

@@ -1,10 +1,10 @@
 ---
 adr: 052
 title: "Formal Verification Experimentation"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-06
-last_modified: 2026-05-22
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["031", "037", "046", "051"]

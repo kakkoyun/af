@@ -1,10 +1,10 @@
 ---
 adr: 073
 title: "af review — Repo-Aware PR Review Report"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-21
-last_modified: 2026-05-22
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["031", "035", "036", "037", "043", "051", "057", "058"]

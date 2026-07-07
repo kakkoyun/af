@@ -1,10 +1,10 @@
 ---
 adr: 046
 title: "af suspend / af resume Lifecycle"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-06
-last_modified: 2026-05-22
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["031", "037", "039", "041", "042", "043", "056"]

@@ -1,10 +1,10 @@
 ---
 adr: 045
 title: "af setup — Environment Companion to Doctor"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-06
-last_modified: 2026-05-21
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["031", "035", "036", "038", "044", "047"]

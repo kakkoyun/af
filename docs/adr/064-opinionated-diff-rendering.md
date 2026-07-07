@@ -1,10 +1,10 @@
 ---
 adr: 064
 title: "Opinionated Diff Rendering (hunk + diffity)"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-20
-last_modified: 2026-05-22
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["035", "036", "037", "048", "059"]

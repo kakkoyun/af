@@ -1,10 +1,10 @@
 ---
 adr: 036
 title: "Configuration — TOML, layered, with global Obsidian vault paths"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-06
-last_modified: 2026-05-21
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["031", "034", "044", "045", "047", "049", "054", "057"]
