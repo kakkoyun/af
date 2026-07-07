@@ -1,0 +1,104 @@
+# clean: af clean reaps workstreams in a terminal lifecycle state.
+#
+# Fixtures (none has a [pr] section, so no PR refresh fires):
+#   done1 — completed  -> reaped by default
+#   gone2 — abandoned  -> reaped only with --include-abandoned
+#   live  — active     -> never reaped
+#
+# Failure path: an unparsable --max-age duration.
+
+env HOME=$WORK/home
+
+# ── Failure: bad --max-age duration ───────────────────────────────────────────
+! exec af clean --max-age bogus
+stderr 'clean: parse --max-age'
+
+# Nothing was touched by the failed run.
+exists $HOME/.local/share/af/v1/sessions/done1/state.toml
+exists $HOME/.local/share/af/v1/sessions/gone2/state.toml
+exists $HOME/.local/share/af/v1/sessions/live/state.toml
+
+# ── Dry run reports without removing ──────────────────────────────────────────
+exec af clean --dry-run
+stdout 'would remove done1'
+! stdout 'removed '
+! stdout 'gone2'
+! stdout 'live'
+
+exists $HOME/.local/share/af/v1/sessions/done1/state.toml
+exists $HOME/.local/share/af/v1/sessions/gone2/state.toml
+exists $HOME/.local/share/af/v1/sessions/live/state.toml
+
+# ── Real clean reaps only the completed workstream ────────────────────────────
+exec af clean
+stdout 'removed done1'
+! stdout 'gone2'
+! stdout 'live'
+
+! exists $HOME/.local/share/af/v1/sessions/done1
+exists $HOME/.local/share/af/v1/sessions/gone2/state.toml
+exists $HOME/.local/share/af/v1/sessions/live/state.toml
+
+# ── Abandoned workstreams need --include-abandoned ────────────────────────────
+exec af clean
+stdout 'nothing to clean'
+
+exec af clean --include-abandoned
+stdout 'removed gone2'
+! stdout 'live'
+
+! exists $HOME/.local/share/af/v1/sessions/gone2
+exists $HOME/.local/share/af/v1/sessions/live/state.toml
+
+# ── Initial file content ───────────────────────────────────────────────────────
+
+-- home/.local/share/af/v1/sessions/done1/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-000000000001"
+name = "done1"
+status = "completed"
+created_at = 2026-05-20T10:00:00Z
+
+[worktree]
+path = "/tmp/worktree-done1"
+branch = "feat/done1"
+base_branch = "main"
+
+[execution]
+tmux_session = "af-done1"
+
+-- home/.local/share/af/v1/sessions/gone2/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-000000000002"
+name = "gone2"
+status = "abandoned"
+created_at = 2026-05-20T11:00:00Z
+
+[worktree]
+path = "/tmp/worktree-gone2"
+branch = "feat/gone2"
+base_branch = "main"
+
+[execution]
+tmux_session = "af-gone2"
+
+-- home/.local/share/af/v1/sessions/live/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-000000000003"
+name = "live"
+status = "active"
+created_at = 2026-05-22T12:00:00Z
+
+[worktree]
+path = "/tmp/worktree-live"
+branch = "feat/live"
+base_branch = "main"
+
+[execution]
+tmux_session = "af-live"

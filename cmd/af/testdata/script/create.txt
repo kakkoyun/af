@@ -1,0 +1,88 @@
+# create.txt — af create end-to-end through fake git + tmux + pi.
+#
+# A smart fake git (at $WORK/mygit/git) answers the exact queries the
+# create pipeline issues (ADR-038/ADR-039):
+#   rev-parse --show-toplevel        → $WORK/repo (must exist: later git
+#                                      calls run with cmd.Dir set to it)
+#   config --get remote.origin.url   → https://github.com/kakkoyun/demo.git
+#   config --get remote.upstream.url → exit 1 (no fork upstream remote)
+#   rev-parse --verify upstream/main → exit 1 (miss)
+#   rev-parse --verify origin/main   → hit → chosen as the base branch
+#   worktree add ...                 → exit 0 (no real checkout needed;
+#                                      EnsureStateSymlink mkdirs the path)
+# tmux + pi remain the passthrough fakes from $WORK/fakebin, so the
+# tmux new-session / set-environment / send-keys calls all succeed.
+
+env HOME=$WORK/home
+
+chmod 755 mygit/git
+env PATH=$WORK/mygit:$PATH
+
+# ── Success: af create demo scaffolds state + ledger + worktree ──────────────
+# Defaults: agent=pi, worktree_root=~/Workspace/.worktrees,
+# prefix_on_fork_only=true + no upstream remote → branch == session name.
+
+exec af create demo
+stdout 'created workstream demo'
+stdout 'branch:    demo'
+stdout 'worktree:'
+stdout 'tmux:      af-demo'
+
+# Durable state lands under the v1 sessions dir.
+exists $HOME/.local/share/af/v1/sessions/demo/state.toml
+exists $HOME/.local/share/af/v1/sessions/demo/ledger.jsonl
+grep 'name = "demo"' $HOME/.local/share/af/v1/sessions/demo/state.toml
+grep 'status = "active"' $HOME/.local/share/af/v1/sessions/demo/state.toml
+grep 'base_branch = "origin/main"' $HOME/.local/share/af/v1/sessions/demo/state.toml
+grep 'repo_slug = "github.com/kakkoyun/demo"' $HOME/.local/share/af/v1/sessions/demo/state.toml
+grep 'tmux_session = "af-demo"' $HOME/.local/share/af/v1/sessions/demo/state.toml
+
+# The ledger records the create event with the resolved agent.
+grep '"event":"created"' $HOME/.local/share/af/v1/sessions/demo/ledger.jsonl
+grep '"agent":"pi"' $HOME/.local/share/af/v1/sessions/demo/ledger.jsonl
+
+# Discovery symlink is reconciled inside the planned worktree path.
+exists $HOME/Workspace/.worktrees/github.com/kakkoyun/demo/demo/.af/state.toml
+
+# ── Failure: path-escaping session name is rejected up front ─────────────────
+! exec af create ../evil
+stderr 'invalid session name'
+
+# No state directory may leak out of the rejected create.
+! exists $HOME/.local/share/af/v1/evil
+
+# ── Failure: strict name collision (ADR-069 §3) ──────────────────────────────
+! exec af create demo
+stderr 'already in use'
+
+-- repo/.keep --
+-- mygit/git --
+#!/bin/sh
+# Smart fake git for the af create pipeline. Answers the exact argv
+# sequences issued by cmd/af/create.go + internal/lifecycle.Create.
+case "$*" in
+  'rev-parse --show-toplevel')
+    echo "$WORK/repo"
+    exit 0
+    ;;
+  'config --get remote.origin.url')
+    echo 'https://github.com/kakkoyun/demo.git'
+    exit 0
+    ;;
+  'config --get remote.upstream.url')
+    exit 1
+    ;;
+  'rev-parse --verify upstream/main')
+    exit 1
+    ;;
+  'rev-parse --verify origin/main')
+    echo 'abc1234deadbeef'
+    exit 0
+    ;;
+  'worktree add'*)
+    exit 0
+    ;;
+  *)
+    exit 0
+    ;;
+esac

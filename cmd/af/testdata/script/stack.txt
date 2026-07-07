@@ -1,0 +1,122 @@
+# stack: af stack / unstack maintain the ADR-059 parent link in
+# state.toml, and af sync refuses to run without one.
+#
+# Two fixture sessions: parent (feat/parent) and child (feat/child).
+# The child's worktree path is relative ("wt/child") so it resolves
+# under the testscript $WORK dir, where a real directory exists for the
+# smart fake git (smgit/git) to "run" in. The smart fake reports a clean
+# worktree, no origin remote, and merge-base == parent SHA, so the happy
+# sync takes the already-up-to-date path without touching real git.
+#
+# Failure paths:
+#   1. af stack without --parent.
+#   2. af sync before any parent is linked.
+#   3. af sync again after unstack removed the link.
+
+env HOME=$WORK/home
+
+chmod 755 smgit/git
+env PATH=$WORK/smgit:$PATH
+
+# ── Failure 1: stack requires --parent ────────────────────────────────────────
+! exec af stack child
+stderr '--parent required'
+
+# ── Failure 2: sync before a parent is configured ─────────────────────────────
+! exec af sync child
+stderr 'sync requires Stack.ParentSession to be set'
+
+# ── Link child onto parent ────────────────────────────────────────────────────
+exec af stack child --parent parent
+stdout 'stacked child onto parent'
+grep 'parent_session = "parent"' $HOME/.local/share/af/v1/sessions/child/state.toml
+grep 'linked_at = ' $HOME/.local/share/af/v1/sessions/child/state.toml
+
+# ── Sync resolves the parent branch from the parent session's state ───────────
+exec af sync child
+stdout 'sync: feat/child already up to date with feat/parent'
+
+# ── Unstack removes the link ──────────────────────────────────────────────────
+exec af unstack child
+stdout 'unstacked child'
+grep 'parent_session = ""' $HOME/.local/share/af/v1/sessions/child/state.toml
+
+# ── Failure 3: sync fails again once the link is gone ─────────────────────────
+! exec af sync child
+stderr 'sync requires Stack.ParentSession to be set'
+
+# ── Initial file content ───────────────────────────────────────────────────────
+
+-- home/.local/share/af/v1/sessions/parent/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-000000000001"
+name = "parent"
+status = "active"
+created_at = 2026-05-22T10:00:00Z
+
+[worktree]
+path = "wt/parent"
+branch = "feat/parent"
+base_branch = "main"
+
+[execution]
+tmux_session = "af-parent"
+
+-- home/.local/share/af/v1/sessions/child/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-000000000002"
+name = "child"
+status = "active"
+created_at = 2026-05-22T11:00:00Z
+
+[worktree]
+path = "wt/child"
+branch = "feat/child"
+base_branch = "main"
+
+[execution]
+tmux_session = "af-child"
+
+-- wt/child/.keep --
+placeholder so the child worktree directory exists for git's cwd
+
+-- smgit/git --
+#!/bin/sh
+# Smart fake git for af sync integration tests (ADR-059).
+#
+# lifecycle.Sync issues (in the child worktree dir):
+#   status --porcelain               -> empty output = clean worktree
+#   config --get remote.origin.url   -> exit 1 = no origin, skip fetch
+#   rev-parse HEAD                   -> child HEAD SHA
+#   merge-base HEAD <parentRef>      -> parent SHA (equal below)
+#   rev-parse <parentRef>            -> parent SHA
+# merge-base == rev-parse(parent) makes Sync take the Rebased=false
+# "already up to date" path, so no rebase is attempted.
+cmd="$1"
+shift
+case "$cmd" in
+  status)
+    exit 0
+    ;;
+  config)
+    exit 1
+    ;;
+  rev-parse)
+    case "$1" in
+      HEAD) echo 1111111111111111111111111111111111111111 ;;
+      *)    echo 2222222222222222222222222222222222222222 ;;
+    esac
+    exit 0
+    ;;
+  merge-base)
+    echo 2222222222222222222222222222222222222222
+    exit 0
+    ;;
+  *)
+    exit 0
+    ;;
+esac

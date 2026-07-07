@@ -1,0 +1,78 @@
+# done: af done tears down tmux + git (both satisfied by the global
+# passthrough fakes) and moves the session dir into
+# $HOME/.local/share/af/v1/archive/.
+#
+# Fixtures have no [pr] section and no slicer VM, so no PR refresh or
+# ADR-067 auto-sync fires — everything stays hermetic.
+#
+# Scenarios:
+#   1. Failure: unknown session name — state.toml cannot be read.
+#   2. af done demo   — completes and archives the workstream.
+#   3. af done demo2 --force — abandons and archives the workstream.
+#   4. Failure: af done on the already-archived session.
+
+env HOME=$WORK/home
+
+# ── Failure 1: unknown session name ───────────────────────────────────────────
+! exec af done ghost
+stderr 'done: read state'
+stderr 'ghost'
+
+# ── Scenario 2: complete demo ─────────────────────────────────────────────────
+exec af done demo
+stdout 'workstream demo -> completed'
+
+exists $HOME/.local/share/af/v1/archive/demo/state.toml
+! exists $HOME/.local/share/af/v1/sessions/demo/state.toml
+grep 'status = "completed"' $HOME/.local/share/af/v1/archive/demo/state.toml
+grep '"event":"completed"' $HOME/.local/share/af/v1/archive/demo/ledger.jsonl
+
+# ── Scenario 3: force-abandon demo2 ───────────────────────────────────────────
+exec af done demo2 --force
+stdout 'workstream demo2 -> abandoned'
+
+exists $HOME/.local/share/af/v1/archive/demo2/state.toml
+! exists $HOME/.local/share/af/v1/sessions/demo2/state.toml
+grep 'status = "abandoned"' $HOME/.local/share/af/v1/archive/demo2/state.toml
+grep '"event":"abandoned"' $HOME/.local/share/af/v1/archive/demo2/ledger.jsonl
+
+# ── Failure 4: done again on the archived session ─────────────────────────────
+# The state dir moved to the archive, so a second done finds no state.toml.
+! exec af done demo
+stderr 'done: read state'
+
+# ── Initial file content ───────────────────────────────────────────────────────
+
+-- home/.local/share/af/v1/sessions/demo/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-000000000001"
+name = "demo"
+status = "active"
+created_at = 2026-05-22T10:00:00Z
+
+[worktree]
+path = "/tmp/worktree-demo"
+branch = "feat/demo"
+base_branch = "main"
+
+[execution]
+tmux_session = "af-demo"
+
+-- home/.local/share/af/v1/sessions/demo2/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-000000000002"
+name = "demo2"
+status = "suspended"
+created_at = 2026-05-22T11:00:00Z
+
+[worktree]
+path = "/tmp/worktree-demo2"
+branch = "feat/demo2"
+base_branch = "main"
+
+[execution]
+tmux_session = "af-demo2"

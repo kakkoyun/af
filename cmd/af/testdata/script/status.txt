@@ -1,0 +1,100 @@
+# status.txt — af status dashboard over fixture sessions.
+#
+# Fixtures: alpha (active), beta (suspended), gamma (completed).
+# Scenarios:
+#   1. plain status         → header + active/suspended rows; completed hidden.
+#   2. --all                → completed row included.
+#   3. --filter suspended   → only the matching lifecycle state.
+#   4. --json (+ --filter)  → schema-1 envelope with per-row objects.
+#   5. failure              → --filter without a value is a usage error.
+#
+# None of the fixtures carries PR state, so status never shells out to gh;
+# the PR column renders "-".
+
+env HOME=$WORK/home
+
+# ── Scenario 1: dashboard hides completed workstreams by default ─────────────
+exec af status
+stdout 'NAME\s+STATUS\s+BRANCH\s+PR'
+stdout 'alpha\s+active\s+feat/alpha\s+-'
+stdout 'beta\s+suspended\s+feat/beta\s+-'
+! stdout 'gamma'
+
+# ── Scenario 2: --all includes completed workstreams ─────────────────────────
+exec af status --all
+stdout 'gamma\s+completed\s+feat/gamma\s+-'
+
+# ── Scenario 3: --filter selects one lifecycle state ─────────────────────────
+exec af status --filter suspended
+stdout 'beta\s+suspended'
+! stdout 'alpha'
+! stdout 'gamma'
+
+# A filter matching nothing degrades to the empty placeholder, exit 0.
+exec af status --filter abandoned
+stdout 'no workstreams'
+
+# ── Scenario 4: --json emits the schema-1 envelope ───────────────────────────
+exec af status --json
+stdout '"schema": 1'
+stdout '"name": "alpha"'
+stdout '"status": "active"'
+stdout '"branch": "feat/alpha"'
+stdout '"name": "beta"'
+
+exec af status --json --filter active
+stdout '"name": "alpha"'
+! stdout '"name": "beta"'
+
+# ── Scenario 5 (failure): --filter demands a value ───────────────────────────
+! exec af status --filter
+stderr 'flag needs an argument: --filter'
+
+# Positional args are also rejected.
+! exec af status extra
+stderr 'unknown command "extra" for "af status"'
+
+-- home/.local/share/af/v1/sessions/alpha/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-00000000000a"
+name = "alpha"
+status = "active"
+created_at = 2026-05-21T12:00:00Z
+
+[worktree]
+path = "/tmp/wt/alpha"
+branch = "feat/alpha"
+base_branch = "main"
+repo_slug = "github.com/owner/repo"
+
+-- home/.local/share/af/v1/sessions/beta/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-00000000000b"
+name = "beta"
+status = "suspended"
+created_at = 2026-05-22T09:30:00Z
+
+[worktree]
+path = "/tmp/wt/beta"
+branch = "feat/beta"
+base_branch = "main"
+repo_slug = "github.com/owner/repo"
+
+-- home/.local/share/af/v1/sessions/gamma/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-00000000000c"
+name = "gamma"
+status = "completed"
+created_at = 2026-05-23T15:45:00Z
+
+[worktree]
+path = "/tmp/wt/gamma"
+branch = "feat/gamma"
+base_branch = "main"
+repo_slug = "github.com/owner/repo"

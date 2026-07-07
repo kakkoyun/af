@@ -1,0 +1,63 @@
+# info.txt — af info for one workstream, including the ledger tail.
+#
+# Fixture: session "alpha" with a state.toml and a three-event
+# ledger.jsonl (created → suspended → resumed).
+# Scenarios:
+#   1. plain info            → text summary, no events section.
+#   2. --ledger 2            → only the last two ledger events shown.
+#   3. --json --ledger 1     → schema-1 envelope with session + events.
+#   4. failure               → unknown session name errors (no state.toml).
+
+env HOME=$WORK/home
+
+# ── Scenario 1: text summary ──────────────────────────────────────────────────
+exec af info alpha
+stdout 'Session:   alpha'
+stdout 'Status:    active'
+stdout 'Branch:    feat/alpha'
+stdout 'Base:      main'
+stdout 'Repo:      github.com/owner/repo'
+! stdout 'Recent events:'
+
+# ── Scenario 2: --ledger N appends the last N events ──────────────────────────
+exec af info alpha --ledger 2
+stdout 'Recent events:'
+stdout '2026-05-21 13:00:00 suspended'
+stdout '2026-05-21 14:00:00 resumed'
+# The oldest event falls outside the tail window of 2.
+! stdout '2026-05-21 12:00:00 created'
+
+# ── Scenario 3: --json envelope carries session + events ──────────────────────
+exec af info alpha --json --ledger 1
+stdout '"schema": 1'
+stdout '"Name": "alpha"'
+stdout '"Type": "resumed"'
+! stdout '"Type": "suspended"'
+
+# ── Scenario 4 (failure): unknown session name ────────────────────────────────
+! exec af info nope
+stderr 'nope'
+stderr 'no such file or directory'
+
+-- home/.local/share/af/v1/sessions/alpha/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-00000000000a"
+name = "alpha"
+status = "active"
+created_at = 2026-05-21T12:00:00Z
+
+[worktree]
+path = "/tmp/wt/alpha"
+branch = "feat/alpha"
+base_branch = "main"
+repo_slug = "github.com/owner/repo"
+
+[execution]
+tmux_session = "af-alpha"
+
+-- home/.local/share/af/v1/sessions/alpha/ledger.jsonl --
+{"ts":"2026-05-21T12:00:00Z","event":"created","agent":"pi","branch":"feat/alpha"}
+{"ts":"2026-05-21T13:00:00Z","event":"suspended"}
+{"ts":"2026-05-21T14:00:00Z","event":"resumed"}
