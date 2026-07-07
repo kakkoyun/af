@@ -62,19 +62,6 @@ func TestWriteState_Failures(t *testing.T) {
 			want: "create state directory",
 		},
 		{
-			name: "temporary path is a directory",
-			path: func(t *testing.T) string {
-				t.Helper()
-				path := filepath.Join(t.TempDir(), "state.toml")
-				err := os.MkdirAll(path+".tmp", testDirPerm)
-				if err != nil {
-					t.Fatalf("create blocking tmp directory: %v", err)
-				}
-				return path
-			},
-			want: "create temporary state",
-		},
-		{
 			name: "target path is a directory",
 			path: func(t *testing.T) string {
 				t.Helper()
@@ -85,7 +72,11 @@ func TestWriteState_Failures(t *testing.T) {
 				}
 				return path
 			},
-			want: "replace state",
+			// "replace" (not "replace state") because WriteState now
+			// delegates the write tail to the shared WriteFileAtomic
+			// primitive, which also backs obsidian.DirStore.Write and
+			// uses domain-neutral wording.
+			want: "replace",
 		},
 	}
 	for _, tt := range tests {
@@ -96,6 +87,26 @@ func TestWriteState_Failures(t *testing.T) {
 				t.Fatalf("WriteState() error = %v, want containing %q", err, tt.want)
 			}
 		})
+	}
+}
+
+// TestWriteState_SurvivesHostileFixedTmpName pins the behavior change
+// from moving WriteState onto session.WriteFileAtomic: WriteState used
+// to fail if something occupied the fixed "<path>.tmp" name (see the
+// now-removed "temporary path is a directory" case above); it now uses
+// a unique os.CreateTemp name per write, so a squatted fixed name no
+// longer breaks it.
+func TestWriteState_SurvivesHostileFixedTmpName(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "state.toml")
+	err := os.MkdirAll(path+".tmp", testDirPerm)
+	if err != nil {
+		t.Fatalf("seed squatted tmp directory: %v", err)
+	}
+
+	err = session.WriteState(path, session.State{})
+	if err != nil {
+		t.Fatalf("WriteState() error = %v, want success despite squatted .tmp name", err)
 	}
 }
 

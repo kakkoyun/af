@@ -2,6 +2,7 @@ package session
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -276,40 +277,25 @@ func ReadState(path string) (State, error) {
 	return state, nil
 }
 
-// WriteState atomically writes state to path.
+// WriteState atomically writes state to path via WriteFileAtomic.
 func WriteState(path string, state State) error {
 	if state.SchemaVersion == 0 {
 		state.SchemaVersion = currentStateSchemaVersion
 	}
-	err := os.MkdirAll(filepath.Dir(path), directoryPerm)
+	dir := filepath.Dir(path)
+	err := os.MkdirAll(dir, directoryPerm)
 	if err != nil {
-		return fmt.Errorf("create state directory %s: %w", filepath.Dir(path), err)
+		return fmt.Errorf("create state directory %s: %w", dir, err)
 	}
 
-	tmpPath := path + ".tmp"
-	file, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, filePerm) //nolint:gosec // State paths are controlled by af's state store and tests.
+	var buf bytes.Buffer
+	err = toml.NewEncoder(&buf).Encode(state)
 	if err != nil {
-		return fmt.Errorf("create temporary state %s: %w", tmpPath, err)
+		return fmt.Errorf("encode state %s: %w", path, err)
 	}
-	encodeErr := toml.NewEncoder(file).Encode(state)
-	if encodeErr != nil {
-		return closeAfterError(file, fmt.Errorf("encode state %s: %w", tmpPath, encodeErr))
-	}
-	err = file.Sync()
+	err = WriteFileAtomic(path, buf.Bytes(), filePerm)
 	if err != nil {
-		return closeAfterError(file, fmt.Errorf("sync state %s: %w", tmpPath, err))
-	}
-	err = closeNamedFile(file, "state", tmpPath)
-	if err != nil {
-		return err
-	}
-	err = os.Rename(tmpPath, path)
-	if err != nil {
-		return fmt.Errorf("replace state %s: %w", path, err)
-	}
-	err = syncDir(filepath.Dir(path))
-	if err != nil {
-		return err
+		return fmt.Errorf("write state %s: %w", path, err)
 	}
 
 	return nil
