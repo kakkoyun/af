@@ -100,7 +100,7 @@ func TestValidateSessionName_RejectsTraversalAndBadRefs(t *testing.T) {
 	}{
 		{name: "parent traversal", session: "../evil"},
 		{name: "embedded traversal", session: "a/../../b"},
-		{name: "dot dot element", session: ".."},
+		{name: "dot-dot element", session: ".."},
 		{name: "single dot element", session: "."},
 		{name: "dot element inside", session: "a/./b"},
 		{name: "absolute path", session: "/abs"},
@@ -149,7 +149,8 @@ func TestValidateSessionName_AcceptsSlugStyleAndAutoNames(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := workstream.ValidateSessionName(tt.session); err != nil {
+			err := workstream.ValidateSessionName(tt.session)
+			if err != nil {
 				t.Fatalf("ValidateSessionName(%q) = %v, want nil", tt.session, err)
 			}
 		})

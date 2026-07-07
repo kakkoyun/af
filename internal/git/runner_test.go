@@ -12,6 +12,9 @@ import (
 	"github.com/kakkoyun/af/internal/testutil"
 )
 
+// errCanned is the sentinel returned by canned FakeRunner responses.
+var errCanned = errors.New("canned failure")
+
 func TestNewExecRunner_DefaultsToGitBinary(t *testing.T) {
 	runner := git.NewExecRunner()
 	if runner.Binary != "git" {
@@ -96,10 +99,9 @@ func TestExecRunner_Run_WrapsMissingBinaryWithErrRunnerCall(t *testing.T) {
 }
 
 func TestFakeRunner_Run_RecordsCallsAndReturnsCannedResponses(t *testing.T) {
-	sentinel := errors.New("canned failure")
 	runner := git.NewFakeRunner()
 	runner.SetResponse([]string{"branch", "--merged"}, git.FakeResponse{Output: "main\n"})
-	runner.SetResponse([]string{"worktree", "remove", "/tmp/w"}, git.FakeResponse{Output: "busy", Err: sentinel})
+	runner.SetResponse([]string{"worktree", "remove", "/tmp/w"}, git.FakeResponse{Output: "busy", Err: errCanned})
 
 	out, err := runner.Run(context.Background(), "/repo", "branch", "--merged")
 	if err != nil || string(out) != "main\n" {
@@ -107,8 +109,8 @@ func TestFakeRunner_Run_RecordsCallsAndReturnsCannedResponses(t *testing.T) {
 	}
 
 	out, err = runner.Run(context.Background(), "/repo", "worktree", "remove", "/tmp/w")
-	if !errors.Is(err, sentinel) {
-		t.Fatalf("Run(error response) error = %v, want %v", err, sentinel)
+	if !errors.Is(err, errCanned) {
+		t.Fatalf("Run(error response) error = %v, want %v", err, errCanned)
 	}
 	if string(out) != "busy" {
 		t.Fatalf("Run(error response) output = %q, want %q", out, "busy")
@@ -119,17 +121,22 @@ func TestFakeRunner_Run_RecordsCallsAndReturnsCannedResponses(t *testing.T) {
 		t.Fatalf("Run(unmatched) = (%v, %v), want (nil, nil)", out, err)
 	}
 
-	wantCalls := []git.FakeCall{
+	assertFakeCalls(t, runner.Calls, []git.FakeCall{
 		{Dir: "/repo", Args: []string{"branch", "--merged"}},
 		{Dir: "/repo", Args: []string{"worktree", "remove", "/tmp/w"}},
 		{Dir: "/elsewhere", Args: []string{"status"}},
+	})
+}
+
+// assertFakeCalls fails the test unless got matches want call-for-call.
+func assertFakeCalls(t *testing.T, got, want []git.FakeCall) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("Calls = %#v, want %#v", got, want)
 	}
-	if len(runner.Calls) != len(wantCalls) {
-		t.Fatalf("Calls = %#v, want %#v", runner.Calls, wantCalls)
-	}
-	for index, call := range runner.Calls {
-		if call.Dir != wantCalls[index].Dir || !equalStringSlices(call.Args, wantCalls[index].Args) {
-			t.Fatalf("Calls[%d] = %#v, want %#v", index, call, wantCalls[index])
+	for index, call := range got {
+		if call.Dir != want[index].Dir || !equalStringSlices(call.Args, want[index].Args) {
+			t.Fatalf("Calls[%d] = %#v, want %#v", index, call, want[index])
 		}
 	}
 }

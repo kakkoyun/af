@@ -91,7 +91,7 @@ func TestRender_UnknownModeUsesAutoDispatch(t *testing.T) {
 		t.Fatalf("want 1 call, got %d", len(ex.calls))
 	}
 	argv := ex.calls[0].argv
-	if argv[0] != gitBin || argv[1] != diffArgLiteral || argv[2] != "--stat" {
+	if argv[0] != gitBin || argv[1] != diffArgLiteral || argv[2] != statArg {
 		t.Fatalf("want 'git diff --stat' for unknown mode, got %v", argv)
 	}
 }
@@ -140,8 +140,8 @@ func TestExecExecutor_ExecuteErrors(t *testing.T) {
 
 	cases := []struct {
 		name string
-		argv []string
 		need string
+		argv []string
 	}{
 		{name: "missing binary", argv: []string{"af-definitely-not-a-binary-xyz"}},
 		{name: "non-zero exit", argv: []string{"sh", "-c", "exit 3"}, need: "sh"},

@@ -16,7 +16,7 @@ func TestCompletionsSummaryLine_UnsupportedShellFallback(t *testing.T) {
 }
 
 func TestExpandTilde(t *testing.T) {
-	home := filepath.Join("/", "home", "owner")
+	home := "/home/owner"
 
 	tests := []struct {
 		name string

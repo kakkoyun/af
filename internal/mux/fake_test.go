@@ -82,27 +82,27 @@ func TestFakeMultiplexer_KillPaneMissingPane(t *testing.T) {
 
 func TestFakeMultiplexer_MissingSessionErrors(t *testing.T) {
 	tests := []struct {
-		name string
 		call func(ctx context.Context, fake *mux.FakeMultiplexer) error
+		name string
 	}{
-		{"attach", func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.Attach(ctx, "gone") }},
-		{"send keys", func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.SendKeys(ctx, "gone", "", "k") }},
-		{"set env", func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.SetEnv(ctx, "gone", "K", "v") }},
-		{"get env", func(ctx context.Context, fake *mux.FakeMultiplexer) error {
+		{name: "attach", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.Attach(ctx, "gone") }},
+		{name: "send keys", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.SendKeys(ctx, "gone", "", "k") }},
+		{name: "set env", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.SetEnv(ctx, "gone", "K", "v") }},
+		{name: "get env", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error {
 			_, err := fake.GetEnv(ctx, "gone", "K")
-			return err
+			return wrapErr("get env", err)
 		}},
-		{"set option", func(ctx context.Context, fake *mux.FakeMultiplexer) error {
+		{name: "set option", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error {
 			return fake.SetOption(ctx, "gone", "@k", "v")
 		}},
-		{"split vertical", func(ctx context.Context, fake *mux.FakeMultiplexer) error {
+		{name: "split vertical", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error {
 			_, err := fake.SplitVertical(ctx, "gone", "/repo")
-			return err
+			return wrapErr("split vertical", err)
 		}},
-		{"kill pane", func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.KillPane(ctx, "gone", "%0") }},
-		{"list panes", func(ctx context.Context, fake *mux.FakeMultiplexer) error {
+		{name: "kill pane", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.KillPane(ctx, "gone", "%0") }},
+		{name: "list panes", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error {
 			_, err := fake.ListPanes(ctx, "gone")
-			return err
+			return wrapErr("list panes", err)
 		}},
 	}
 	for _, test := range tests {
@@ -116,41 +116,41 @@ func TestFakeMultiplexer_MissingSessionErrors(t *testing.T) {
 
 func TestFakeMultiplexer_CanceledContextErrors(t *testing.T) {
 	tests := []struct {
-		name string
 		call func(ctx context.Context, fake *mux.FakeMultiplexer) error
+		name string
 	}{
-		{"inside session", func(ctx context.Context, fake *mux.FakeMultiplexer) error {
+		{name: "inside session", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error {
 			_, _, err := fake.InsideSession(ctx)
-			return err
+			return wrapErr("inside session", err)
 		}},
-		{"create session", func(ctx context.Context, fake *mux.FakeMultiplexer) error {
+		{name: "create session", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error {
 			return fake.CreateSession(ctx, "s", "/repo")
 		}},
-		{"kill session", func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.KillSession(ctx, "s") }},
-		{"session exists", func(ctx context.Context, fake *mux.FakeMultiplexer) error {
+		{name: "kill session", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.KillSession(ctx, "s") }},
+		{name: "session exists", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error {
 			_, err := fake.SessionExists(ctx, "s")
-			return err
+			return wrapErr("session exists", err)
 		}},
-		{"attach", func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.Attach(ctx, "s") }},
-		{"send keys", func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.SendKeys(ctx, "s", "", "k") }},
-		{"set env", func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.SetEnv(ctx, "s", "K", "v") }},
-		{"get env", func(ctx context.Context, fake *mux.FakeMultiplexer) error {
+		{name: "attach", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.Attach(ctx, "s") }},
+		{name: "send keys", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.SendKeys(ctx, "s", "", "k") }},
+		{name: "set env", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.SetEnv(ctx, "s", "K", "v") }},
+		{name: "get env", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error {
 			_, err := fake.GetEnv(ctx, "s", "K")
-			return err
+			return wrapErr("get env", err)
 		}},
-		{"set option", func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.SetOption(ctx, "s", "@k", "v") }},
-		{"list sessions", func(ctx context.Context, fake *mux.FakeMultiplexer) error {
+		{name: "set option", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.SetOption(ctx, "s", "@k", "v") }},
+		{name: "list sessions", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error {
 			_, err := fake.ListSessions(ctx)
-			return err
+			return wrapErr("list sessions", err)
 		}},
-		{"split vertical", func(ctx context.Context, fake *mux.FakeMultiplexer) error {
+		{name: "split vertical", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error {
 			_, err := fake.SplitVertical(ctx, "s", "/repo")
-			return err
+			return wrapErr("split vertical", err)
 		}},
-		{"kill pane", func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.KillPane(ctx, "s", "%0") }},
-		{"list panes", func(ctx context.Context, fake *mux.FakeMultiplexer) error {
+		{name: "kill pane", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error { return fake.KillPane(ctx, "s", "%0") }},
+		{name: "list panes", call: func(ctx context.Context, fake *mux.FakeMultiplexer) error {
 			_, err := fake.ListPanes(ctx, "s")
-			return err
+			return wrapErr("list panes", err)
 		}},
 	}
 	for _, test := range tests {

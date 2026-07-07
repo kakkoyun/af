@@ -3,7 +3,6 @@ package agent_test
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -216,8 +215,8 @@ func TestProviders_SessionLogPaths(t *testing.T) {
 		provider agent.Agent
 		want     []string
 	}{
-		{name: "pi globs sessions dir", provider: agent.NewPi(), want: []string{filepath.Join("/fakehome", ".pi", "agent", "sessions", "%2Fproj%2Fdir", "*sess-1*.jsonl")}},
-		{name: "claude uses projects dir", provider: agent.NewClaude(), want: []string{filepath.Join("/fakehome", ".claude", "projects", "%2Fproj%2Fdir", "sess-1.jsonl")}},
+		{name: "pi globs sessions dir", provider: agent.NewPi(), want: []string{"/fakehome/.pi/agent/sessions/%2Fproj%2Fdir/*sess-1*.jsonl"}},
+		{name: "claude uses projects dir", provider: agent.NewClaude(), want: []string{"/fakehome/.claude/projects/%2Fproj%2Fdir/sess-1.jsonl"}},
 		{name: "codex has no logs", provider: agent.NewCodex(), want: nil},
 	}
 
@@ -248,6 +247,10 @@ func TestFake_Behaviors(t *testing.T) {
 	if fake.IsAvailable(ctx) {
 		t.Fatal("IsAvailable() = true, want false after SetAvailable(false)")
 	}
+}
+
+func TestFake_Commands(t *testing.T) {
+	fake := agent.NewFake("fakey")
 
 	if got, want := fake.LaunchCmd(agent.LaunchOpts{}), []string{"fakey", "launch"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("LaunchCmd() = %#v, want %#v", got, want)

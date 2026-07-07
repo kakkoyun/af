@@ -10,13 +10,17 @@ import (
 	"testing/quick"
 )
 
-func TestExpand(t *testing.T) {
-	tests := []struct {
-		name   string
-		argv   []string
-		tokens Tokens
-		want   []string
-	}{
+// expandCase drives one TestExpand table entry.
+type expandCase struct {
+	name   string
+	argv   []string
+	tokens Tokens
+	want   []string
+}
+
+// expandCases enumerates the argv expansion table for TestExpand.
+func expandCases() []expandCase {
+	return []expandCase{
 		{
 			name:   "nil_argv",
 			argv:   nil,
@@ -72,8 +76,10 @@ func TestExpand(t *testing.T) {
 			want:   []string{"--flag="},
 		},
 	}
+}
 
-	for _, tt := range tests {
+func TestExpand(t *testing.T) {
+	for _, tt := range expandCases() {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Expand(tt.argv, tt.tokens)
 			if len(got) != len(tt.want) {
@@ -163,8 +169,8 @@ func TestBuildArgvCommand(t *testing.T) {
 		name    string
 		argv    []string
 		dir     string
-		want    Command
 		wantErr error
+		want    Command
 	}{
 		{
 			name: "name_only",
@@ -410,7 +416,8 @@ func TestPropertyExpandStringNeverLeaksUnquotedMetacharacters(t *testing.T) {
 		return ok && decoded == value
 	}
 
-	if err := quick.Check(property, &quick.Config{MaxCount: 100}); err != nil {
+	err := quick.Check(property, &quick.Config{MaxCount: 100})
+	if err != nil {
 		t.Fatalf("quick.Check error = %v", err)
 	}
 }

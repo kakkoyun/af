@@ -36,12 +36,16 @@ func (runner *flakyRunner) Run(context.Context, mux.Command) ([]byte, error) {
 	return nil, nil
 }
 
-func TestTmux_CommandArgv(t *testing.T) {
-	tests := []struct {
-		name string
-		call func(ctx context.Context, tmux mux.Tmux) error
-		want []string
-	}{
+// tmuxArgvCase pairs a Tmux call with the tmux argv it must produce.
+type tmuxArgvCase struct {
+	call func(ctx context.Context, tmux mux.Tmux) error
+	name string
+	want []string
+}
+
+// tmuxArgvCases enumerates the Tmux methods checked by TestTmux_CommandArgv.
+func tmuxArgvCases() []tmuxArgvCase {
+	return []tmuxArgvCase{
 		{
 			name: "kill session",
 			call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.KillSession(ctx, "work") },
@@ -49,7 +53,10 @@ func TestTmux_CommandArgv(t *testing.T) {
 		},
 		{
 			name: "has session",
-			call: func(ctx context.Context, tmux mux.Tmux) error { _, err := tmux.SessionExists(ctx, "work"); return err },
+			call: func(ctx context.Context, tmux mux.Tmux) error {
+				_, err := tmux.SessionExists(ctx, "work")
+				return wrapErr("session exists", err)
+			},
 			want: []string{"has-session", "-t", "work"},
 		},
 		{
@@ -67,6 +74,12 @@ func TestTmux_CommandArgv(t *testing.T) {
 			call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.SendKeys(ctx, "work", "%3", "claude") },
 			want: []string{"send-keys", "-t", "%3", "claude", "C-m"},
 		},
+	}
+}
+
+// tmuxArgvCasesMore continues tmuxArgvCases; split keeps both under funlen.
+func tmuxArgvCasesMore() []tmuxArgvCase {
+	return []tmuxArgvCase{
 		{
 			name: "set environment",
 			call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.SetEnv(ctx, "work", "AF_WS", "issue-42") },
@@ -84,16 +97,25 @@ func TestTmux_CommandArgv(t *testing.T) {
 		},
 		{
 			name: "list panes",
-			call: func(ctx context.Context, tmux mux.Tmux) error { _, err := tmux.ListPanes(ctx, "work"); return err },
+			call: func(ctx context.Context, tmux mux.Tmux) error {
+				_, err := tmux.ListPanes(ctx, "work")
+				return wrapErr("list panes", err)
+			},
 			want: []string{"list-panes", "-t", "work", "-F", "#{pane_id}\t#{pane_current_path}"},
 		},
 		{
 			name: "list sessions",
-			call: func(ctx context.Context, tmux mux.Tmux) error { _, err := tmux.ListSessions(ctx); return err },
+			call: func(ctx context.Context, tmux mux.Tmux) error {
+				_, err := tmux.ListSessions(ctx)
+				return wrapErr("list sessions", err)
+			},
 			want: []string{"list-sessions", "-F", "#{session_name}\t#{session_attached}"},
 		},
 	}
-	for _, test := range tests {
+}
+
+func TestTmux_CommandArgv(t *testing.T) {
+	for _, test := range append(tmuxArgvCases(), tmuxArgvCasesMore()...) {
 		t.Run(test.name, func(t *testing.T) {
 			runner := mux.NewRecordingRunner()
 			tmux := mux.NewTmuxWithRunner(runner)
@@ -115,27 +137,36 @@ func TestTmux_CommandArgv(t *testing.T) {
 
 func TestTmux_RunnerFailuresWrapSentinel(t *testing.T) {
 	tests := []struct {
-		name string
 		call func(ctx context.Context, tmux mux.Tmux) error
+		name string
 	}{
-		{"create session", func(ctx context.Context, tmux mux.Tmux) error { return tmux.CreateSession(ctx, "work", "/repo") }},
-		{"kill session", func(ctx context.Context, tmux mux.Tmux) error { return tmux.KillSession(ctx, "work") }},
-		{"session exists", func(ctx context.Context, tmux mux.Tmux) error { _, err := tmux.SessionExists(ctx, "work"); return err }},
-		{"attach", func(ctx context.Context, tmux mux.Tmux) error { return tmux.Attach(ctx, "work") }},
-		{"send keys", func(ctx context.Context, tmux mux.Tmux) error { return tmux.SendKeys(ctx, "work", "", "claude") }},
-		{"set env", func(ctx context.Context, tmux mux.Tmux) error { return tmux.SetEnv(ctx, "work", "AF_WS", "v") }},
-		{"get env", func(ctx context.Context, tmux mux.Tmux) error {
+		{name: "create session", call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.CreateSession(ctx, "work", "/repo") }},
+		{name: "kill session", call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.KillSession(ctx, "work") }},
+		{name: "session exists", call: func(ctx context.Context, tmux mux.Tmux) error {
+			_, err := tmux.SessionExists(ctx, "work")
+			return wrapErr("session exists", err)
+		}},
+		{name: "attach", call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.Attach(ctx, "work") }},
+		{name: "send keys", call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.SendKeys(ctx, "work", "", "claude") }},
+		{name: "set env", call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.SetEnv(ctx, "work", "AF_WS", "v") }},
+		{name: "get env", call: func(ctx context.Context, tmux mux.Tmux) error {
 			_, err := tmux.GetEnv(ctx, "work", "AF_WS")
-			return err
+			return wrapErr("get env", err)
 		}},
-		{"set option", func(ctx context.Context, tmux mux.Tmux) error { return tmux.SetOption(ctx, "work", "@k", "v") }},
-		{"list sessions", func(ctx context.Context, tmux mux.Tmux) error { _, err := tmux.ListSessions(ctx); return err }},
-		{"split vertical", func(ctx context.Context, tmux mux.Tmux) error {
+		{name: "set option", call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.SetOption(ctx, "work", "@k", "v") }},
+		{name: "list sessions", call: func(ctx context.Context, tmux mux.Tmux) error {
+			_, err := tmux.ListSessions(ctx)
+			return wrapErr("list sessions", err)
+		}},
+		{name: "split vertical", call: func(ctx context.Context, tmux mux.Tmux) error {
 			_, err := tmux.SplitVertical(ctx, "work", "/repo")
-			return err
+			return wrapErr("split vertical", err)
 		}},
-		{"kill pane", func(ctx context.Context, tmux mux.Tmux) error { return tmux.KillPane(ctx, "work", "%3") }},
-		{"list panes", func(ctx context.Context, tmux mux.Tmux) error { _, err := tmux.ListPanes(ctx, "work"); return err }},
+		{name: "kill pane", call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.KillPane(ctx, "work", "%3") }},
+		{name: "list panes", call: func(ctx context.Context, tmux mux.Tmux) error {
+			_, err := tmux.ListPanes(ctx, "work")
+			return wrapErr("list panes", err)
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

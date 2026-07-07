@@ -13,12 +13,19 @@ import (
 	"github.com/kakkoyun/af/internal/setup"
 )
 
+// Sentinels injected into fakes to exercise error branches.
+var (
+	errBoom           = errors.New("boom")
+	errGitUnavailable = errors.New("git unavailable")
+	errGeneratorBroke = errors.New("generator broke")
+)
+
 // errGit is a GitConfigurer whose calls fail or return canned values,
 // for exercising the git error branches in updateGitignore.
 type errGit struct {
-	getVal   string
 	getErr   error
 	setErr   error
+	getVal   string
 	setCalls int
 }
 
@@ -143,7 +150,7 @@ func TestRun_WriteConfigErrorOnTrailingSlashPath(t *testing.T) {
 
 func TestRun_GitSetGlobalErrorAborts(t *testing.T) {
 	home := t.TempDir()
-	git := &errGit{setErr: errors.New("boom")}
+	git := &errGit{setErr: errBoom}
 
 	_, err := setup.Run(context.Background(), io.Discard, setup.Options{
 		HomeDir:         home,
@@ -160,7 +167,7 @@ func TestRun_GitSetGlobalErrorAborts(t *testing.T) {
 
 func TestRun_GitGetGlobalErrorFallsBackToDefaultPath(t *testing.T) {
 	home := t.TempDir()
-	git := &errGit{getErr: errors.New("git unavailable")}
+	git := &errGit{getErr: errGitUnavailable}
 
 	res, err := setup.Run(context.Background(), io.Discard, setup.Options{
 		HomeDir:         home,
@@ -301,9 +308,9 @@ func TestRun_PowershellSkipsFileInstall(t *testing.T) {
 
 func TestRun_InstallsCompletionPerShell(t *testing.T) {
 	tests := []struct {
+		wantPath func(home string) string
 		name     string
 		shell    string
-		wantPath func(home string) string
 	}{
 		{
 			name:  "zsh",
@@ -368,7 +375,8 @@ func TestRun_NilGeneratorSkipsCompletionWrite(t *testing.T) {
 	if res.CompletionPath != want {
 		t.Fatalf("CompletionPath = %q, want %q", res.CompletionPath, want)
 	}
-	if _, statErr := os.Stat(want); !errors.Is(statErr, os.ErrNotExist) {
+	_, statErr := os.Stat(want)
+	if !errors.Is(statErr, os.ErrNotExist) {
 		t.Fatalf("stat completion = %v, want ErrNotExist (nothing written)", statErr)
 	}
 }
@@ -415,17 +423,16 @@ func TestRun_CompletionOpenErrorWhenPathIsDirectory(t *testing.T) {
 
 func TestRun_GeneratorErrorIsWrapped(t *testing.T) {
 	home := t.TempDir()
-	genErr := errors.New("generator broke")
 
 	_, err := setup.Run(context.Background(), io.Discard, setup.Options{
 		HomeDir: home,
 		Shell:   "zsh",
 		GenerateZsh: func(io.Writer) error {
-			return genErr
+			return errGeneratorBroke
 		},
 		SkipGitignore: true,
 	})
-	if !errors.Is(err, genErr) {
+	if !errors.Is(err, errGeneratorBroke) {
 		t.Fatalf("error = %v, want errors.Is generator error", err)
 	}
 	if !strings.Contains(err.Error(), "generate zsh completion") {
