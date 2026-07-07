@@ -3,9 +3,11 @@ package lifecycle_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -354,5 +356,62 @@ func TestCreate_RejectsTraversalNames(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestCreate_ConcurrentSameNameExactlyOneWins verifies the ADR-069
+// collision check and session-dir creation run under the state-root
+// lock, so two racing creates cannot both claim one name.
+func TestCreate_ConcurrentSameNameExactlyOneWins(t *testing.T) {
+	home := t.TempDir()
+	gitRoot := filepath.Join(home, "repo")
+	mkdirT(t, gitRoot)
+	stateDir := filepath.Join(home, "sessions")
+
+	run := func(worktreeRoot string) error {
+		_, err := lifecycle.Create(context.Background(), lifecycle.CreateDeps{
+			Git:   git.NewFakeRunner(),
+			Mux:   mux.NewFakeMultiplexer(),
+			Agent: agent.NewFake("pi"),
+			Notes: obsidian.NewMemoryStore(),
+		}, lifecycle.CreateOptions{
+			Name:         "raced",
+			FromBranch:   "main",
+			GitRoot:      gitRoot,
+			RepoSlug:     repoSlug(),
+			WorktreeRoot: worktreeRoot,
+			StateDir:     stateDir,
+			AgentName:    "pi",
+			Now:          time.Date(2026, 7, 3, 1, 0, 0, 0, time.UTC),
+		})
+		return err
+	}
+
+	const attempts = 4
+	errs := make(chan error, attempts)
+	var wg sync.WaitGroup
+	for i := range attempts {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- run(filepath.Join(home, fmt.Sprintf("wt%d", i)))
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	var wins, collisions int
+	for err := range errs {
+		switch {
+		case err == nil:
+			wins++
+		case errors.Is(err, lifecycle.ErrNameCollision):
+			collisions++
+		default:
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	if wins != 1 || collisions != attempts-1 {
+		t.Fatalf("wins = %d, collisions = %d; want exactly 1 win and %d collisions", wins, collisions, attempts-1)
 	}
 }
