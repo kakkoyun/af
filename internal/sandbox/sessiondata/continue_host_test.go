@@ -119,6 +119,62 @@ func TestSync_ContinueHost_IdempotentSecondSyncImportsZero(t *testing.T) {
 	}
 }
 
+// TestSync_ContinueHost_MissingPathsFailFast asserts Sync's fail-fast
+// validation for host continuation: a live (non-dry-run) --continue-host
+// sync with an empty VMPath or HostPath would silently skip
+// normalization (NormalizeForHost's documented no-op guard), leaving
+// transcripts unusable for host resume — so Sync must refuse instead.
+// Dry-run stays exempt: it only reports manifest candidate counts and
+// never uses the paths.
+func TestSync_ContinueHost_MissingPathsFailFast(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, vmPath, hostPath string
+	}{
+		{"empty-vm-path", "", normalizeHostPath},
+		{"empty-host-path", normalizeVMPath, ""},
+		{"both-empty", "", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fake := &sessiondata.FakeSlicer{Source: t.TempDir()}
+			_, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
+				Session: "ch-nopath", VM: "vm1", HomeDir: t.TempDir(),
+				ContinueHost: true,
+				VMPath:       tc.vmPath,
+				HostPath:     tc.hostPath,
+				Now:          fixedTime,
+			})
+			if !errors.Is(err, sessiondata.ErrSyncFailed) {
+				t.Fatalf("err = %v, want ErrSyncFailed", err)
+			}
+			if len(fake.Calls) != 0 {
+				t.Errorf("Sync must fail before touching the VM; got calls %+v", fake.Calls)
+			}
+		})
+	}
+
+	t.Run("dry-run-allows-empty-paths", func(t *testing.T) {
+		t.Parallel()
+		home := fakeVM(t, map[string]string{
+			".claude/projects/" + normalizeVMSlug + "/session1.jsonl": string(readTestdata(t, "claude_input.jsonl")),
+		})
+		fake := &sessiondata.FakeSlicer{Source: home}
+		res, err := sessiondata.Sync(context.Background(), fake, sessiondata.SyncOptions{
+			Session: "ch-nopath-dry", VM: "vm1", HomeDir: t.TempDir(),
+			DryRun:       true,
+			ContinueHost: true,
+		})
+		if err != nil {
+			t.Fatalf("dry-run Sync: %v", err)
+		}
+		if res.NormalizePreview.CandidateFiles[sessiondata.KindClaude] != 1 {
+			t.Errorf("CandidateFiles[claude] = %d, want 1", res.NormalizePreview.CandidateFiles[sessiondata.KindClaude])
+		}
+	})
+}
+
 // TestSync_DryRunContinueHost_ReportsCandidatesWithoutCopying asserts
 // that `--dry-run --continue-host` reports per-kind candidate counts
 // from the manifest (ADR-066: dry-run "prints ... without copying") —

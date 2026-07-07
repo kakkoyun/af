@@ -40,12 +40,14 @@ type SyncOptions struct {
 	StagingRoot string
 	// VMPath is the VM-side workspace path recorded in transcripts
 	// (e.g. a Claude "cwd" field) that ContinueHost normalization
-	// rewrites away. Required when ContinueHost is true; ignored
+	// rewrites away. Required for live (non-dry-run) syncs when
+	// ContinueHost is true — Sync fails fast when it is empty; ignored
 	// otherwise.
 	VMPath string
 	// HostPath is the host-side workspace path that VMPath references
-	// are rewritten to when ContinueHost is true. Required when
-	// ContinueHost is true; ignored otherwise.
+	// are rewritten to when ContinueHost is true. Required for live
+	// (non-dry-run) syncs when ContinueHost is true — Sync fails fast
+	// when it is empty; ignored otherwise.
 	HostPath string
 	// Kinds limits the import to specific agent kinds; nil means
 	// AllKinds().
@@ -216,6 +218,18 @@ func validateSyncOpts(opts SyncOptions) error {
 		return fmt.Errorf("%w: empty vm name", ErrSyncFailed)
 	case opts.HomeDir == "":
 		return fmt.Errorf("%w: empty home directory", ErrSyncFailed)
+	}
+	// A live continue-host sync with a missing path would silently skip
+	// normalization (NormalizeForHost's no-op guard) and merge transcripts
+	// that still reference the VM workspace — fail fast instead. Dry-run
+	// only reports manifest candidate counts and never uses the paths.
+	if opts.ContinueHost && !opts.DryRun {
+		switch {
+		case opts.VMPath == "":
+			return fmt.Errorf("%w: continue-host requires the VM workspace path (no slicer worktree path recorded for this session)", ErrSyncFailed)
+		case opts.HostPath == "":
+			return fmt.Errorf("%w: continue-host requires the host worktree path (no worktree path recorded for this session)", ErrSyncFailed)
+		}
 	}
 	return nil
 }

@@ -75,7 +75,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `internal/sandbox/sessiondata/normalize.go`
   (`NormalizeForHost`, `CandidateNormalizeCounts`). The ledger's
   `agent_sessions_synced` event now records the real `continueHost`
-  flag instead of a hardcoded `false`.
+  flag instead of a hardcoded `false`. Pretty-printed `*.json` files
+  spanning multiple lines (pi session metadata) are rewritten as one
+  JSON value instead of being partially rewritten line-by-line, and a
+  live `--continue-host` sync fails fast when the session state records
+  no slicer/host worktree path rather than silently skipping
+  normalization.
 
 ### Added (macOS integration CI)
 

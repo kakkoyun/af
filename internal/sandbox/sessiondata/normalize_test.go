@@ -2,6 +2,7 @@ package sessiondata_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -189,6 +190,102 @@ func TestNormalizeForHost_Pi_RewritesExactVMPathStringOccurrences(t *testing.T) 
 	}
 	if result.RewrittenFiles[sessiondata.KindPi] != 1 {
 		t.Errorf("RewrittenFiles[pi] = %d, want 1", result.RewrittenFiles[sessiondata.KindPi])
+	}
+}
+
+// TestNormalizeForHost_Pi_RewritesPrettyPrintedWholeFileJSON covers
+// pi's *.json files written as one pretty-printed JSON value spanning
+// multiple lines: no single line parses as JSON, so the rewriter must
+// treat the whole file as a single value (re-encoded with two-space
+// indentation) instead of silently skipping it.
+func TestNormalizeForHost_Pi_RewritesPrettyPrintedWholeFileJSON(t *testing.T) {
+	t.Parallel()
+	staging := t.TempDir()
+	rel := filepath.Join(".pi", "agent", "sessions", "session-meta.json")
+	pretty := []byte("{\n  \"cwd\": \"" + normalizeVMPath + "\",\n  \"history\": [\n    \"" + normalizeVMPath + "/main.go\"\n  ],\n  \"title\": \"unrelated\"\n}\n")
+	writeStaged(t, staging, rel, pretty)
+
+	result, err := sessiondata.NormalizeForHost(staging, []sessiondata.AgentKind{sessiondata.KindPi}, normalizeVMPath, normalizeHostPath)
+	if err != nil {
+		t.Fatalf("NormalizeForHost: %v", err)
+	}
+	if result.RewrittenFiles[sessiondata.KindPi] != 1 {
+		t.Fatalf("RewrittenFiles[pi] = %d, want 1", result.RewrittenFiles[sessiondata.KindPi])
+	}
+
+	got, err := os.ReadFile(filepath.Join(staging, rel)) //nolint:gosec // path under t.TempDir().
+	if err != nil {
+		t.Fatalf("read rewritten file: %v", err)
+	}
+	assertPrettyJSONRewritten(t, got)
+
+	// Second pass: nothing left referencing vmPath, so the file (and its
+	// re-encoded formatting) must be left byte-for-byte untouched.
+	second, err := sessiondata.NormalizeForHost(staging, []sessiondata.AgentKind{sessiondata.KindPi}, normalizeVMPath, normalizeHostPath)
+	if err != nil {
+		t.Fatalf("second NormalizeForHost: %v", err)
+	}
+	if len(second.RewrittenFiles) != 0 {
+		t.Errorf("second pass RewrittenFiles = %v, want empty", second.RewrittenFiles)
+	}
+}
+
+// assertPrettyJSONRewritten checks the rewritten pretty-printed pi file:
+// still valid JSON, path fields moved to hostPath, unrelated field and
+// trailing newline preserved, no vmPath reference left anywhere.
+func assertPrettyJSONRewritten(t *testing.T, got []byte) {
+	t.Helper()
+	var decoded struct {
+		Cwd     string   `json:"cwd"`
+		Title   string   `json:"title"`
+		History []string `json:"history"`
+	}
+	err := json.Unmarshal(got, &decoded)
+	if err != nil {
+		t.Fatalf("rewritten file is not valid JSON: %v\n%s", err, got)
+	}
+	if decoded.Cwd != normalizeHostPath {
+		t.Errorf("cwd = %q, want %q", decoded.Cwd, normalizeHostPath)
+	}
+	if len(decoded.History) != 1 || decoded.History[0] != normalizeHostPath+"/main.go" {
+		t.Errorf("history = %v, want [%s/main.go]", decoded.History, normalizeHostPath)
+	}
+	if decoded.Title != "unrelated" {
+		t.Errorf("title = %q, want unchanged", decoded.Title)
+	}
+	if bytes.Contains(got, []byte(normalizeVMPath)) {
+		t.Errorf("rewritten file still references vmPath:\n%s", got)
+	}
+	if got[len(got)-1] != '\n' {
+		t.Error("trailing newline not preserved")
+	}
+}
+
+// TestNormalizeForHost_LineWithTrailingBytesRoundTrips pins the
+// byte-for-byte fallback for lines that are not one complete JSON
+// value: a line with a valid JSON prefix followed by trailing bytes
+// must pass through untouched rather than being re-marshaled with the
+// trailing bytes dropped.
+func TestNormalizeForHost_LineWithTrailingBytesRoundTrips(t *testing.T) {
+	t.Parallel()
+	staging := t.TempDir()
+	rel := filepath.Join(".codex", "sessions", "torn-write.jsonl")
+	content := []byte(`{"cwd":"` + normalizeVMPath + `"} {"torn":true` + "\n")
+	writeStaged(t, staging, rel, content)
+
+	result, err := sessiondata.NormalizeForHost(staging, []sessiondata.AgentKind{sessiondata.KindCodex}, normalizeVMPath, normalizeHostPath)
+	if err != nil {
+		t.Fatalf("NormalizeForHost: %v", err)
+	}
+	if len(result.RewrittenFiles) != 0 {
+		t.Errorf("RewrittenFiles = %v, want empty (line is not one JSON value)", result.RewrittenFiles)
+	}
+	got, err := os.ReadFile(filepath.Join(staging, rel)) //nolint:gosec // path under t.TempDir().
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	if !bytes.Equal(got, content) {
+		t.Errorf("file was mutated:\ngot:  %q\nwant: %q", got, content)
 	}
 }
 

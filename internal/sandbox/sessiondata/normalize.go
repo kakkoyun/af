@@ -54,13 +54,18 @@ type NormalizeResult struct {
 //   - KindHarness: ADR-066 does not define a host-continuation rewrite
 //     for harness roots; harness files are left untouched.
 //
-// The rewrite itself parses each JSONL line as JSON (map[string]any /
-// []any / string / number / bool / null) and recursively replaces any
-// string value that equals vmPath, or has vmPath+"/" as a prefix, with
-// the hostPath equivalent. Lines that fail to parse as JSON (or are
-// blank) are passed through byte-for-byte unchanged — NormalizeForHost
-// never regexes raw bytes. Unknown JSON fields round-trip because the
-// whole value is decoded generically rather than through a fixed struct.
+// The rewrite itself parses JSON generically (map[string]any / []any /
+// string / number / bool / null) and recursively replaces any string
+// value that equals vmPath, or has vmPath+"/" as a prefix, with the
+// hostPath equivalent. Multi-line files whose whole content is one JSON
+// value (pretty-printed *.json) are rewritten as a single value;
+// everything else is treated as JSONL, line by line, where a line is
+// rewritten only when it is one complete JSON value on its own — blank
+// lines, unparsable lines, and lines with trailing bytes after a valid
+// JSON prefix are passed through byte-for-byte unchanged.
+// NormalizeForHost never regexes raw bytes. Unknown JSON fields
+// round-trip because values are decoded generically rather than through
+// a fixed struct.
 //
 // Normalization runs against the staging tree, before the merge/dedup
 // step computes content hashes, so re-running a sync against unchanged
@@ -284,28 +289,65 @@ func isNormalizableFile(path string) bool {
 	return strings.HasSuffix(lower, ".jsonl") || strings.HasSuffix(lower, ".json")
 }
 
-// rewriteJSONLFile rewrites path in place, one line at a time, applying
-// the generic vmPath -> hostPath string rewrite to every line that
-// parses as JSON. Lines that are blank or fail to parse are passed
-// through byte-for-byte. Returns (true, nil) when at least one line's
-// content changed and the file was rewritten; (false, nil) when nothing
-// changed (the file is left untouched, including its mtime).
+// rewriteJSONLFile rewrites path in place, applying the generic vmPath
+// -> hostPath string rewrite. Multi-line content that parses as a
+// single JSON value (pretty-printed *.json, as pi writes) is rewritten
+// as one value; everything else goes through the JSONL line-by-line
+// path, where lines that are blank or fail to parse are passed through
+// byte-for-byte. Returns (true, nil) when content changed and the file
+// was rewritten; (false, nil) when nothing changed (the file is left
+// untouched, including its mtime).
 func rewriteJSONLFile(path, vmPath, hostPath string) (bool, error) {
 	data, err := os.ReadFile(path) //nolint:gosec // path is bounded to the staging tree.
 	if err != nil {
 		return false, fmt.Errorf("read %s: %w", path, err)
 	}
 
+	out, changed := rewriteJSONContent(data, vmPath, hostPath)
+	if !changed {
+		return false, nil
+	}
+	err = os.WriteFile(path, out, filePerm)
+	if err != nil {
+		return false, fmt.Errorf("write %s: %w", path, err)
+	}
+	return true, nil
+}
+
+// rewriteJSONContent applies the vmPath -> hostPath rewrite to one
+// file's bytes and reports whether anything changed. The whole-file
+// branch must run before the line branch: a pretty-printed JSON value
+// contains lines (bare strings, numbers) that parse as JSON on their
+// own, and rewriting those individually would corrupt the file — part
+// rewritten, part stale, indentation lost.
+func rewriteJSONContent(data []byte, vmPath, hostPath string) ([]byte, bool) {
 	trailingNewline := len(data) > 0 && data[len(data)-1] == '\n'
 	body := data
 	if trailingNewline {
 		body = data[:len(data)-1]
 	}
+
+	out, changed, handled := rewriteWholeFileJSON(body, vmPath, hostPath)
+	if !handled {
+		out, changed = rewriteJSONLines(body, vmPath, hostPath)
+	}
+	if !changed {
+		return data, false
+	}
+	if trailingNewline {
+		out = append(out, '\n')
+	}
+	return out, true
+}
+
+// rewriteJSONLines is the JSONL branch of rewriteJSONContent: body is
+// split on newlines and each line rewritten independently via
+// rewriteJSONLine. Returns (nil, false) when no line changed.
+func rewriteJSONLines(body []byte, vmPath, hostPath string) ([]byte, bool) {
 	var lines [][]byte
 	if len(body) > 0 {
 		lines = bytes.Split(body, []byte("\n"))
 	}
-
 	changedAny := false
 	for i, line := range lines {
 		newLine, changed := rewriteJSONLine(line, vmPath, hostPath)
@@ -315,18 +357,43 @@ func rewriteJSONLFile(path, vmPath, hostPath string) (bool, error) {
 		}
 	}
 	if !changedAny {
-		return false, nil
+		return nil, false
+	}
+	return bytes.Join(lines, []byte("\n")), true
+}
+
+// rewriteWholeFileJSON handles files whose whole content is a single
+// JSON value spanning multiple lines (pi writes *.json pretty-printed).
+// Results are (out, changed, handled): handled=false hands the content
+// to the line-by-line JSONL path — single-line files always go there
+// (same rewrite, and the line's compact encoding is preserved), as does
+// anything that is not one valid JSON value. A changed value is
+// re-encoded with two-space indentation, which stays resumable JSON
+// even when it does not match the writer's original style.
+func rewriteWholeFileJSON(body []byte, vmPath, hostPath string) ([]byte, bool, bool) {
+	trimmed := bytes.TrimSpace(body)
+	if !bytes.ContainsRune(trimmed, '\n') || !json.Valid(trimmed) {
+		return nil, false, false
 	}
 
-	out := bytes.Join(lines, []byte("\n"))
-	if trailingNewline {
-		out = append(out, '\n')
-	}
-	err = os.WriteFile(path, out, filePerm)
+	dec := json.NewDecoder(bytes.NewReader(trimmed))
+	dec.UseNumber()
+	var value any
+	err := dec.Decode(&value)
 	if err != nil {
-		return false, fmt.Errorf("write %s: %w", path, err)
+		return nil, false, false
 	}
-	return true, nil
+
+	newValue, valueChanged := rewriteJSONValue(value, vmPath, hostPath)
+	if !valueChanged {
+		return nil, false, true
+	}
+	marshaled, marshalErr := json.MarshalIndent(newValue, "", "  ")
+	if marshalErr != nil {
+		// Defensive: a value decoded by encoding/json always re-marshals.
+		return nil, false, false
+	}
+	return marshaled, true, true
 }
 
 // rewriteJSONLine decodes one JSONL line generically and applies the
@@ -339,8 +406,15 @@ func rewriteJSONLine(line []byte, vmPath, hostPath string) ([]byte, bool) {
 	if len(trimmed) == 0 {
 		return line, false
 	}
+	// The whole line must be one valid JSON value: Decoder.Decode alone
+	// would accept `{"a":1} trailing` and re-marshaling would then drop
+	// the trailing bytes, breaking the byte-for-byte round-trip
+	// guarantee for unknown content.
+	if !json.Valid(trimmed) {
+		return line, false
+	}
 
-	dec := json.NewDecoder(bytes.NewReader(line))
+	dec := json.NewDecoder(bytes.NewReader(trimmed))
 	dec.UseNumber()
 	var value any
 	err := dec.Decode(&value)
