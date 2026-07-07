@@ -30,13 +30,11 @@ func newListCmd(opts *rootOptions) *cobra.Command {
 	}
 }
 
-func runList(cmd *cobra.Command, opts *listOptions) error {
+func runList(cmd *cobra.Command, _ *listOptions) error {
 	stateDir, err := defaultSessionsDir()
 	if err != nil {
 		return fmt.Errorf("list: %w", err)
 	}
-	_ = opts
-
 	states, err := readAllStates(stateDir)
 	if err != nil {
 		return fmt.Errorf("list: %w", err)

@@ -9,8 +9,7 @@ import (
 	"github.com/kakkoyun/af/internal/sandbox"
 )
 
-func newPullCmd(opts *rootOptions) *cobra.Command {
-	_ = opts
+func newPullCmd(_ *rootOptions) *cobra.Command {
 	return &cobra.Command{
 		Use:   "pull [session]",
 		Short: "Pull a slicer-wt workstream's VM commits back to the host worktree",

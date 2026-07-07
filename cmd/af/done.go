@@ -98,11 +98,6 @@ func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
 }
 
 func resolveDoneStatePath(cmd *cobra.Command, name string) (string, error) {
-	stateDir, err := defaultSessionsDir()
-	if err != nil {
-		return "", fmt.Errorf("done: %w", err)
-	}
-	_ = stateDir
 	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
 		return "", fmt.Errorf("done: %w", err)
