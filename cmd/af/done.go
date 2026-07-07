@@ -78,7 +78,15 @@ func finishWorkstreamLocked(cmd *cobra.Command, opts *doneOptions, statePath str
 		return session.State{}, fmt.Errorf("done: %w", err)
 	}
 	if stateForRefresh.PR.Number != 0 {
-		err = refreshPRCacheForState(cmd.Context(), statePath, &stateForRefresh, prCacheRefreshOptions{
+		// Deliberately runs the gh pr view network call inside this
+		// already-held session lock (refreshPRCacheLocked), unlike
+		// status/info/clean/sync which use the release-call-reacquire
+		// refreshPRCacheForState (issue #3). Releasing the lock
+		// mid-done would let a concurrent command read stale state or
+		// write into a session that is in the middle of being torn
+		// down and archived; done's whole pipeline is meant to be one
+		// atomic critical section, so the PR refresh stays inside it.
+		err = refreshPRCacheLocked(cmd.Context(), statePath, &stateForRefresh, prCacheRefreshOptions{
 			Command: "done",
 			Force:   true,
 		})

@@ -50,11 +50,9 @@ func runInfo(cmd *cobra.Command, opts *infoOptions, name string) error {
 	}
 	prRefreshFailed := false
 	if state.PR.Number != 0 {
-		refreshErr := withSessionLock(statePath, func() error {
-			return refreshPRCacheForState(cmd.Context(), statePath, &state, prCacheRefreshOptions{
-				Command: "info",
-				Force:   opts.refresh,
-			})
+		refreshErr := refreshPRCacheForState(cmd.Context(), statePath, &state, prCacheRefreshOptions{
+			Command: "info",
+			Force:   opts.refresh,
 		})
 		if refreshErr != nil {
 			prRefreshFailed = true

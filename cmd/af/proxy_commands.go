@@ -442,55 +442,40 @@ func firstNonEmpty(values ...string) string {
 var errPRRefreshNoPR = errors.New("pr: --refresh requires an open PR; create one with `af pr` first")
 
 // runPRRefresh handles the ADR-071 --refresh path: force-refresh the
-// cached PR state via gh pr view without opening anything. Writes back
-// the updated state.toml and emits a pr_state_changed ledger event on
-// a flip.
+// cached PR state via gh pr view without opening anything. Like
+// refreshPRCacheForState (issue #3), the network call runs outside any
+// session lock, on a copy of the cached PR state; only the short
+// merge-back (re-read, merge PR fields, write, emit on a flip) runs
+// under the lock, via the shared mergeBackPRRefresh helper.
 func runPRRefresh(cmd *cobra.Command, name string) error {
 	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
 		return fmt.Errorf("pr --refresh: %w", err)
 	}
-	var (
-		state  session.State
-		result pr.Result
-	)
-	err = withSessionLock(statePath, func() error {
-		var lockedErr error
-		state, lockedErr = session.ReadState(statePath)
-		if lockedErr != nil {
-			return fmt.Errorf("pr --refresh: read state: %w", lockedErr)
-		}
-		if state.PR.Number == 0 {
-			return fmt.Errorf("%w", errPRRefreshNoPR)
-		}
-		cfg, lockedErr := loadConfigForRefresh(cmd.Context())
-		if lockedErr != nil {
-			return fmt.Errorf("pr --refresh: %w", lockedErr)
-		}
-		result, lockedErr = prRefreshFunc(cmd.Context(), &state.PR, pr.Options{
-			Runner:   sandbox.ExecRunner{},
-			RepoSlug: state.Worktree.RepoSlug,
-			TTL:      cfg.PR.RefreshTTL,
-			Force:    true,
-			Now:      time.Now,
-		})
-		if lockedErr != nil {
-			return fmt.Errorf("pr --refresh: %w", lockedErr)
-		}
-		lockedErr = session.WriteState(statePath, state) //nolint:forbidigo // prRefreshFunc's gh network call already ran between ReadState and this write; can't collapse into session.Update.
-		if lockedErr != nil {
-			return fmt.Errorf("pr --refresh: write state: %w", lockedErr)
-		}
-		if result.Changed {
-			lockedErr = emitPRStateChangedEvent(statePath, &state, result)
-			if lockedErr != nil {
-				return fmt.Errorf("pr --refresh: %w", lockedErr)
-			}
-		}
-		return nil
-	})
+	current, err := session.ReadState(statePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("pr --refresh: read state: %w", err)
+	}
+	if current.PR.Number == 0 {
+		return fmt.Errorf("%w", errPRRefreshNoPR)
+	}
+	cfg, err := loadConfigForRefresh(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("pr --refresh: %w", err)
+	}
+	refreshedPR := current.PR
+	result, refreshErr := prRefreshFunc(cmd.Context(), &refreshedPR, pr.Options{
+		Runner:   sandbox.ExecRunner{},
+		RepoSlug: current.Worktree.RepoSlug,
+		TTL:      cfg.PR.RefreshTTL,
+		Force:    true,
+		Now:      time.Now,
+	})
+
+	var state session.State
+	err = mergeBackPRRefresh(statePath, &state, refreshedPR, result, refreshErr)
+	if err != nil {
+		return fmt.Errorf("pr --refresh: %w", err)
 	}
 	writef(cmd.OutOrStdout(),
 		"pr: %s: %s → %s (refreshed=%t skipped=%t)\n",
