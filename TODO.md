@@ -38,7 +38,7 @@ explicitly chooses to pull them in):
   flag is accepted and prints a stderr hint but does not rewrite
   transcript metadata. Implementing it requires per-agent format
   knowledge (Claude project keys, Codex session IDs, pi sessionDir
-  headers). Inline TODO in `internal/sandbox/sessiondata/pull.go`.
+  headers). Runtime notice in `cmd/af/session_data.go`.
 - **`af clean --force` ADR-067 hook.** `suspend` + `done` are covered;
   `clean` is a future addition once the clean reaper learns about
   VM-backed workstreams.
