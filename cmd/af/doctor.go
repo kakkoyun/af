@@ -17,9 +17,13 @@ import (
 var errDoctorMissingTools = errors.New("missing required tool")
 
 type doctorOptions struct {
-	root    *rootOptions
-	remote  string
-	verbose bool
+	root           *rootOptions
+	remote         string
+	smokeReportDir string
+	verbose        bool
+	smokeAll       bool
+	smokeReport    bool
+	smokeIssue     bool
 }
 
 func newDoctorCmd(opts *rootOptions) *cobra.Command {
@@ -30,11 +34,18 @@ func newDoctorCmd(opts *rootOptions) *cobra.Command {
 		Long:  "doctor probes the local machine (or, with --remote, an SSH host) for the tools af relies on and prints install hints. It never installs anything.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if docOpts.smokeAll {
+				return runDoctorSmoke(cmd, docOpts)
+			}
 			return runDoctor(cmd.Context(), cmd, docOpts)
 		},
 	}
 	cmd.Flags().StringVar(&docOpts.remote, "remote", "", "probe an SSH host instead of the local machine")
 	cmd.Flags().BoolVar(&docOpts.verbose, "verbose", false, "verbose probe output (full version strings)")
+	cmd.Flags().BoolVar(&docOpts.smokeAll, "all", false, "run the host self-smoke: real af commands in an isolated scratch HOME, cleaned up afterwards (ADR-074)")
+	cmd.Flags().BoolVar(&docOpts.smokeReport, "report", false, "with --all: write markdown + json report files")
+	cmd.Flags().StringVar(&docOpts.smokeReportDir, "report-dir", "", "with --report: directory for report files (default: current directory)")
+	cmd.Flags().BoolVar(&docOpts.smokeIssue, "issue", false, "with --all: file failing steps as a GitHub issue on "+afRepoSlug+" via gh")
 	return cmd
 }
 

@@ -1,0 +1,47 @@
+# doctor-all: af doctor --all re-executes the real binary against an
+# isolated scratch HOME. The global PATH fakes (git/tmux/pi/...) stand
+# in for host tools, so the whole self-smoke runs hermetically; the
+# scratch root lives under the system temp dir and is removed by the
+# command itself.
+#
+# Scenarios:
+#   1. af doctor --all --report writes md+json reports and exits 0.
+#   2. The summary line reports zero failures.
+#   3. Failure: --report-dir pointing at an unwritable path errors.
+
+env HOME=$WORK/home
+mkdir $WORK/reports
+
+# Smart fake git: answers the queries af create/done issue during the
+# smoke (toplevel = cwd, no remotes, everything else succeeds quietly),
+# so the whole lifecycle runs hermetically.
+mkdir $WORK/smartgit
+cp smartgit.sh $WORK/smartgit/git
+exec chmod +x $WORK/smartgit/git
+env PATH=$WORK/smartgit:$PATH
+
+exec af doctor --all --report --report-dir $WORK/reports
+stdout 'doctor self-smoke: \d+ pass, 0 fail, \d+ skip'
+stdout 'report: '
+exists $WORK/reports
+
+# exactly one md and one json artifact
+exec sh -c 'ls $WORK/reports/af-doctor-smoke-*.md | wc -l'
+stdout '^1$'
+exec sh -c 'ls $WORK/reports/af-doctor-smoke-*.json | wc -l'
+stdout '^1$'
+exec sh -c 'grep -c "## Passed" $WORK/reports/af-doctor-smoke-*.md'
+stdout '^1$'
+
+# Failure: report dir blocked by an existing file
+exec sh -c 'touch $WORK/blocked'
+! exec af doctor --all --report --report-dir $WORK/blocked/sub
+stderr 'report'
+
+-- smartgit.sh --
+#!/bin/sh
+case "$1 $2" in
+"rev-parse --show-toplevel") pwd ;;
+"config --get") exit 1 ;;
+*) exit 0 ;;
+esac
