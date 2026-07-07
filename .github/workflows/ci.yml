@@ -13,36 +13,32 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
-env:
-  CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: 0
-  RUSTFLAGS: "-D warnings"
-
 jobs:
   # ── Formatting ─────────────────────────────────────────────────────────────
   fmt:
-    name: "rustfmt"
+    name: "fmt"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v5
         with:
-          components: rustfmt
-      - run: cargo fmt --all -- --check
+          go-version-file: go.mod
+          cache: true
+      - run: make fmt-check
 
-  # ── Clippy (pedantic) ─────────────────────────────────────────────────────
-  clippy:
-    name: "clippy"
+  # ── Lint ───────────────────────────────────────────────────────────────────
+  lint:
+    name: "lint"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v5
         with:
-          components: clippy
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+          go-version-file: go.mod
+          cache: true
+      - run: make lint
 
-  # ── Tests ──────────────────────────────────────────────────────────────────
+  # ── Tests (race + shuffle, incl. testscript goldens) ──────────────────────
   test:
     name: "test / ${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
@@ -52,56 +48,69 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo test --all-features
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make test
 
-  # ── MSRV check ─────────────────────────────────────────────────────────────
-  msrv:
-    name: "msrv"
+  # ── Property tests (10k iterations) ────────────────────────────────────────
+  property:
+    name: "property"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.85.0
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo check --all-features
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make test-property
 
-  # ── cargo-deny ─────────────────────────────────────────────────────────────
-  deny:
-    name: "cargo-deny"
+  # ── Build smoke ─────────────────────────────────────────────────────────────
+  build:
+    name: "build"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make build
+      - run: ./bin/af version
 
-  # ── cargo-audit ────────────────────────────────────────────────────────────
-  audit:
-    name: "cargo-audit"
+  # ── Coverage floors ─────────────────────────────────────────────────────────
+  coverage:
+    name: "coverage"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo install cargo-audit --locked
-      - run: cargo audit
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go test -shuffle=on -coverprofile=coverage.out -covermode=atomic ./...
+      - run: ./scripts/coverage-check.sh coverage.out
+      - name: "Coverage summary"
+        run: go tool cover -func=coverage.out >> "$GITHUB_STEP_SUMMARY"
 
-  # ── Doc build ──────────────────────────────────────────────────────────────
-  doc:
-    name: "doc"
+  # ── goreleaser config check (local-only release per ADR-053) ───────────────
+  goreleaser-check:
+    name: "goreleaser-check"
     runs-on: ubuntu-latest
-    env:
-      RUSTDOCFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo doc --no-deps --all-features
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go run github.com/goreleaser/goreleaser/v2@v2.5.0 check --config .goreleaser.yaml
 
   # ── Gate ───────────────────────────────────────────────────────────────────
   required:
     name: "all checks passed"
     if: always()
-    needs: [fmt, clippy, test, msrv, deny, audit, doc]
+    needs: [fmt, lint, test, property, build, coverage, goreleaser-check]
     runs-on: ubuntu-latest
     steps:
       - name: "Check required jobs"
