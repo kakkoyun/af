@@ -42,10 +42,13 @@ func runPull(cmd *cobra.Command, name string) error {
 		}, lifecycle.PullOptions{
 			StatePath: statePath,
 		})
-		return lockedErr
+		if lockedErr != nil {
+			return fmt.Errorf("pull: %w", lockedErr)
+		}
+		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("pull: %w", err)
+		return err
 	}
 
 	_, err = fmt.Fprintf(cmd.OutOrStdout(),

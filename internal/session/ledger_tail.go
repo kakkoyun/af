@@ -3,6 +3,7 @@ package session
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,13 +48,13 @@ func ReadLedgerTail(path string, n int) ([]Event, error) {
 			// One corrupt line must not poison the whole ledger; the
 			// remaining events still carry the session's history.
 			skipped++
-			slog.Warn("skipping corrupt ledger line", "path", path, "line", line, "error", parseErr)
+			slog.WarnContext(context.Background(), "skipping corrupt ledger line", "path", path, "line", line, "error", parseErr)
 			continue
 		}
 		events = append(events, event)
 	}
 	if skipped > 0 {
-		slog.Warn("ledger contained corrupt lines", "path", path, "skipped", skipped)
+		slog.WarnContext(context.Background(), "ledger contained corrupt lines", "path", path, "skipped", skipped)
 	}
 	err = scanner.Err()
 	if err != nil {

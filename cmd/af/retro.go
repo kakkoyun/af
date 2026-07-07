@@ -151,7 +151,7 @@ func readArchiveEntry(archiveDir string, entry os.DirEntry, opts *retroOptions, 
 		return obsidian.Note{}, false, nil
 	}
 	if readErr != nil {
-		return obsidian.Note{}, false, readErr
+		return obsidian.Note{}, false, fmt.Errorf("read %s: %w", notePath, readErr)
 	}
 	note, parseErr := obsidian.ParseNote(data)
 	if parseErr != nil {

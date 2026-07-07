@@ -62,13 +62,13 @@ type SyncResult struct {
 	// BaseAfter is the HEAD commit SHA after the rebase (equals
 	// BaseBefore when Rebased is false).
 	BaseAfter string
-	// Rebased is true when commits were actually replayed.
-	Rebased bool
 	// FetchWarning carries the failure detail when `git fetch origin
 	// <parentRef>` failed against a configured origin. The rebase still
 	// proceeds against the possibly-stale local parent ref; callers
 	// should surface the warning to the user.
 	FetchWarning string
+	// Rebased is true when commits were actually replayed.
+	Rebased bool
 }
 
 // Sync rebases Branch onto ParentRef per ADR-059 §Commands "af sync":

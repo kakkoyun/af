@@ -94,6 +94,9 @@ func TestSessionResolution_NoInputReturnsHelpfulError(t *testing.T) {
 	}
 }
 
+// errFakeFzfExit simulates a non-zero fzf exit (e.g. Esc) in tests.
+var errFakeFzfExit = errors.New("exit status 130")
+
 // TestDefaultSessionPicker_ParsesFzfSelection drives the picker through
 // the fzf command seam: rows are rendered to fzf stdin and the selected
 // row's first field becomes the session name.
@@ -134,7 +137,7 @@ func TestDefaultSessionPicker_FzfFailureIsInterrupted(t *testing.T) {
 
 	restore := fzfCommandFunc
 	fzfCommandFunc = func(context.Context, string, io.Writer) ([]byte, error) {
-		return nil, errors.New("exit status 130")
+		return nil, errFakeFzfExit
 	}
 	t.Cleanup(func() { fzfCommandFunc = restore })
 

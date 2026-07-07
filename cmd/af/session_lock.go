@@ -8,5 +8,5 @@ import (
 // state.toml/ledger against concurrent af processes. Every command that
 // mutates session state must run the whole sequence under this lock.
 func withSessionLock(statePath string, fn func() error) error {
-	return session.WithLock(statePath, fn)
+	return session.WithLock(statePath, fn) //nolint:wrapcheck // Lock errors are wrapped by session.WithLock; fn errors carry command context.
 }

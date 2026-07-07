@@ -46,45 +46,9 @@ func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
 	}
 	var state session.State
 	err = withSessionLock(statePath, func() error {
-		preState, lockedErr := readStateForAutoSync(cmd.Context(), statePath)
-		if lockedErr != nil {
-			return fmt.Errorf("done: %w", lockedErr)
-		}
-		lockedErr = autoSyncBeforeTeardown(cmd, preState, statePath, opts.discard)
-		if lockedErr != nil {
-			return fmt.Errorf("done: %w", lockedErr)
-		}
-		stateForRefresh, lockedErr := readStateForAutoSync(cmd.Context(), statePath)
-		if lockedErr != nil {
-			return fmt.Errorf("done: %w", lockedErr)
-		}
-		if stateForRefresh.PR.Number != 0 {
-			lockedErr = refreshPRCacheForState(cmd.Context(), statePath, &stateForRefresh, prCacheRefreshOptions{
-				Command: "done",
-				Force:   true,
-			})
-			if lockedErr != nil {
-				return fmt.Errorf("done: refresh PR state: %w", lockedErr)
-			}
-		}
-		home, homeErr := os.UserHomeDir()
-		if homeErr != nil {
-			home = ""
-		}
-		archiveDir := filepath.Join(home, ".local", "share", "af", "v1", "archive")
-
-		state, lockedErr = lifecycle.FinishWorkstream(cmd.Context(), lifecycle.DoneDeps{
-			Git: git.NewExecRunner(),
-			Mux: mux.NewTmux(),
-		}, lifecycle.DoneOptions{
-			StatePath:  statePath,
-			ArchiveDir: archiveDir,
-			Force:      opts.force,
-		})
-		if lockedErr != nil {
-			return fmt.Errorf("done: %w", lockedErr)
-		}
-		return nil
+		var lockedErr error
+		state, lockedErr = finishWorkstreamLocked(cmd, opts, statePath)
+		return lockedErr
 	})
 	if err != nil {
 		return err
@@ -95,6 +59,51 @@ func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
 		return fmt.Errorf("done write: %w", err)
 	}
 	return nil
+}
+
+// finishWorkstreamLocked runs the done pipeline (auto-sync, PR cache
+// refresh, teardown + archive) and must be called under the session
+// lock.
+func finishWorkstreamLocked(cmd *cobra.Command, opts *doneOptions, statePath string) (session.State, error) {
+	preState, err := readStateForAutoSync(cmd.Context(), statePath)
+	if err != nil {
+		return session.State{}, fmt.Errorf("done: %w", err)
+	}
+	err = autoSyncBeforeTeardown(cmd, preState, statePath, opts.discard)
+	if err != nil {
+		return session.State{}, fmt.Errorf("done: %w", err)
+	}
+	stateForRefresh, err := readStateForAutoSync(cmd.Context(), statePath)
+	if err != nil {
+		return session.State{}, fmt.Errorf("done: %w", err)
+	}
+	if stateForRefresh.PR.Number != 0 {
+		err = refreshPRCacheForState(cmd.Context(), statePath, &stateForRefresh, prCacheRefreshOptions{
+			Command: "done",
+			Force:   true,
+		})
+		if err != nil {
+			return session.State{}, fmt.Errorf("done: refresh PR state: %w", err)
+		}
+	}
+	home, homeErr := os.UserHomeDir()
+	if homeErr != nil {
+		home = ""
+	}
+	archiveDir := filepath.Join(home, ".local", "share", "af", "v1", "archive")
+
+	state, err := lifecycle.FinishWorkstream(cmd.Context(), lifecycle.DoneDeps{
+		Git: git.NewExecRunner(),
+		Mux: mux.NewTmux(),
+	}, lifecycle.DoneOptions{
+		StatePath:  statePath,
+		ArchiveDir: archiveDir,
+		Force:      opts.force,
+	})
+	if err != nil {
+		return session.State{}, fmt.Errorf("done: %w", err)
+	}
+	return state, nil
 }
 
 func resolveDoneStatePath(cmd *cobra.Command, name string) (string, error) {

@@ -105,37 +105,7 @@ func Create(ctx context.Context, deps CreateDeps, opts CreateOptions) (CreateRes
 
 	resolved := resolveCreateNames(opts)
 
-	// The collision check and session-dir creation must be atomic
-	// against concurrent creates, so both run under the state-root
-	// lock (ADR-069 strict collision semantics).
-	var (
-		plan       git.WorktreePlan
-		statePath  string
-		ledgerPath string
-	)
-	err = withStateRootLock(opts.StateDir, func() error {
-		lockedErr := checkNameCollision(opts.StateDir, opts.ArchiveDir, resolved.name)
-		if lockedErr != nil {
-			return lockedErr
-		}
-
-		plan, lockedErr = git.PlanPrimaryWorktree(git.WorktreeOptions{
-			Root:   resolved.worktreeRoot,
-			Repo:   resolved.repoSlug,
-			Branch: resolved.branch,
-		})
-		if lockedErr != nil {
-			return fmt.Errorf("plan worktree: %w", lockedErr)
-		}
-
-		lockedErr = ensureGitWorktree(ctx, deps.Git, opts.GitRoot, plan, opts.FromBranch)
-		if lockedErr != nil {
-			return lockedErr
-		}
-
-		statePath, ledgerPath, lockedErr = writeInitialState(opts, resolved, plan)
-		return lockedErr
-	})
+	plan, statePath, ledgerPath, err := provisionWorkstream(ctx, deps, opts, resolved)
 	if err != nil {
 		return CreateResult{}, err
 	}
@@ -256,6 +226,42 @@ func ensureGitWorktree(ctx context.Context, runner git.Runner, gitRoot string, p
 		return fmt.Errorf("git worktree add: %w", err)
 	}
 	return nil
+}
+
+// provisionWorkstream runs the collision check, worktree setup, and
+// initial state write. The whole sequence holds the state-root lock so
+// concurrent creates cannot both claim one name (ADR-069 strict
+// collision semantics).
+func provisionWorkstream(ctx context.Context, deps CreateDeps, opts CreateOptions, resolved resolvedNames) (git.WorktreePlan, string, string, error) {
+	var (
+		plan       git.WorktreePlan
+		statePath  string
+		ledgerPath string
+	)
+	err := withStateRootLock(opts.StateDir, func() error {
+		lockedErr := checkNameCollision(opts.StateDir, opts.ArchiveDir, resolved.name)
+		if lockedErr != nil {
+			return lockedErr
+		}
+
+		plan, lockedErr = git.PlanPrimaryWorktree(git.WorktreeOptions{
+			Root:   resolved.worktreeRoot,
+			Repo:   resolved.repoSlug,
+			Branch: resolved.branch,
+		})
+		if lockedErr != nil {
+			return fmt.Errorf("plan worktree: %w", lockedErr)
+		}
+
+		lockedErr = ensureGitWorktree(ctx, deps.Git, opts.GitRoot, plan, opts.FromBranch)
+		if lockedErr != nil {
+			return lockedErr
+		}
+
+		statePath, ledgerPath, lockedErr = writeInitialState(opts, resolved, plan)
+		return lockedErr
+	})
+	return plan, statePath, ledgerPath, err
 }
 
 // withStateRootLock runs fn while holding the exclusive flock at

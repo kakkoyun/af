@@ -130,10 +130,13 @@ func runAgentAdd(cmd *cobra.Command, opts *agentOptions) error {
 			Slot:      opts.slot,
 			Provider:  opts.provider,
 		})
-		return lockedErr
+		if lockedErr != nil {
+			return fmt.Errorf("agent add: %w", lockedErr)
+		}
+		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("agent add: %w", err)
+		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "added agent slot %s (%s)\n", opts.slot, opts.provider)
 	if err != nil {
@@ -148,14 +151,18 @@ func runAgentStop(cmd *cobra.Command, opts *agentOptions) error {
 		return err
 	}
 	err = withSessionLock(statePath, func() error {
-		return lifecycle.AgentStop(cmd.Context(), git.NewExecRunner(), lifecycle.AgentStopOptions{
+		lockedErr := lifecycle.AgentStop(cmd.Context(), git.NewExecRunner(), lifecycle.AgentStopOptions{
 			StatePath:      statePath,
 			Slot:           opts.slot,
 			RemoveWorktree: opts.removeWorktree,
 		})
+		if lockedErr != nil {
+			return fmt.Errorf("agent stop: %w", lockedErr)
+		}
+		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("agent stop: %w", err)
+		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "stopped agent slot %s\n", opts.slot)
 	if err != nil {
