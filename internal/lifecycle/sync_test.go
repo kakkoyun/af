@@ -3,6 +3,7 @@ package lifecycle_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/kakkoyun/af/internal/git"
@@ -198,4 +199,70 @@ func joinArgs(args []string) string {
 		result += a
 	}
 	return result
+}
+
+// TestSync_SkipsFetchWhenNoOriginConfigured verifies local-only stacks
+// (no origin remote) never attempt a fetch and produce no warning.
+func TestSync_SkipsFetchWhenNoOriginConfigured(t *testing.T) {
+	t.Parallel()
+	runner := newCleanFakeRunner(shaCommon, shaParent, shaAfter)
+	runner.SetResponse([]string{"config", "--get", "remote.origin.url"},
+		git.FakeResponse{Err: errTestGitFailed})
+
+	result, err := lifecycle.Sync(context.Background(), lifecycle.SyncDeps{Git: runner}, validOpts())
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if result.FetchWarning != "" {
+		t.Fatalf("FetchWarning = %q, want empty", result.FetchWarning)
+	}
+	for _, call := range runner.CommandStrings() {
+		if strings.HasPrefix(call, "fetch ") {
+			t.Fatalf("unexpected fetch call %q for local-only stack", call)
+		}
+	}
+}
+
+// TestSync_ReportsFetchWarningWhenOriginFetchFails verifies a failed
+// fetch against a configured origin surfaces a warning but still
+// rebases against the (possibly stale) local parent ref.
+func TestSync_ReportsFetchWarningWhenOriginFetchFails(t *testing.T) {
+	t.Parallel()
+	runner := newCleanFakeRunner(shaCommon, shaParent, shaAfter)
+	runner.SetResponse([]string{"config", "--get", "remote.origin.url"},
+		git.FakeResponse{Output: "git@github.com:owner/repo.git\n"})
+	runner.SetResponse([]string{"fetch", "origin", testParentRef},
+		git.FakeResponse{Err: errTestGitFailed, Output: "fatal: could not read from remote\n"})
+	runner.SetResponse([]string{"rev-parse", "HEAD"}, git.FakeResponse{Output: shaBase + "\n"})
+
+	result, err := lifecycle.Sync(context.Background(), lifecycle.SyncDeps{Git: runner}, validOpts())
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if result.FetchWarning == "" {
+		t.Fatal("FetchWarning empty, want fetch failure details")
+	}
+	if !strings.Contains(result.FetchWarning, "could not read from remote") {
+		t.Fatalf("FetchWarning = %q, want git output included", result.FetchWarning)
+	}
+	if !result.Rebased {
+		t.Fatal("Rebased = false, want rebase to proceed despite fetch warning")
+	}
+}
+
+// TestSync_NoWarningWhenOriginFetchSucceeds pins the happy path: origin
+// configured, fetch succeeds, no warning.
+func TestSync_NoWarningWhenOriginFetchSucceeds(t *testing.T) {
+	t.Parallel()
+	runner := newCleanFakeRunner(shaCommon, shaParent, shaAfter)
+	runner.SetResponse([]string{"config", "--get", "remote.origin.url"},
+		git.FakeResponse{Output: "git@github.com:owner/repo.git\n"})
+
+	result, err := lifecycle.Sync(context.Background(), lifecycle.SyncDeps{Git: runner}, validOpts())
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if result.FetchWarning != "" {
+		t.Fatalf("FetchWarning = %q, want empty", result.FetchWarning)
+	}
 }

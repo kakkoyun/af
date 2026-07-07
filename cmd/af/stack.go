@@ -169,6 +169,11 @@ func runSync(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("sync: %w", err)
 	}
 
+	if result.FetchWarning != "" {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), //nolint:errcheck // Informational warning.
+			"warning: could not fetch origin %s: %s (rebasing against possibly-stale parent)\n",
+			result.ParentRef, result.FetchWarning)
+	}
 	if result.Rebased {
 		_, err = fmt.Fprintf(cmd.OutOrStdout(), "sync: rebased %s onto %s (%s..%s)\n",
 			result.Branch, result.ParentRef, shortSHA(result.BaseBefore), shortSHA(result.BaseAfter))
