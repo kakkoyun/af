@@ -20,6 +20,8 @@ const (
 	diffArgLiteral = "diff"
 	// gitBin satisfies goconst for the repeated "git" arg string.
 	gitBin = "git"
+	// statArg satisfies goconst for the repeated "--stat" arg string.
+	statArg = "--stat"
 )
 
 // fakeExecutor records calls and optionally returns an error.
@@ -130,7 +132,7 @@ func TestRender_NonInteractiveUsesStat(t *testing.T) {
 		t.Fatalf("want 1 call, got %d", len(ex.calls))
 	}
 	argv := ex.calls[0].argv
-	if argv[0] != gitBin || argv[1] != diffArgLiteral || argv[2] != "--stat" {
+	if argv[0] != gitBin || argv[1] != diffArgLiteral || argv[2] != statArg {
 		t.Fatalf("want 'git diff --stat', got %v", argv)
 	}
 	// Three-dot range.
@@ -198,7 +200,7 @@ func TestRender_FallsBackToGitWhenHunkMissing(t *testing.T) {
 	}
 	// Must NOT contain --stat (that's the non-interactive path).
 	for _, a := range argv {
-		if a == "--stat" {
+		if a == statArg {
 			t.Fatal("--stat must not appear in interactive plain git diff")
 		}
 	}

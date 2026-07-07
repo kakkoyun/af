@@ -7,6 +7,7 @@ import (
 
 	"github.com/kakkoyun/af/internal/lifecycle"
 	"github.com/kakkoyun/af/internal/mux"
+	"github.com/kakkoyun/af/internal/session"
 )
 
 func newSuspendCmd(_ *rootOptions) *cobra.Command {
@@ -27,20 +28,27 @@ func newSuspendCmd(_ *rootOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			preState, err := readStateForAutoSync(cmd.Context(), statePath)
-			if err != nil {
-				return fmt.Errorf("suspend: %w", err)
-			}
-			err = autoSyncBeforeTeardown(cmd, preState, statePath, discard)
-			if err != nil {
-				return fmt.Errorf("suspend: %w", err)
-			}
-			state, err := lifecycle.SuspendWorkstream(cmd.Context(), lifecycle.SuspendOptions{
-				StatePath: statePath,
-				Force:     force,
+			var state session.State
+			err = withSessionLock(statePath, func() error {
+				preState, lockedErr := readStateForAutoSync(cmd.Context(), statePath)
+				if lockedErr != nil {
+					return fmt.Errorf("suspend: %w", lockedErr)
+				}
+				lockedErr = autoSyncBeforeTeardown(cmd, preState, statePath, discard)
+				if lockedErr != nil {
+					return fmt.Errorf("suspend: %w", lockedErr)
+				}
+				state, lockedErr = lifecycle.SuspendWorkstream(cmd.Context(), lifecycle.SuspendOptions{
+					StatePath: statePath,
+					Force:     force,
+				})
+				if lockedErr != nil {
+					return fmt.Errorf("suspend: %w", lockedErr)
+				}
+				return nil
 			})
 			if err != nil {
-				return fmt.Errorf("suspend: %w", err)
+				return err
 			}
 			if state.SlicerWT.VM != "" {
 				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "note: slicer VM %s lease is %s\n", state.SlicerWT.VM, state.SlicerWT.LeaseState) //nolint:errcheck // Informational only.
@@ -72,12 +80,20 @@ func newResumeCmd(_ *rootOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			state, err := lifecycle.ResumeWorkstream(cmd.Context(), lifecycle.ResumeDeps{Mux: mux.NewTmux()}, lifecycle.ResumeOptions{
-				StatePath: statePath,
-				Bare:      bare,
+			var state session.State
+			err = withSessionLock(statePath, func() error {
+				var lockedErr error
+				state, lockedErr = lifecycle.ResumeWorkstream(cmd.Context(), lifecycle.ResumeDeps{Mux: mux.NewTmux()}, lifecycle.ResumeOptions{
+					StatePath: statePath,
+					Bare:      bare,
+				})
+				if lockedErr != nil {
+					return fmt.Errorf("resume: %w", lockedErr)
+				}
+				return nil
 			})
 			if err != nil {
-				return fmt.Errorf("resume: %w", err)
+				return err
 			}
 			_, err = fmt.Fprintf(cmd.OutOrStdout(), "workstream %s -> %s\n", state.Session.Name, state.Session.Status)
 			if err != nil {

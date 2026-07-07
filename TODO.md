@@ -38,7 +38,7 @@ explicitly chooses to pull them in):
   flag is accepted and prints a stderr hint but does not rewrite
   transcript metadata. Implementing it requires per-agent format
   knowledge (Claude project keys, Codex session IDs, pi sessionDir
-  headers). Inline TODO in `internal/sandbox/sessiondata/pull.go`.
+  headers). Runtime notice in `cmd/af/session_data.go`.
 - **`af clean --force` ADR-067 hook.** `suspend` + `done` are covered;
   `clean` is a future addition once the clean reaper learns about
   VM-backed workstreams.
@@ -655,10 +655,11 @@ explicitly chooses to do so.
       commit/date/Go/os-arch/dirty metadata for bug reports, and
       `make install` builds first, warns on dirty git state without
       failing, then installs with build metadata.
-- [ ] I15.2: Review release notes:
+- [x] I15.2: Review release notes:
       `CHANGELOG.md` `[Unreleased]`, README command surface, and
-      `docs/adr/INDEX.md` status table. Confirm they describe the
-      release accurately.
+      `docs/adr/INDEX.md` status table. Done in the Stage 16 audit
+      pass: INDEX regenerated (27 stale rows), README command tables
+      synced with `--help` reality, CHANGELOG updated.
 - [ ] I15.3: Decide whether known post-v1 deferrals stay deferred:
       ADR-066 `--continue-host` normalization and `af clean --force`
       auto-sync hook.
@@ -669,6 +670,66 @@ explicitly chooses to do so.
       move `[Unreleased]` notes into a `[1.0.0] - YYYY-MM-DD` block,
       add a fresh empty `[Unreleased]` block, and record the release in
       `PROGRESS.md`.
+
+---
+
+## Implementation Stage 16 — repo audit remediation (2026-07-03)
+
+Findings and fixes from the three-way audit (source weak points,
+test/CI coverage, docs-vs-reality). All executed on branch
+`claude/repo-audit-testing-6xfmdi`.
+
+- [x] I16.1: Replace Rust-era CI with a Go pipeline
+      (fmt/lint/test-matrix/property/build/coverage/goreleaser-check +
+      required gate); delete `docs.yml`, `release.yml`,
+      `scripts/book-gen.sh`; add `scripts/coverage-check.sh` floors.
+- [x] I16.2: Close session-name path traversal
+      (`workstream.ValidateSessionName` + containment backstops in
+      lifecycle create; property-tested).
+- [x] I16.3: Enforce the session flock everywhere state mutates
+      (`session.WithLock`; state-root lock inside `lifecycle.Create`).
+- [x] I16.4: Surface `af sync` parent-fetch failures as warnings
+      (`SyncResult.FetchWarning`; skip fetch with no origin).
+- [x] I16.5: Implement `obsidian.DirStore` and wire note-on-create
+      (ADR-047 was a production no-op); worked example under
+      `examples/obsidian/`.
+- [x] I16.6: LOW batch — retro archive warnings, corrupt-ledger
+      tolerance, fzf test seam, dead-code removal.
+- [x] I16.7: Fix `af diff` pager deadlock (pipe read-end left open;
+      found by the new ExecutePipe test suite).
+- [x] I16.8: Coverage sweep — every `internal/` package to 80%+
+      (proxy 0→100, secret 34→100, mux 41→100, diff 48→98.5,
+      git 55→97, agent 58→100, sandbox 59→97.5, sessiondata 65→91,
+      lifecycle 63→80+, session 74→93, obsidian 75→96, remote→100,
+      setup→99).
+- [x] I16.9: 13 testscript goldens (create, list, status, info, note,
+      stack, done, clean, pull, retro, review, auth, setup); smoke
+      stages 2/3/5/6/7/8/9/10 annotated as CI-automated.
+- [x] I16.10: ADR governance — ratify 031–073 to `accepted`, regenerate
+      INDEX.md, freeze SPEC/PLAN, add `internal/doccheck` drift guard.
+- [x] I16.11: Fix `make lint` GOTOOLCHAIN mismatch and goreleaser pin
+      (2.5.0 → 2.8.2); `goreleaser check` green (config half of I15.1).
+
+- [ ] I16.12 (issue #2): Post-review follow-up — the frozen SPEC/ADR-068 exit-code
+      table (EX_UNAVAILABLE 69, EX_SOFTWARE 70, EX_TEMPFAIL 75,
+      EX_NOPERM 77, cobra usage 2) documents codes the binary never
+      emitted; the dead constants were removed in this pass. Owner
+      decision: implement the full mapping (new work + tests) or amend
+      the contract via a new ADR (074+).
+- [ ] I16.13 (issue #7): Post-review follow-up — the deleted Rust-era docs.yml
+      leaves the last-deployed v0 rustdoc GitHub Pages site orphaned.
+      Owner decision: disable Pages for the repo or push a tombstone
+      redirect.
+
+- [ ] I16.14 (issue #3): make unlocked state writes unrepresentable
+      (session.Update API), narrow lock windows around gh calls, dedupe
+      the flock/atomic-write primitives.
+- [ ] I16.15 (issue #4): CI gate speed — prebuilt lint/goreleaser
+      binaries, fold coverage into the test leg, scope the property job.
+- [ ] I16.16 (issue #5): ADR-066 --continue-host transcript path
+      normalization (was backlog; now specced with acceptance criteria).
+- [ ] I16.17 (issue #6): ADR-067 auto-sync for af clean --force on
+      VM-backed workstreams (was backlog; now specced).
 
 ---
 

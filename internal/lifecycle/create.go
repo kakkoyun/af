@@ -19,9 +19,7 @@ import (
 )
 
 const (
-	stateFilePerm    = 0o600
 	stateDirPerm     = 0o750
-	noteFilePerm     = 0o600
 	executionLocal   = "local"
 	primaryAgentSlot = "primary"
 )
@@ -107,26 +105,7 @@ func Create(ctx context.Context, deps CreateDeps, opts CreateOptions) (CreateRes
 
 	resolved := resolveCreateNames(opts)
 
-	err = checkNameCollision(opts.StateDir, opts.ArchiveDir, resolved.name)
-	if err != nil {
-		return CreateResult{}, err
-	}
-
-	plan, err := git.PlanPrimaryWorktree(git.WorktreeOptions{
-		Root:   resolved.worktreeRoot,
-		Repo:   resolved.repoSlug,
-		Branch: resolved.branch,
-	})
-	if err != nil {
-		return CreateResult{}, fmt.Errorf("plan worktree: %w", err)
-	}
-
-	err = ensureGitWorktree(ctx, deps.Git, opts.GitRoot, plan, opts.FromBranch)
-	if err != nil {
-		return CreateResult{}, err
-	}
-
-	statePath, ledgerPath, err := writeInitialState(opts, resolved, plan)
+	plan, statePath, ledgerPath, err := provisionWorkstream(ctx, deps, opts, resolved)
 	if err != nil {
 		return CreateResult{}, err
 	}
@@ -217,6 +196,10 @@ func validateCreateOpts(opts CreateOptions) error {
 	case opts.FromBranch == "":
 		return fmt.Errorf("%w: empty from-branch", ErrCreate)
 	}
+	err := workstream.ValidateSessionName(opts.Name)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrCreate, err)
+	}
 	return nil
 }
 
@@ -245,6 +228,54 @@ func ensureGitWorktree(ctx context.Context, runner git.Runner, gitRoot string, p
 	return nil
 }
 
+// provisionWorkstream runs the collision check, worktree setup, and
+// initial state write. The whole sequence holds the state-root lock so
+// concurrent creates cannot both claim one name (ADR-069 strict
+// collision semantics).
+func provisionWorkstream(ctx context.Context, deps CreateDeps, opts CreateOptions, resolved resolvedNames) (git.WorktreePlan, string, string, error) {
+	var (
+		plan       git.WorktreePlan
+		statePath  string
+		ledgerPath string
+	)
+	err := withStateRootLock(opts.StateDir, func() error {
+		lockedErr := checkNameCollision(opts.StateDir, opts.ArchiveDir, resolved.name)
+		if lockedErr != nil {
+			return lockedErr
+		}
+
+		plan, lockedErr = git.PlanPrimaryWorktree(git.WorktreeOptions{
+			Root:   resolved.worktreeRoot,
+			Repo:   resolved.repoSlug,
+			Branch: resolved.branch,
+		})
+		if lockedErr != nil {
+			return fmt.Errorf("plan worktree: %w", lockedErr)
+		}
+
+		lockedErr = ensureGitWorktree(ctx, deps.Git, opts.GitRoot, plan, opts.FromBranch)
+		if lockedErr != nil {
+			return lockedErr
+		}
+
+		statePath, ledgerPath, lockedErr = writeInitialState(opts, resolved, plan)
+		return lockedErr
+	})
+	return plan, statePath, ledgerPath, err
+}
+
+// withStateRootLock runs fn while holding the exclusive flock at
+// <stateDir>/.af.lock, serializing create's collision-check +
+// session-dir creation against concurrent af processes.
+func withStateRootLock(stateDir string, fn func() error) error {
+	lock, err := session.LockFile(filepath.Join(stateDir, session.LockFileName), session.LockExclusive)
+	if err != nil {
+		return fmt.Errorf("lock state root %s: %w", stateDir, err)
+	}
+	defer func() { _ = lock.Unlock() }() //nolint:errcheck // Best-effort unlock on return.
+	return fn()
+}
+
 // ErrNameCollision reports that the requested session name is already
 // in use by an active, suspended, or archived workstream. ADR-069 §3
 // requires strict collision across all three.
@@ -261,7 +292,10 @@ func checkNameCollision(stateDir, archiveDir, name string) error {
 		if root == "" {
 			continue
 		}
-		candidate := filepath.Join(root, name)
+		candidate, err := containedJoin(root, name)
+		if err != nil {
+			return err
+		}
 		info, err := os.Stat(candidate)
 		if err == nil && info.IsDir() {
 			return fmt.Errorf("%w: %q already exists at %s", ErrNameCollision, name, candidate)
@@ -270,9 +304,24 @@ func checkNameCollision(stateDir, archiveDir, name string) error {
 	return nil
 }
 
+// containedJoin joins name onto root and rejects results that escape
+// root. It backstops workstream.ValidateSessionName for any caller that
+// reaches path construction without opts validation.
+func containedJoin(root, name string) (string, error) {
+	candidate := filepath.Join(root, filepath.FromSlash(name))
+	rel, err := filepath.Rel(root, candidate)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("%w: %q escapes %s", workstream.ErrInvalidSessionName, name, root)
+	}
+	return candidate, nil
+}
+
 func writeInitialState(opts CreateOptions, resolved resolvedNames, plan git.WorktreePlan) (string, string, error) {
-	sessionDir := filepath.Join(opts.StateDir, resolved.name)
-	err := os.MkdirAll(sessionDir, stateDirPerm)
+	sessionDir, err := containedJoin(opts.StateDir, resolved.name)
+	if err != nil {
+		return "", "", err
+	}
+	err = os.MkdirAll(sessionDir, stateDirPerm)
 	if err != nil {
 		return "", "", fmt.Errorf("create session dir: %w", err)
 	}
@@ -427,9 +476,3 @@ func launchTmuxAndAgent(ctx context.Context, deps CreateDeps, resolved resolvedN
 	}
 	return resolved.tmuxSession, nil
 }
-
-// Suppress unused imports during early skeletons; remove once all paths covered.
-var (
-	_ = stateFilePerm
-	_ = noteFilePerm
-)

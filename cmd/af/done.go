@@ -10,6 +10,7 @@ import (
 	"github.com/kakkoyun/af/internal/git"
 	"github.com/kakkoyun/af/internal/lifecycle"
 	"github.com/kakkoyun/af/internal/mux"
+	"github.com/kakkoyun/af/internal/session"
 )
 
 type doneOptions struct {
@@ -43,43 +44,14 @@ func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
 	if err != nil {
 		return err
 	}
-	preState, err := readStateForAutoSync(cmd.Context(), statePath)
-	if err != nil {
-		return fmt.Errorf("done: %w", err)
-	}
-	err = autoSyncBeforeTeardown(cmd, preState, statePath, opts.discard)
-	if err != nil {
-		return fmt.Errorf("done: %w", err)
-	}
-	stateForRefresh, err := readStateForAutoSync(cmd.Context(), statePath)
-	if err != nil {
-		return fmt.Errorf("done: %w", err)
-	}
-	if stateForRefresh.PR.Number != 0 {
-		err = refreshPRCacheForState(cmd.Context(), statePath, &stateForRefresh, prCacheRefreshOptions{
-			Command: "done",
-			Force:   true,
-		})
-		if err != nil {
-			return fmt.Errorf("done: refresh PR state: %w", err)
-		}
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = ""
-	}
-	archiveDir := filepath.Join(home, ".local", "share", "af", "v1", "archive")
-
-	state, finishErr := lifecycle.FinishWorkstream(cmd.Context(), lifecycle.DoneDeps{
-		Git: git.NewExecRunner(),
-		Mux: mux.NewTmux(),
-	}, lifecycle.DoneOptions{
-		StatePath:  statePath,
-		ArchiveDir: archiveDir,
-		Force:      opts.force,
+	var state session.State
+	err = withSessionLock(statePath, func() error {
+		var lockedErr error
+		state, lockedErr = finishWorkstreamLocked(cmd, opts, statePath)
+		return lockedErr
 	})
-	if finishErr != nil {
-		return fmt.Errorf("done: %w", finishErr)
+	if err != nil {
+		return err
 	}
 
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "workstream %s -> %s\n", state.Session.Name, state.Session.Status)
@@ -89,12 +61,56 @@ func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
 	return nil
 }
 
-func resolveDoneStatePath(cmd *cobra.Command, name string) (string, error) {
-	stateDir, err := defaultSessionsDir()
+// finishWorkstreamLocked runs the done pipeline (auto-sync, PR cache
+// refresh, teardown + archive) and must be called under the session
+// lock.
+func finishWorkstreamLocked(cmd *cobra.Command, opts *doneOptions, statePath string) (session.State, error) {
+	preState, err := readStateForAutoSync(cmd.Context(), statePath)
 	if err != nil {
-		return "", fmt.Errorf("done: %w", err)
+		return session.State{}, fmt.Errorf("done: %w", err)
 	}
-	_ = stateDir
+	err = autoSyncBeforeTeardown(cmd, preState, statePath, opts.discard)
+	if err != nil {
+		return session.State{}, fmt.Errorf("done: %w", err)
+	}
+	stateForRefresh, err := readStateForAutoSync(cmd.Context(), statePath)
+	if err != nil {
+		return session.State{}, fmt.Errorf("done: %w", err)
+	}
+	if stateForRefresh.PR.Number != 0 {
+		err = refreshPRCacheForState(cmd.Context(), statePath, &stateForRefresh, prCacheRefreshOptions{
+			Command: "done",
+			Force:   true,
+		})
+		if err != nil {
+			return session.State{}, fmt.Errorf("done: refresh PR state: %w", err)
+		}
+	}
+	home, homeErr := os.UserHomeDir()
+	if homeErr != nil {
+		home = ""
+	}
+	archiveDir := filepath.Join(home, ".local", "share", "af", "v1", "archive")
+
+	state, err := lifecycle.FinishWorkstream(cmd.Context(), lifecycle.DoneDeps{
+		Git: git.NewExecRunner(),
+		Mux: mux.NewTmux(),
+	}, lifecycle.DoneOptions{
+		StatePath:  statePath,
+		ArchiveDir: archiveDir,
+		Force:      opts.force,
+	})
+	if err != nil {
+		return session.State{}, fmt.Errorf("done: %w", err)
+	}
+	// ADR-068 §4: the lock file must not persist in the archive. The
+	// rename moved it along with the session dir; the held fd keeps the
+	// flock valid, so unlinking the archived name is safe.
+	_ = os.Remove(filepath.Join(archiveDir, state.Session.Name, session.LockFileName)) //nolint:errcheck // Best-effort cleanup per ADR-068.
+	return state, nil
+}
+
+func resolveDoneStatePath(cmd *cobra.Command, name string) (string, error) {
 	statePath, err := resolveLifecycleStatePathForCommand(cmd, name)
 	if err != nil {
 		return "", fmt.Errorf("done: %w", err)

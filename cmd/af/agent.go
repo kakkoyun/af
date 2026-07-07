@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -121,16 +120,22 @@ func runAgentAdd(cmd *cobra.Command, opts *agentOptions) error {
 	if err != nil {
 		return err
 	}
-	_, _, err = lifecycle.AgentAdd(cmd.Context(), lifecycle.AgentAddDeps{
-		Git: git.NewExecRunner(),
-		Mux: mux.NewTmux(),
-	}, lifecycle.AgentAddOptions{
-		StatePath: statePath,
-		Slot:      opts.slot,
-		Provider:  opts.provider,
+	err = withSessionLock(statePath, func() error {
+		_, _, lockedErr := lifecycle.AgentAdd(cmd.Context(), lifecycle.AgentAddDeps{
+			Git: git.NewExecRunner(),
+			Mux: mux.NewTmux(),
+		}, lifecycle.AgentAddOptions{
+			StatePath: statePath,
+			Slot:      opts.slot,
+			Provider:  opts.provider,
+		})
+		if lockedErr != nil {
+			return fmt.Errorf("agent add: %w", lockedErr)
+		}
+		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("agent add: %w", err)
+		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "added agent slot %s (%s)\n", opts.slot, opts.provider)
 	if err != nil {
@@ -144,13 +149,19 @@ func runAgentStop(cmd *cobra.Command, opts *agentOptions) error {
 	if err != nil {
 		return err
 	}
-	err = lifecycle.AgentStop(cmd.Context(), git.NewExecRunner(), lifecycle.AgentStopOptions{
-		StatePath:      statePath,
-		Slot:           opts.slot,
-		RemoveWorktree: opts.removeWorktree,
+	err = withSessionLock(statePath, func() error {
+		lockedErr := lifecycle.AgentStop(cmd.Context(), git.NewExecRunner(), lifecycle.AgentStopOptions{
+			StatePath:      statePath,
+			Slot:           opts.slot,
+			RemoveWorktree: opts.removeWorktree,
+		})
+		if lockedErr != nil {
+			return fmt.Errorf("agent stop: %w", lockedErr)
+		}
+		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("agent stop: %w", err)
+		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "stopped agent slot %s\n", opts.slot)
 	if err != nil {
@@ -165,7 +176,7 @@ func resolveAgentStatePath(opts *agentOptions) (string, error) {
 		return "", fmt.Errorf("resolve state path: %w", err)
 	}
 	if opts.session != "" {
-		return filepath.Join(stateDir, opts.session, "state.toml"), nil
+		return statePathForSessionName(stateDir, opts.session)
 	}
 	cwd, err := os.Getwd()
 	if err != nil {

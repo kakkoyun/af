@@ -13,6 +13,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (macOS integration CI)
+
+- `make test-integration` + a `integration / macos` CI job: real macOS
+  Keychain round-trip (`af`'s system keyring against an unlocked
+  throwaway keychain) and a real tmux session lifecycle, covering the
+  two integrations the hermetic suite can only fake.
+
+### Fixed (found by the real-tmux integration test)
+
+- `ListSessions`/`ListPanes` used a tab separator in `tmux -F` formats,
+  but tmux sanitizes control characters in format output to `_`, so
+  parsing never worked against a real server (session names came back
+  as `name_0`, attached state was always false). Formats now lead with
+  the space-free field and split on a space.
+- `SessionExists` returned an error when `tmux has-session` exited
+  non-zero, but that exit covers both "can't find session" and "no
+  server running" — both now report `false` without an error; only
+  non-exit failures (missing binary, cancelled context) error.
+
+### Security
+
+- **Session-name path traversal closed**: `af create` accepted names
+  like `../evil` that escaped the state root and bypassed the ADR-069
+  strict collision check. `workstream.ValidateSessionName` now rejects
+  traversal, absolute paths, control characters, git-ref-illegal
+  sequences, flag-shaped elements, and oversized names before any path
+  is built, with containment backstops in the collision check and state
+  writer. Slash-nested slug-style names remain legal.
+
+### Fixed (audit remediation)
+
+- **`af diff` pager deadlock**: `ExecutePipe` kept the parent's copy of
+  the pipe read-end open, so when the pager (`hunk`, `head`) exited
+  early the diff producer never received EPIPE and the command hung
+  forever.
+- **Session lock actually enforced**: the `.af.lock` flock existed but
+  was only taken by `af note`. All state-mutating commands (suspend,
+  resume, done, pull, agent add/stop, stack/unstack/sync, `pr
+  --refresh`, PR cache refreshes in clean/info/status, session-data
+  sync, session-branch, review ledger events) now hold the lock across
+  their full read-modify-write span via `session.WithLock`, and
+  `af create` serializes its collision check + state write under a
+  state-root lock so concurrent creates cannot both claim a name.
+- **`af sync` fetch failures surfaced**: a failed `git fetch origin
+  <parent>` against a configured origin now prints a stderr warning
+  (rebasing against a possibly-stale parent) instead of being silently
+  discarded; local-only stacks skip the fetch entirely.
+- **`af retro` corrupt archives**: unreadable or unparseable archived
+  notes produce a per-entry stderr warning instead of vanishing.
+- **Ledger corruption tolerance**: one malformed JSONL line no longer
+  aborts `af info --ledger`; corrupt/blank lines are skipped with slog
+  warnings.
+- **`make lint` toolchain mismatch**: golangci-lint is now built with
+  the repo's own Go toolchain (`GOTOOLCHAIN`), fixing the hard failure
+  against `go 1.26`; the goreleaser pin moved to 2.8.2, the first
+  pinned version that accepts `.goreleaser.yaml`'s `archives.formats`.
+
+### Added (audit remediation)
+
+- **Go CI pipeline**: `.github/workflows/ci.yml` now builds, formats,
+  lints, race-tests (ubuntu + macos), property-tests, coverage-gates
+  (`scripts/coverage-check.sh` per-package floors), and
+  goreleaser-checks the Go module. The previous workflows were Rust-era
+  leftovers that never exercised the Go code; `docs.yml` and
+  `release.yml` were removed per ADR-053 (goreleaser is local-only).
+- **Obsidian note-on-create is real** (ADR-047): `obsidian.DirStore`, a
+  filesystem-backed note store with atomic tmp+rename writes, is wired
+  into `af create` — previously the production binary passed a nil
+  store and never wrote a note. `examples/obsidian/` documents the
+  vault config and resulting note layout.
+- **Test sweep**: every `internal/` package now sits at 80%+ statement
+  coverage (proxy was 0%, secret 34%, mux 41%, diff 48%); 13 new
+  testscript goldens drive create, list, status, info, note, stack,
+  done, clean, pull, retro, review, auth, and setup end-to-end against
+  fake externals, automating most of the pre-release smoke checklist
+  (stages 2/3/5/6/7/8/9/10).
+- **ADR governance**: all 43 v1 ADRs ratified `proposed` → `accepted`;
+  `docs/adr/INDEX.md` regenerated (27 stale rows); SPEC.md and PLAN.md
+  frozen per constitution rule 4; `internal/doccheck` fails the build
+  when the INDEX drifts from ADR frontmatter.
+
 ### Changed
 
 - **`af version` build report**: version output is now multi-line and

@@ -1,6 +1,8 @@
 package workstream_test
 
 import (
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -88,5 +90,69 @@ func TestSessionID_DerivesUUID5FromStableInputs(t *testing.T) {
 	again := workstream.SessionID("af", "kakkoyun/issue-42", "primary", launch)
 	if got != again {
 		t.Fatalf("SessionID() = %s on first call, %s on second", got, again)
+	}
+}
+
+func TestValidateSessionName_RejectsTraversalAndBadRefs(t *testing.T) {
+	tests := []struct {
+		name    string
+		session string
+	}{
+		{name: "parent traversal", session: "../evil"},
+		{name: "embedded traversal", session: "a/../../b"},
+		{name: "dot-dot element", session: ".."},
+		{name: "single dot element", session: "."},
+		{name: "dot element inside", session: "a/./b"},
+		{name: "absolute path", session: "/abs"},
+		{name: "backslash", session: `a\b`},
+		{name: "nul byte", session: "a\x00b"},
+		{name: "control char", session: "a\x01b"},
+		{name: "leading dash flag injection", session: "-rf"},
+		{name: "leading dash in element", session: "a/-rf"},
+		{name: "trailing slash", session: "a/"},
+		{name: "empty element", session: "a//b"},
+		{name: "double dot sequence", session: "a..b"},
+		{name: "tilde", session: "a~b"},
+		{name: "caret", session: "a^b"},
+		{name: "colon", session: "a:b"},
+		{name: "question mark", session: "a?b"},
+		{name: "asterisk", session: "a*b"},
+		{name: "open bracket", session: "a[b"},
+		{name: "at brace", session: "a@{b"},
+		{name: "trailing lock", session: "foo.lock"},
+		{name: "whitespace", session: "a b"},
+		{name: "trailing dot", session: "foo."},
+		{name: "too long", session: strings.Repeat("a", 201)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := workstream.ValidateSessionName(tt.session)
+			if !errors.Is(err, workstream.ErrInvalidSessionName) {
+				t.Fatalf("ValidateSessionName(%q) = %v, want ErrInvalidSessionName", tt.session, err)
+			}
+		})
+	}
+}
+
+func TestValidateSessionName_AcceptsSlugStyleAndAutoNames(t *testing.T) {
+	tests := []struct {
+		name    string
+		session string
+	}{
+		{name: "empty is auto-generated", session: ""},
+		{name: "simple slug", session: "feature-x"},
+		{name: "nested slug", session: "kakkoyun/issue-42"},
+		{name: "auto name with host slug", session: "github.com/kakkoyun/af-20260703-120000"},
+		{name: "underscores and digits", session: "fix_thing2"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := workstream.ValidateSessionName(tt.session)
+			if err != nil {
+				t.Fatalf("ValidateSessionName(%q) = %v, want nil", tt.session, err)
+			}
+		})
 	}
 }

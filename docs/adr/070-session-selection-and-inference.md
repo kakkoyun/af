@@ -1,10 +1,10 @@
 ---
 adr: 070
 title: "Session Selection & Inference"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-21
-last_modified: 2026-05-22
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["035", "038", "044", "046", "054", "068"]

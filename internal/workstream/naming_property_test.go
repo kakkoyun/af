@@ -1,6 +1,7 @@
 package workstream_test
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/quick"
@@ -30,6 +31,26 @@ func TestPropertyApplyPrefixDoesNotDoubleApply(t *testing.T) {
 		once := workstream.ApplyPrefix(name, prefix)
 		twice := workstream.ApplyPrefix(once, prefix)
 		return once == twice && strings.HasPrefix(once, prefix)
+	}
+
+	err := quick.Check(property, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPropertyValidateSessionNameNeverEscapesRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "state")
+	property := func(input string) bool {
+		if workstream.ValidateSessionName(input) != nil {
+			return true
+		}
+		joined := filepath.Clean(filepath.Join(root, filepath.FromSlash(input)))
+		rel, err := filepath.Rel(root, joined)
+		if err != nil {
+			return false
+		}
+		return rel == "." || (!strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel))
 	}
 
 	err := quick.Check(property, nil)

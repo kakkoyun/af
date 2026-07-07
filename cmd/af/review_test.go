@@ -105,7 +105,7 @@ func TestReview_GoldenPathWritesReportAndLedgerEvent(t *testing.T) { //nolint:cy
 	}
 	// Ledger event must be present.
 	ledgerPath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "rev-golden", "ledger.jsonl")
-	events, err := session.ReadLedgerTail(ledgerPath, 10)
+	events, err := session.ReadLedgerTail(t.Context(), ledgerPath, 10)
 	if err != nil {
 		t.Fatalf("ReadLedgerTail: %v", err)
 	}

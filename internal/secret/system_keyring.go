@@ -33,12 +33,20 @@ func NewSystemKeyring(service string) *SystemKeyring {
 // enumeration, so we maintain this index manually.
 const indexAccount = "__af_index__"
 
+// Seams over the go-keyring package functions, replaced in internal
+// tests by an in-memory fake so tests never touch the OS keychain.
+var (
+	keyringSet    = keyring.Set    //nolint:gochecknoglobals // Test seam: replaced in internal tests to avoid the real OS keychain.
+	keyringGet    = keyring.Get    //nolint:gochecknoglobals // Test seam: replaced in internal tests to avoid the real OS keychain.
+	keyringDelete = keyring.Delete //nolint:gochecknoglobals // Test seam: replaced in internal tests to avoid the real OS keychain.
+)
+
 // Set stores value under key and updates the per-service index.
 func (k *SystemKeyring) Set(_ context.Context, key, value string) error {
 	if key == "" || key == indexAccount {
 		return fmt.Errorf("set secret %q: %w", key, ErrInvalidKey)
 	}
-	err := keyring.Set(k.service, key, value)
+	err := keyringSet(k.service, key, value)
 	if err != nil {
 		return fmt.Errorf("keyring set %s/%s: %w", k.service, key, err)
 	}
@@ -50,7 +58,7 @@ func (k *SystemKeyring) Get(_ context.Context, key string) (string, error) {
 	if key == "" {
 		return "", fmt.Errorf("get secret: %w", ErrInvalidKey)
 	}
-	value, err := keyring.Get(k.service, key)
+	value, err := keyringGet(k.service, key)
 	if err != nil {
 		if errors.Is(err, keyring.ErrNotFound) {
 			return "", fmt.Errorf("get secret %s: %w", key, ErrNotFound)
@@ -65,7 +73,7 @@ func (k *SystemKeyring) Delete(_ context.Context, key string) error {
 	if key == "" {
 		return fmt.Errorf("delete secret: %w", ErrInvalidKey)
 	}
-	err := keyring.Delete(k.service, key)
+	err := keyringDelete(k.service, key)
 	if err != nil {
 		if errors.Is(err, keyring.ErrNotFound) {
 			return fmt.Errorf("delete secret %s: %w", key, ErrNotFound)
@@ -86,7 +94,7 @@ func (k *SystemKeyring) List(_ context.Context) ([]string, error) {
 }
 
 func (k *SystemKeyring) readIndex() ([]string, error) {
-	raw, err := keyring.Get(k.service, indexAccount)
+	raw, err := keyringGet(k.service, indexAccount)
 	if err != nil {
 		if errors.Is(err, keyring.ErrNotFound) {
 			return nil, nil
@@ -97,7 +105,7 @@ func (k *SystemKeyring) readIndex() ([]string, error) {
 }
 
 func (k *SystemKeyring) writeIndex(keys []string) error {
-	err := keyring.Set(k.service, indexAccount, joinIndex(keys))
+	err := keyringSet(k.service, indexAccount, joinIndex(keys))
 	if err != nil {
 		return fmt.Errorf("write keyring index: %w", err)
 	}

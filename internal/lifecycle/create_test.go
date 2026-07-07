@@ -3,9 +3,11 @@ package lifecycle_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,7 +17,12 @@ import (
 	"github.com/kakkoyun/af/internal/mux"
 	"github.com/kakkoyun/af/internal/obsidian"
 	"github.com/kakkoyun/af/internal/session"
+	"github.com/kakkoyun/af/internal/workstream"
 )
+
+// demoName is the canonical session name used across the create-test
+// suite.
+const demoName = "demo"
 
 // repoSlug is a fixed logical identifier used across the create-test
 // suite. It is path-shaped (host/owner/repo) so primary-worktree
@@ -48,7 +55,7 @@ func TestCreate_ProducesStateLedgerWorktreeAndTmuxSession(t *testing.T) {
 		Agent: agent.NewFake("pi"),
 		Notes: noteStore,
 	}, lifecycle.CreateOptions{
-		Name:         "demo",
+		Name:         demoName,
 		FromBranch:   "main",
 		GitRoot:      gitRoot,
 		RepoSlug:     repoSlug(),
@@ -74,10 +81,10 @@ func assertCreateResult(t *testing.T, res lifecycle.CreateResult, gitRoot string
 
 func assertCreateResultIdentity(t *testing.T, res lifecycle.CreateResult) {
 	t.Helper()
-	if res.SessionName != "demo" {
+	if res.SessionName != demoName {
 		t.Fatalf("SessionName = %q, want demo", res.SessionName)
 	}
-	if !strings.HasSuffix(res.WorktreePath, filepath.Join(repoSlug(), "demo")) {
+	if !strings.HasSuffix(res.WorktreePath, filepath.Join(repoSlug(), demoName)) {
 		t.Fatalf("WorktreePath = %q", res.WorktreePath)
 	}
 	if !strings.Contains(res.TmuxSession, "af-demo") {
@@ -91,7 +98,7 @@ func assertCreateResultState(t *testing.T, res lifecycle.CreateResult, gitRoot s
 	if err != nil {
 		t.Fatalf("ReadState: %v", err)
 	}
-	if state.Session.Name != "demo" {
+	if state.Session.Name != demoName {
 		t.Fatalf("state.session.name = %q, want demo", state.Session.Name)
 	}
 	if state.Worktree.Branch == "" || state.Worktree.GitRoot != gitRoot {
@@ -307,5 +314,111 @@ func TestCreate_AllowsFreshNameWithEmptyArchiveDir(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("Create with empty ArchiveDir: %v", err)
+	}
+}
+
+// TestCreate_RejectsTraversalNames verifies ADR-069 collision checks
+// cannot be bypassed with names that escape the state root or would
+// produce malformed git refs.
+func TestCreate_RejectsTraversalNames(t *testing.T) {
+	home := t.TempDir()
+	gitRoot := filepath.Join(home, "repo")
+	mkdirT(t, gitRoot)
+	stateDir := filepath.Join(home, "sessions")
+
+	for _, name := range []string{"../evil", "a/../../b", "/abs", "-rf", "a b"} {
+		t.Run(name, func(t *testing.T) {
+			_, err := lifecycle.Create(context.Background(), lifecycle.CreateDeps{
+				Git:   git.NewFakeRunner(),
+				Mux:   mux.NewFakeMultiplexer(),
+				Agent: agent.NewFake("pi"),
+				Notes: obsidian.NewMemoryStore(),
+			}, lifecycle.CreateOptions{
+				Name:         name,
+				FromBranch:   "main",
+				GitRoot:      gitRoot,
+				RepoSlug:     repoSlug(),
+				WorktreeRoot: filepath.Join(home, "wt"),
+				StateDir:     stateDir,
+				AgentName:    "pi",
+				Now:          time.Date(2026, 7, 3, 0, 0, 0, 0, time.UTC),
+			})
+			if !errors.Is(err, lifecycle.ErrCreate) {
+				t.Fatalf("want ErrCreate, got %v", err)
+			}
+			if !errors.Is(err, workstream.ErrInvalidSessionName) {
+				t.Fatalf("want ErrInvalidSessionName, got %v", err)
+			}
+			// Nothing may leak outside (or inside) the state root.
+			entries, readErr := os.ReadDir(home)
+			if readErr != nil {
+				t.Fatalf("read home: %v", readErr)
+			}
+			for _, entry := range entries {
+				if entry.Name() != "repo" {
+					t.Fatalf("unexpected entry %q created under home", entry.Name())
+				}
+			}
+		})
+	}
+}
+
+// TestCreate_ConcurrentSameNameExactlyOneWins verifies the ADR-069
+// collision check and session-dir creation run under the state-root
+// lock, so two racing creates cannot both claim one name.
+func TestCreate_ConcurrentSameNameExactlyOneWins(t *testing.T) {
+	home := t.TempDir()
+	gitRoot := filepath.Join(home, "repo")
+	mkdirT(t, gitRoot)
+	stateDir := filepath.Join(home, "sessions")
+
+	run := func(worktreeRoot string) error {
+		_, err := lifecycle.Create(context.Background(), lifecycle.CreateDeps{
+			Git:   git.NewFakeRunner(),
+			Mux:   mux.NewFakeMultiplexer(),
+			Agent: agent.NewFake("pi"),
+			Notes: obsidian.NewMemoryStore(),
+		}, lifecycle.CreateOptions{
+			Name:         "raced",
+			FromBranch:   "main",
+			GitRoot:      gitRoot,
+			RepoSlug:     repoSlug(),
+			WorktreeRoot: worktreeRoot,
+			StateDir:     stateDir,
+			AgentName:    "pi",
+			Now:          time.Date(2026, 7, 3, 1, 0, 0, 0, time.UTC),
+		})
+		if err != nil {
+			return fmt.Errorf("create: %w", err)
+		}
+		return nil
+	}
+
+	const attempts = 4
+	errs := make(chan error, attempts)
+	var wg sync.WaitGroup
+	for i := range attempts {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- run(filepath.Join(home, fmt.Sprintf("wt%d", i)))
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	var wins, collisions int
+	for err := range errs {
+		switch {
+		case err == nil:
+			wins++
+		case errors.Is(err, lifecycle.ErrNameCollision):
+			collisions++
+		default:
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	if wins != 1 || collisions != attempts-1 {
+		t.Fatalf("wins = %d, collisions = %d; want exactly 1 win and %d collisions", wins, collisions, attempts-1)
 	}
 }

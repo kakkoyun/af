@@ -117,7 +117,12 @@ func executeClean(cmd *cobra.Command, targets []sessionSummary, dryRun bool) err
 			}
 			continue
 		}
-		err := os.RemoveAll(filepath.Dir(targets[i].statePath))
+		// Hold the session lock so removal cannot race a concurrent
+		// writer mid-critical-section (the unlinked lock file keeps
+		// serializing via the open fd until release).
+		err := withSessionLock(targets[i].statePath, func() error {
+			return os.RemoveAll(filepath.Dir(targets[i].statePath))
+		})
 		if err != nil {
 			return fmt.Errorf("clean: remove %s: %w", name, err)
 		}
@@ -134,9 +139,11 @@ func refreshCleanTargetPRs(cmd *cobra.Command, targets []sessionSummary) error {
 		if targets[i].state.PR.Number == 0 {
 			continue
 		}
-		err := refreshPRCacheForState(cmd.Context(), targets[i].statePath, &targets[i].state, prCacheRefreshOptions{
-			Command: "clean",
-			Force:   true,
+		err := withSessionLock(targets[i].statePath, func() error {
+			return refreshPRCacheForState(cmd.Context(), targets[i].statePath, &targets[i].state, prCacheRefreshOptions{
+				Command: "clean",
+				Force:   true,
+			})
 		})
 		if err != nil {
 			return fmt.Errorf("clean: refresh PR state for %s: %w", targets[i].state.Session.Name, err)

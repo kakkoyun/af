@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -85,7 +87,7 @@ func runRetro(cmd *cobra.Command, opts *retroOptions) error {
 	if err != nil {
 		return fmt.Errorf("retro: %w", err)
 	}
-	notes, err := loadArchivedNotes(archiveDir, opts)
+	notes, err := loadArchivedNotes(cmd.ErrOrStderr(), archiveDir, opts)
 	if err != nil {
 		return err
 	}
@@ -100,7 +102,7 @@ func defaultArchiveDir() (string, error) {
 	return filepath.Join(home, ".local", "share", "af", "v1", "archive"), nil
 }
 
-func loadArchivedNotes(archiveDir string, opts *retroOptions) ([]obsidian.Note, error) {
+func loadArchivedNotes(warn io.Writer, archiveDir string, opts *retroOptions) ([]obsidian.Note, error) {
 	entries, err := os.ReadDir(archiveDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -115,7 +117,11 @@ func loadArchivedNotes(archiveDir string, opts *retroOptions) ([]obsidian.Note, 
 
 	notes := make([]obsidian.Note, 0)
 	for _, entry := range entries {
-		note, ok := readArchiveEntry(archiveDir, entry, opts, cutoff)
+		note, ok, readErr := readArchiveEntry(archiveDir, entry, opts, cutoff)
+		if readErr != nil {
+			_, _ = fmt.Fprintf(warn, "retro: warning: skipping archive entry %s: %v\n", entry.Name(), readErr) //nolint:errcheck // Informational warning.
+			continue
+		}
 		if !ok {
 			continue
 		}
@@ -130,29 +136,37 @@ func loadArchivedNotes(archiveDir string, opts *retroOptions) ([]obsidian.Note, 
 	return notes, nil
 }
 
-func readArchiveEntry(archiveDir string, entry os.DirEntry, opts *retroOptions, cutoff time.Time) (obsidian.Note, bool) {
+// readArchiveEntry loads one archived note. The bool reports whether the
+// note matches the retro filters; the error reports an unreadable or
+// unparseable note (callers warn rather than silently dropping it). An
+// archive entry without a note.md is skipped silently — bare entries
+// predate note archiving.
+func readArchiveEntry(archiveDir string, entry os.DirEntry, opts *retroOptions, cutoff time.Time) (obsidian.Note, bool, error) {
 	if !entry.IsDir() {
-		return obsidian.Note{}, false
+		return obsidian.Note{}, false, nil
 	}
 	notePath := filepath.Join(archiveDir, entry.Name(), "note.md")
 	data, readErr := os.ReadFile(notePath) //nolint:gosec // path under archive dir
+	if errors.Is(readErr, fs.ErrNotExist) {
+		return obsidian.Note{}, false, nil
+	}
 	if readErr != nil {
-		return obsidian.Note{}, false
+		return obsidian.Note{}, false, fmt.Errorf("read %s: %w", notePath, readErr)
 	}
 	note, parseErr := obsidian.ParseNote(data)
 	if parseErr != nil {
-		return obsidian.Note{}, false
+		return obsidian.Note{}, false, fmt.Errorf("parse %s: %w", notePath, parseErr)
 	}
 	if !cutoff.IsZero() && note.Frontmatter.StartedAt.Before(cutoff) {
-		return obsidian.Note{}, false
+		return obsidian.Note{}, false, nil
 	}
 	if !noteMatchesTags(note, opts.tags) {
-		return obsidian.Note{}, false
+		return obsidian.Note{}, false, nil
 	}
 	if opts.search != "" && !strings.Contains(note.Body, opts.search) {
-		return obsidian.Note{}, false
+		return obsidian.Note{}, false, nil
 	}
-	return note, true
+	return note, true, nil
 }
 
 func retroCutoff(since string) (time.Time, error) {

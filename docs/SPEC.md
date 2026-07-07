@@ -1,9 +1,9 @@
 # af — v1 Specification
 
-> Specification for the v1 (Go) iteration of `af`. This document is
-> kept consistent with the v1 ADRs (`docs/adr/031` through the latest
-> entry in [`INDEX.md`](adr/INDEX.md)). Design changes go through new
-> ADRs, then propagate here in the same commit. The Rust era's spec
+> Specification for the v1 (Go) iteration of `af`. **FROZEN as of
+> 2026-07-03**: all v1 ADRs (031–073) are `status: accepted`, so per
+> the constitution and ADR-032 this document is immutable. Design
+> changes go through new ADRs (074+) in `docs/adr/`. The Rust era's spec
 > is preserved at `docs/v0/SPEC.md` for historical context only.
 >
 > **Authority.** Each ADR is authoritative for its decision. This

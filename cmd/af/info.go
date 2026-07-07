@@ -50,9 +50,11 @@ func runInfo(cmd *cobra.Command, opts *infoOptions, name string) error {
 	}
 	prRefreshFailed := false
 	if state.PR.Number != 0 {
-		refreshErr := refreshPRCacheForState(cmd.Context(), statePath, &state, prCacheRefreshOptions{
-			Command: "info",
-			Force:   opts.refresh,
+		refreshErr := withSessionLock(statePath, func() error {
+			return refreshPRCacheForState(cmd.Context(), statePath, &state, prCacheRefreshOptions{
+				Command: "info",
+				Force:   opts.refresh,
+			})
 		})
 		if refreshErr != nil {
 			prRefreshFailed = true
@@ -64,7 +66,7 @@ func runInfo(cmd *cobra.Command, opts *infoOptions, name string) error {
 	ledgerPath := filepath.Join(filepath.Dir(statePath), "ledger.jsonl")
 	var events []session.Event
 	if opts.ledgerN > 0 {
-		events, err = session.ReadLedgerTail(ledgerPath, opts.ledgerN)
+		events, err = session.ReadLedgerTail(cmd.Context(), ledgerPath, opts.ledgerN)
 		if err != nil {
 			return fmt.Errorf("info: read ledger: %w", err)
 		}

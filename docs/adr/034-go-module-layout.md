@@ -1,10 +1,10 @@
 ---
 adr: 034
 title: "Go Module Layout & Idiom"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-06
-last_modified: 2026-05-09
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["031", "035", "050", "051"]

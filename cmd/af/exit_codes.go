@@ -9,14 +9,9 @@ import (
 const (
 	exitOK          = 0
 	exitGeneral     = 1
-	exitUsageCobra  = 2
 	exitUsage       = 64
 	exitDataErr     = 65
 	exitNoInput     = 66
-	exitUnavailable = 69
-	exitSoftware    = 70
-	exitTempFail    = 75
-	exitNoPerm      = 77
 	exitInterrupted = 130
 )
 
@@ -47,11 +42,3 @@ func isUsageError(err error) bool {
 		errors.Is(err, errStackParentRequired) ||
 		errors.Is(err, errUnsupportedShell)
 }
-
-var (
-	_ = exitUsageCobra
-	_ = exitUnavailable
-	_ = exitSoftware
-	_ = exitTempFail
-	_ = exitNoPerm
-)

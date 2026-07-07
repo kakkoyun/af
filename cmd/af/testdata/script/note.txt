@@ -1,0 +1,54 @@
+# note: af note --append records a structured note event in the
+# workstream's ledger.jsonl (ADR-047). Verified two ways: directly by
+# grepping the ledger file, and through af info --ledger.
+#
+# Failure paths:
+#   1. af note without --append is rejected before any state is touched.
+#   2. af note --append with no session name, no AF_SESSION, and a cwd
+#      outside any worktree cannot infer a session.
+
+env HOME=$WORK/home
+
+# ── Failure 1: --append is required ───────────────────────────────────────────
+! exec af note demo
+stderr 'note: --append <text> required'
+
+# The rejection happens before session resolution, so no ledger appears.
+! exists $HOME/.local/share/af/v1/sessions/demo/ledger.jsonl
+
+# ── Failure 2: no session specified and none inferable ───────────────────────
+! exec af note --append 'orphan text'
+stderr 'no session specified and none could be inferred'
+
+# ── Success: append a note event to the fixture session ──────────────────────
+exec af note demo --append 'hello from testscript'
+stdout 'appended note event'
+
+exists $HOME/.local/share/af/v1/sessions/demo/ledger.jsonl
+grep '"event":"note"' $HOME/.local/share/af/v1/sessions/demo/ledger.jsonl
+grep '"text":"hello from testscript"' $HOME/.local/share/af/v1/sessions/demo/ledger.jsonl
+
+# ── af info --ledger surfaces the appended event ──────────────────────────────
+exec af info demo --ledger 5
+stdout 'Session:   demo'
+stdout 'Recent events:'
+stdout '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} note'
+
+# ── Initial file content ───────────────────────────────────────────────────────
+
+-- home/.local/share/af/v1/sessions/demo/state.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-000000000001"
+name = "demo"
+status = "active"
+created_at = 2026-05-22T10:00:00Z
+
+[worktree]
+path = "/tmp/worktree-demo"
+branch = "feat/demo"
+base_branch = "main"
+
+[execution]
+tmux_session = "af-demo"

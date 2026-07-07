@@ -10,51 +10,51 @@ convention defined in [ADR-032](032-adr-conventions.md).
 
 ## v1 ADR catalogue
 
-| ADR                                               | Title                                                                          | Status   | Implementation | Tags                                 |
-| ------------------------------------------------- | ------------------------------------------------------------------------------ | -------- | -------------- | ------------------------------------ |
-| [031](031-v1-go-rewrite-and-scope-reduction.md)   | v1: Migration to Go + Scope Reduction (master)                                 | proposed | pending        | meta, scope, v1                      |
-| [032](032-adr-conventions.md)                     | ADR Conventions for v1                                                         | proposed | n/a            | meta, conventions                    |
-| [033](033-documentation-archival-policy.md)       | Documentation Archival Policy (v0 → v1)                                        | proposed | complete       | meta, archival                       |
-| [034](034-go-module-layout.md)                    | Go Module Layout & Idiom                                                       | proposed | pending        | go, layout, idiom                    |
-| [035](035-cli-framework-cobra.md)                 | CLI Framework — cobra + pflag                                                  | proposed | pending        | go, cli, cobra                       |
-| [036](036-configuration-toml-layered.md)          | Configuration — TOML, layered, with global Obsidian vault paths                | proposed | pending        | go, config, toml                     |
-| [037](037-session-metadata-schema.md)             | Session Metadata Schema (state.toml + ledger.jsonl)                            | proposed | pending        | go, session, state, ledger           |
-| [038](038-workstream-and-worktree-layout.md)      | Workstream + Worktree Layout (stable paths, sub-worktrees, per-repo discovery) | proposed | pending        | go, worktree, workstream, fs         |
-| [039](039-multi-agent-multi-session.md)           | Multi-Agent Multi-Session Model                                                | proposed | pending        | go, agent, session, model            |
-| [040](040-tmux-only-multiplexer.md)               | tmux-only Multiplexer                                                          | proposed | pending        | go, mux, tmux                        |
-| [041](041-ssh-remote-model.md)                    | SSH Remote Model (no provider plugins)                                         | proposed | pending        | go, remote, ssh                      |
-| [042](042-sandbox-providers-slicer-sbx.md)        | Sandbox Providers (slicer + sbx)                                               | proposed | pending        | go, sandbox, slicer, sbx             |
-| [043](043-agent-providers.md)                     | Agent Providers (claude, pi, codex; pi default)                                | proposed | pending        | go, agent, pi, claude, codex         |
-| [044](044-doctor-and-install-hints.md)            | `af doctor` + Install Hints (local & --remote)                                 | proposed | pending        | go, doctor, install                  |
-| [045](045-af-setup.md)                            | `af setup` — Environment Companion to Doctor                                   | proposed | pending        | go, setup, command                   |
-| [046](046-af-suspend-resume-lifecycle.md)         | `af suspend` / `af resume` Lifecycle                                           | proposed | pending        | go, lifecycle, suspend, resume       |
-| [047](047-obsidian-integration.md)                | Obsidian Integration — Notes + Bases                                           | proposed | pending        | go, obsidian, notes                  |
-| [048](048-minimal-proxy-commands.md)              | Minimal Proxy Commands (editor, diff, pr)                                      | proposed | pending        | go, proxy, editor, diff, pr          |
-| [049](049-secret-management.md)                   | Secret Management (keyring + ephemeral envelope)                               | proposed | pending        | go, secrets, keyring, security       |
-| [050](050-code-quality-golangci-lint-pedantic.md) | Code Quality — golangci-lint Pedantic                                          | proposed | pending        | go, lint, quality                    |
-| [051](051-testing-strategy.md)                    | Testing Strategy                                                               | proposed | pending        | go, testing                          |
-| [052](052-formal-verification.md)                 | Formal Verification Experimentation                                            | proposed | pending        | go, verification, experimental       |
-| [053](053-build-and-release-goreleaser-make.md)   | Build & Distribution — goreleaser + Make                                       | proposed | pending        | go, build, distribution, goreleaser  |
-| [054](054-af-status-dashboard.md)                 | `af status` — Workstream Dashboard                                             | proposed | pending        | go, command, status, dashboard       |
-| [055](055-af-info-detail.md)                      | `af info` — Workstream Detail View                                             | proposed | pending        | go, command, info, introspection     |
-| [056](056-af-clean-reaper.md)                     | `af clean` — Reap Completed Workstreams                                        | proposed | pending        | go, command, lifecycle, cleanup      |
-| [057](057-af-pr-ai-body.md)                       | `af pr --ai` — Agent-Authored PR Body                                          | proposed | pending        | go, command, agent, pr, ai           |
-| [058](058-af-retro-mining.md)                     | `af retro` — Mine Archived Workstream Notes                                    | proposed | pending        | go, command, obsidian, retrospective |
-| [059](059-stack-aware-branches.md)                | Stack-Aware Branch Model                                                       | proposed | pending        | go, stack, branch, rebase, lifecycle |
-| [060](060-slicer-only-sandbox-provider.md)        | Slicer-Only Sandbox Provider (drop sbx)                                        | proposed | complete       | go, sandbox, slicer, scope           |
-| [061](061-repo-scoped-control-settings.md)        | Repo-Scoped Control Settings                                                   | proposed | complete       | go, config, repo, control            |
-| [062](062-repo-scoped-slicer-vm-resources.md)     | Repo-Scoped Slicer VM Resource Profiles                                        | proposed | complete       | go, sandbox, slicer, resources       |
-| [063](063-remote-control-via-tailscale-and-superterm.md) | Remote Control via Tailscale Serve and superterm                        | proposed | complete       | go, remote, tailscale, superterm     |
-| [064](064-opinionated-diff-rendering.md)          | Opinionated Diff Rendering (hunk + diffity)                                    | proposed | complete       | go, command, diff, hunk, diffity     |
-| [065](065-slicer-worktree-transport.md)           | Slicer Worktree Transport (`slicer wt`)                                        | proposed | complete       | go, sandbox, slicer, worktree, git   |
-| [066](066-agent-session-export-from-slicer-vms.md) | Agent Session Export from Slicer VMs                                          | proposed | complete       | go, sandbox, slicer, session, export |
-| [067](067-automatic-agent-session-export.md)      | Automatic Agent Session Export and Sync State                                  | proposed | complete       | go, sandbox, slicer, session, state  |
-| [068](068-operational-ux-contract.md)             | Operational UX Contract (JSON, exit codes, TTY, concurrency, completion)       | proposed | complete       | go, ux, json, exit-codes             |
-| [069](069-boundary-and-privacy.md)                | Boundary & Privacy — Telemetry, Multi-Machine, Name Collisions                  | proposed | complete       | go, privacy, multi-machine, naming   |
-| [070](070-session-selection-and-inference.md)     | Session Selection & Inference                                                  | proposed | complete       | go, ux, session, fzf                 |
-| [071](071-pr-state-lifecycle.md)                  | PR State Lifecycle — TTL-Cached Refresh                                        | proposed | complete       | go, pr, github, cache, lifecycle     |
-| [072](072-state-toml-schema-rollup.md)            | state.toml Schema Amendments Roll-up                                           | proposed | complete       | go, state, schema, rollup            |
-| [073](073-af-review-multi-prompt-report.md)       | `af review` — Repo-Aware PR Review Report                                      | proposed | complete       | go, command, agent, review, pr, ai   |
+| ADR                                                      | Title                                                                          | Status   | Implementation | Tags                                 |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------ | -------- | -------------- | ------------------------------------ |
+| [031](031-v1-go-rewrite-and-scope-reduction.md)          | v1: Migration to Go + Scope Reduction (master)                                 | accepted | complete       | meta, scope, v1                      |
+| [032](032-adr-conventions.md)                            | ADR Conventions for v1                                                         | accepted | n/a            | meta, conventions                    |
+| [033](033-documentation-archival-policy.md)              | Documentation Archival Policy (v0 → v1)                                        | accepted | complete       | meta, archival                       |
+| [034](034-go-module-layout.md)                           | Go Module Layout & Idiom                                                       | accepted | complete       | go, layout, idiom                    |
+| [035](035-cli-framework-cobra.md)                        | CLI Framework — cobra + pflag                                                  | accepted | complete       | go, cli, cobra                       |
+| [036](036-configuration-toml-layered.md)                 | Configuration — TOML, layered, with global Obsidian vault paths                | accepted | complete       | go, config, toml                     |
+| [037](037-session-metadata-schema.md)                    | Session Metadata Schema (state.toml + ledger.jsonl)                            | accepted | complete       | go, session, state, ledger           |
+| [038](038-workstream-and-worktree-layout.md)             | Workstream + Worktree Layout (stable paths, sub-worktrees, per-repo discovery) | accepted | complete       | go, worktree, workstream, fs         |
+| [039](039-multi-agent-multi-session.md)                  | Multi-Agent Multi-Session Model                                                | accepted | complete       | go, agent, session, model            |
+| [040](040-tmux-only-multiplexer.md)                      | tmux-only Multiplexer                                                          | accepted | complete       | go, mux, tmux                        |
+| [041](041-ssh-remote-model.md)                           | SSH Remote Model (no provider plugins)                                         | accepted | complete       | go, remote, ssh                      |
+| [042](042-sandbox-providers-slicer-sbx.md)               | Sandbox Providers (slicer + sbx)                                               | accepted | complete       | go, sandbox, slicer, sbx             |
+| [043](043-agent-providers.md)                            | Agent Providers (claude, pi, codex; pi default)                                | accepted | complete       | go, agent, pi, claude, codex         |
+| [044](044-doctor-and-install-hints.md)                   | `af doctor` + Install Hints (local & --remote)                                 | accepted | complete       | go, doctor, install                  |
+| [045](045-af-setup.md)                                   | `af setup` — Environment Companion to Doctor                                   | accepted | complete       | go, setup, command                   |
+| [046](046-af-suspend-resume-lifecycle.md)                | `af suspend` / `af resume` Lifecycle                                           | accepted | complete       | go, lifecycle, suspend, resume       |
+| [047](047-obsidian-integration.md)                       | Obsidian Integration — Notes + Bases                                           | accepted | complete       | go, obsidian, notes                  |
+| [048](048-minimal-proxy-commands.md)                     | Minimal Proxy Commands (editor, diff, pr)                                      | accepted | complete       | go, proxy, editor, diff, pr          |
+| [049](049-secret-management.md)                          | Secret Management (keyring + ephemeral envelope)                               | accepted | complete       | go, secrets, keyring, security       |
+| [050](050-code-quality-golangci-lint-pedantic.md)        | Code Quality — golangci-lint Pedantic                                          | accepted | complete       | go, lint, quality                    |
+| [051](051-testing-strategy.md)                           | Testing Strategy                                                               | accepted | complete       | go, testing                          |
+| [052](052-formal-verification.md)                        | Formal Verification Experimentation                                            | accepted | complete       | go, verification, experimental       |
+| [053](053-build-and-release-goreleaser-make.md)          | Build & Distribution — goreleaser + Make                                       | accepted | complete       | go, build, distribution, goreleaser  |
+| [054](054-af-status-dashboard.md)                        | `af status` — Workstream Dashboard                                             | accepted | complete       | go, command, status, dashboard       |
+| [055](055-af-info-detail.md)                             | `af info` — Workstream Detail View                                             | accepted | complete       | go, command, info, introspection     |
+| [056](056-af-clean-reaper.md)                            | `af clean` — Reap Completed Workstreams                                        | accepted | complete       | go, command, lifecycle, cleanup      |
+| [057](057-af-pr-ai-body.md)                              | `af pr --ai` — Agent-Authored PR Body                                          | accepted | complete       | go, command, agent, pr, ai           |
+| [058](058-af-retro-mining.md)                            | `af retro` — Mine Archived Workstream Notes                                    | accepted | complete       | go, command, obsidian, retrospective |
+| [059](059-stack-aware-branches.md)                       | Stack-Aware Branch Model                                                       | accepted | complete       | go, stack, branch, rebase, lifecycle |
+| [060](060-slicer-only-sandbox-provider.md)               | Slicer-Only Sandbox Provider (drop sbx)                                        | accepted | complete       | go, sandbox, slicer, scope           |
+| [061](061-repo-scoped-control-settings.md)               | Repo-Scoped Control Settings                                                   | accepted | complete       | go, config, repo, control            |
+| [062](062-repo-scoped-slicer-vm-resources.md)            | Repo-Scoped Slicer VM Resource Profiles                                        | accepted | complete       | go, sandbox, slicer, resources       |
+| [063](063-remote-control-via-tailscale-and-superterm.md) | Remote Control via Tailscale Serve and superterm                               | accepted | complete       | go, remote, tailscale, superterm     |
+| [064](064-opinionated-diff-rendering.md)                 | Opinionated Diff Rendering (hunk + diffity)                                    | accepted | complete       | go, command, diff, hunk, diffity     |
+| [065](065-slicer-worktree-transport.md)                  | Slicer Worktree Transport (`slicer wt`)                                        | accepted | complete       | go, sandbox, slicer, worktree, git   |
+| [066](066-agent-session-export-from-slicer-vms.md)       | Agent Session Export from Slicer VMs                                           | accepted | complete       | go, sandbox, slicer, session, export |
+| [067](067-automatic-agent-session-export.md)             | Automatic Agent Session Export and Sync State                                  | accepted | complete       | go, sandbox, slicer, session, state  |
+| [068](068-operational-ux-contract.md)                    | Operational UX Contract (JSON, exit codes, TTY, concurrency, completion)       | accepted | complete       | go, ux, json, exit-codes             |
+| [069](069-boundary-and-privacy.md)                       | Boundary & Privacy — Telemetry, Multi-Machine, Name Collisions                 | accepted | complete       | go, privacy, multi-machine, naming   |
+| [070](070-session-selection-and-inference.md)            | Session Selection & Inference                                                  | accepted | complete       | go, ux, session, fzf                 |
+| [071](071-pr-state-lifecycle.md)                         | PR State Lifecycle — TTL-Cached Refresh                                        | accepted | complete       | go, pr, github, cache, lifecycle     |
+| [072](072-state-toml-schema-rollup.md)                   | state.toml Schema Amendments Roll-up                                           | accepted | complete       | go, state, schema, rollup            |
+| [073](073-af-review-multi-prompt-report.md)              | `af review` — Repo-Aware PR Review Report                                      | accepted | complete       | go, command, agent, review, pr, ai   |
 
 43 ADRs total.
 

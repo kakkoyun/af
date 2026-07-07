@@ -1,0 +1,68 @@
+# setup: af setup initialises the user-scope environment in a hermetic
+# HOME (ADR-045): state dirs, default config, global gitignore entry,
+# and shell completions.
+#
+# A script-local git fake answers the two `git config --global` calls
+# setup makes: `--get core.excludesfile` exits 1 (unset), so setup
+# adopts its default path $HOME/.config/git/ignore, and the follow-up
+# set call succeeds silently.
+#
+# Scenarios:
+#   1. first run creates everything.
+#   2. rerun is idempotent (config kept, gitignore unchanged).
+#   3. unsupported --shell value — hard error.
+
+env HOME=$WORK/home
+mkdir $WORK/home
+
+chmod 755 mygit/git
+env PATH=$WORK/mygit:$PATH
+
+# ── Scenario 1: first run ─────────────────────────────────────────────────────
+exec af setup --shell bash
+stdout 'af setup complete:'
+stdout 'state dir:'
+stdout '\(created\)'
+stdout 'entry added'
+stdout 'bash installed at'
+
+# State directory tree per ADR-045.
+exists $HOME/.local/share/af/v1/sessions
+exists $HOME/.local/share/af/v1/archive
+exists $HOME/.local/share/af/v1/secrets
+
+# Default user config.
+exists $HOME/.config/af/config.toml
+
+# Global gitignore got the .af/ entry.
+exists $HOME/.config/git/ignore
+grep '\.af/' $HOME/.config/git/ignore
+
+# Bash completions installed.
+exists $HOME/.local/share/bash-completion/completions/af
+
+# ── Scenario 2: rerun is idempotent ───────────────────────────────────────────
+exec af setup --shell bash
+stdout 'af setup complete:'
+stdout '\(already exists\)'
+stdout 'no change'
+
+# The gitignore entry must not be duplicated.
+exec grep -c '^\.af/$' $HOME/.config/git/ignore
+stdout '^1$'
+
+# ── Scenario 3: unsupported shell ─────────────────────────────────────────────
+! exec af setup --shell klingon
+stderr 'unsupported shell: klingon'
+
+# ── Fakes ─────────────────────────────────────────────────────────────────────
+
+-- mygit/git --
+#!/bin/sh
+# Fake git for af setup: reports core.excludesfile as unset (exit 1 on
+# `config --global --get`), accepts the subsequent set call, and
+# succeeds silently on anything else.
+if [ "$1" = "config" ] && [ "$2" = "--global" ] && [ "$3" = "--get" ]; then
+  exit 1
+fi
+exit 0

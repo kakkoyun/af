@@ -136,6 +136,10 @@ Expected:
 
 ## Stage 2 — Setup, config, doctor, and completions
 
+> **Automated:** the core assertions of this stage run hermetically in CI
+> via `cmd/af/testdata/script/` (setup.txt, config-init.txt, config-show.txt, doctor.txt, completions.txt); the owner pass
+> re-confirms them on real hardware.
+
 ```bash
 set -euo pipefail
 source "${AF_SMOKE_ENV:-/tmp/af-v1-smoke.env}"
@@ -211,6 +215,10 @@ Expected:
 
 ## Stage 3 — Command surface and help for every command
 
+> **Automated:** the core assertions of this stage run hermetically in CI
+> via `cmd/af/testdata/script/` (help.txt); the owner pass
+> re-confirms them on real hardware.
+
 ```bash
 set -euo pipefail
 source "${AF_SMOKE_ENV:-/tmp/af-v1-smoke.env}"
@@ -285,6 +293,10 @@ Expected:
 
 ## Stage 5 — Local workstream lifecycle and proxy commands
 
+> **Automated:** the core assertions of this stage run hermetically in CI
+> via `cmd/af/testdata/script/` (create.txt, note.txt, done.txt, diff.txt, pr.txt, editor.txt); the owner pass
+> re-confirms them on real hardware.
+
 ```bash
 set -euo pipefail
 source "${AF_SMOKE_ENV:-/tmp/af-v1-smoke.env}"
@@ -339,6 +351,10 @@ Expected:
 
 ## Stage 6 — Session discovery, selection, completions, suspend/resume
 
+> **Automated:** the core assertions of this stage run hermetically in CI
+> via `cmd/af/testdata/script/` (list.txt, status.txt, info.txt, tmux-lifecycle.txt); the owner pass
+> re-confirms them on real hardware.
+
 ```bash
 set -euo pipefail
 source "${AF_SMOKE_ENV:-/tmp/af-v1-smoke.env}"
@@ -377,6 +393,10 @@ Expected:
 
 ## Stage 7 — Agent slots, stack metadata, and sync
 
+> **Automated:** the core assertions of this stage run hermetically in CI
+> via `cmd/af/testdata/script/` (stack.txt); the owner pass
+> re-confirms them on real hardware.
+
 ```bash
 set -euo pipefail
 source "${AF_SMOKE_ENV:-/tmp/af-v1-smoke.env}"
@@ -408,6 +428,10 @@ Expected:
 
 ## Stage 8 — Expected non-slicer and control-status behaviour
 
+> **Automated:** the core assertions of this stage run hermetically in CI
+> via `cmd/af/testdata/script/` (pull.txt, control-up.txt); the owner pass
+> re-confirms them on real hardware.
+
 ```bash
 set -euo pipefail
 source "${AF_SMOKE_ENV:-/tmp/af-v1-smoke.env}"
@@ -438,6 +462,10 @@ Expected:
   endpoint.
 
 ## Stage 9 — Hermetic review and remote-control fakes
+
+> **Automated:** the core assertions of this stage run hermetically in CI
+> via `cmd/af/testdata/script/` (review.txt, control-up.txt); the owner pass
+> re-confirms them on real hardware.
 
 This stage shadows `gh`, `pi`, `superterm`, and `tailscale` only inside
 `$AF_SMOKE_BIN`, which is already first on `PATH` for the smoke shell.
@@ -554,6 +582,10 @@ Expected:
   through fakes.
 
 ## Stage 10 — Session-branch, cleanup, clean, and retro
+
+> **Automated:** the core assertions of this stage run hermetically in CI
+> via `cmd/af/testdata/script/` (clean.txt, retro.txt); the owner pass
+> re-confirms them on real hardware.
 
 ```bash
 set -euo pipefail

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,7 +71,7 @@ func TestSessionResolution_WalksUpCwdDiscoverySymlink(t *testing.T) {
 		t.Fatalf("note from nested cwd: %v", err)
 	}
 	ledgerPath := filepath.Join(filepath.Dir(statePath), "ledger.jsonl")
-	events, err := session.ReadLedgerTail(ledgerPath, 5)
+	events, err := session.ReadLedgerTail(t.Context(), ledgerPath, 5)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,4 +92,93 @@ func TestSessionResolution_NoInputReturnsHelpfulError(t *testing.T) {
 	if !strings.Contains(err.Error(), "pass [session]") || !strings.Contains(err.Error(), "AF_SESSION") {
 		t.Fatalf("error should include resolution hints, got %v", err)
 	}
+}
+
+// errFakeFzfExit simulates a non-zero fzf exit (e.g. Esc) in tests.
+var errFakeFzfExit = errors.New("exit status 130")
+
+// TestDefaultSessionPicker_ParsesFzfSelection drives the picker through
+// the fzf command seam: rows are rendered to fzf stdin and the selected
+// row's first field becomes the session name.
+func TestDefaultSessionPicker_ParsesFzfSelection(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionState(t, home, "picked", "feat/picked", "active")
+	writeTestSessionState(t, home, "other", "feat/other", "active")
+	stateDir := filepath.Join(home, ".local", "share", "af", "v1", "sessions")
+
+	var sawInput string
+	restore := fzfCommandFunc
+	fzfCommandFunc = func(_ context.Context, input string, _ io.Writer) ([]byte, error) {
+		sawInput = input
+		return []byte("picked\tactive\tfeat/picked\n"), nil
+	}
+	t.Cleanup(func() { fzfCommandFunc = restore })
+
+	selected, err := defaultSessionPicker(context.Background(), sessionPickerOptions{StateDir: stateDir})
+	if err != nil {
+		t.Fatalf("defaultSessionPicker: %v", err)
+	}
+	if selected != "picked" {
+		t.Fatalf("selected = %q, want picked", selected)
+	}
+	if !strings.Contains(sawInput, "other") {
+		t.Fatalf("fzf input missing candidate rows; got %q", sawInput)
+	}
+}
+
+// TestDefaultSessionPicker_FzfFailureIsInterrupted maps a non-zero fzf
+// exit (e.g. Esc) to errSessionPickerInterrupted.
+func TestDefaultSessionPicker_FzfFailureIsInterrupted(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionState(t, home, "one", "feat/one", "active")
+	stateDir := filepath.Join(home, ".local", "share", "af", "v1", "sessions")
+
+	restore := fzfCommandFunc
+	fzfCommandFunc = func(context.Context, string, io.Writer) ([]byte, error) {
+		return nil, errFakeFzfExit
+	}
+	t.Cleanup(func() { fzfCommandFunc = restore })
+
+	_, err := defaultSessionPicker(context.Background(), sessionPickerOptions{StateDir: stateDir})
+	if !errors.Is(err, errSessionPickerInterrupted) {
+		t.Fatalf("err = %v, want errSessionPickerInterrupted", err)
+	}
+}
+
+// TestSessionResolution_RejectsTraversalNames verifies session names from
+// positional args, --session, and AF_SESSION cannot escape the state
+// root — validation must hold at the resolve chokepoint, not only in
+// create (ADR-069 containment).
+func TestSessionResolution_RejectsTraversalNames(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionState(t, home, "safe", "feat/safe", "active")
+
+	t.Run("positional", func(t *testing.T) {
+		_, _, err := executeCommand(t, newRootCmd(), "info", "../../../etc/passwd")
+		if err == nil || !strings.Contains(err.Error(), "invalid session name") {
+			t.Fatalf("info with traversal positional = %v, want invalid session name", err)
+		}
+	})
+	t.Run("session flag", func(t *testing.T) {
+		_, _, err := executeCommand(t, newRootCmd(), "--session", "../evil", "info")
+		if err == nil || !strings.Contains(err.Error(), "invalid session name") {
+			t.Fatalf("info with traversal --session = %v, want invalid session name", err)
+		}
+	})
+	t.Run("env", func(t *testing.T) {
+		t.Setenv("AF_SESSION", "../evil")
+		_, _, err := executeCommand(t, newRootCmd(), "info")
+		if err == nil || !strings.Contains(err.Error(), "invalid session name") {
+			t.Fatalf("info with traversal AF_SESSION = %v, want invalid session name", err)
+		}
+	})
+	t.Run("stack parent", func(t *testing.T) {
+		_, _, err := executeCommand(t, newRootCmd(), "stack", "safe", "--parent", "../evil")
+		if err == nil || !strings.Contains(err.Error(), "invalid session name") {
+			t.Fatalf("stack with traversal --parent = %v, want invalid session name", err)
+		}
+	})
 }

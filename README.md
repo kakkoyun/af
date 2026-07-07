@@ -75,8 +75,8 @@ af [--verbose|-v] [--config PATH] [--session NAME] <command>
 | Command                                                                                                              | Description                                                                                                                      |
 | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `af create [name] [--from BRANCH] [--current] [--agent NAME] [--bare] [--remote HOST] [--sandbox PROVIDER] [--yolo]` | Create a workstream: new branch, git worktree, `state.toml`, ledger, optional Obsidian note, tmux session, primary-agent launch. |
-| `af done [session] [--force]`                                                                                        | Tear down and archive a workstream. `--force` marks it abandoned rather than completed.                                          |
-| `af suspend [session]`                                                                                               | Record suspension in state; tmux stays alive.                                                                                    |
+| `af done [session] [--force] [--discard]`                                                                            | Tear down and archive a workstream. `--force` marks it abandoned; `--discard` skips the ADR-067 automatic transcript sync.      |
+| `af suspend [session] [--force] [--discard]`                                                                         | Record suspension in state; tmux stays alive. `--force` overrides a held slicer lease; `--discard` skips the automatic sync.    |
 | `af resume [session] [--bare]`                                                                                       | Resume a suspended workstream; respawns the tmux session if it died.                                                             |
 | `af session-branch`                                                                                                  | Create an ad-hoc workstream branch in the current checkout without a separate worktree.                                          |
 
@@ -108,7 +108,7 @@ af [--verbose|-v] [--config PATH] [--session NAME] <command>
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
 | `af stack [session] --parent PARENT` | Link this workstream as a child in the stack model ([ADR-059](docs/adr/059-stack-aware-branches.md)). |
 | `af unstack [session]`               | Remove the stack parent link.                                                                         |
-| `af sync [session]`                  | Rebase/fast-forward onto parent's current head (stub — full implementation pending).                  |
+| `af sync [session]`                  | Fetch the parent (when an origin exists) and rebase this branch onto its current head; on conflict git is left mid-rebase for manual resolution. |
 
 ### Environment / setup
 
@@ -131,10 +131,10 @@ These commands run the user-configured executables from `[diff]`, `[pr]`, and
 (`{base}`, `{head}`, `{worktree}`, `{title}`, `{body}`).
 
 | Command                                                                   | Description                                                              |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| `af diff [session] [--base REF]`                                          | Run the configured diff command in the workstream worktree.              |
-| `af pr [session] [--title T] [--draft] [--web] [--ai] [--ai-model MODEL]` | Run the PR-create command; `--ai` builds the body from the worktree diff via `agent.BodyCmd` (rejects `--ai` + `--web`). |
-| `af editor [session] [--terminal                                          | -t] [--visual]`                                                          | Open the configured editor at the workstream worktree path. |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `af diff [session] [--base REF] [--web] [--interactive]`                  | Run the configured diff command in the workstream worktree; `--web` opens the range via diffity (ADR-064). |
+| `af pr [session] [--title T] [--body B] [--draft] [--web] [--ai] [--ai-model MODEL] [--refresh]` | Run the PR-create command; `--ai` builds the body from the worktree diff via `agent.BodyCmd` (rejects `--ai` + `--web`); `--refresh` force-refreshes the cached PR state (ADR-071) without opening anything. |
+| `af editor [session] [--terminal\|-t] [--visual]`                          | Open the configured editor at the workstream worktree path.              |
 
 
 
@@ -190,8 +190,17 @@ flip. `af pr --refresh` with no PR exits with `EX_DATAERR`-style error.
 | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `af session-data sync [session] [--agent KIND] [--dry-run] [--continue-host]`     | Copy allowlisted agent transcripts (`~/.claude/projects/**`, `~/.codex/sessions/**`, `~/.pi/agent/...`, harness teams) out of the slicer VM and merge into the host home dir with SHA-256 dedup + JSONL prefix-append. Writes `[session_export]` cursors to state.toml. |
 | `af session-data list [session] [--vm VM] [--agent KIND]`                          | Inventory the allowlisted session files in the VM without copying.                                                          |
+| `af pull [session]`                                                                | Run `slicer wt pull`: import VM branches under `refs/slicer/<vm>/*`, fast-forward the host branch, release the host-worktree lease. Requires `lease_state=held_by_vm`. |
 | `af suspend [session] [--force] [--discard]`                                       | Auto-runs `session-data sync` before VM teardown when slicer-backed. `--discard` skips the sync and acknowledges transcript loss; `--force` is the ADR-065 lease bypass and the two compose. |
 | `af done [session] [--force] [--discard]`                                          | Same auto-sync + `--discard` semantics as `af suspend`.                                                                      |
+
+### Remote control (ADR-063)
+
+| Command                                                        | Description                                                                                       |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `af control up [--port N] [--provider P] [--remote HOST]`      | Start the remote-control helper: superterm tmux web UI exposed over the tailnet via Tailscale Serve. |
+| `af control down [--remote HOST]`                              | Stop remote control: remove the Tailscale Serve mapping and stop superterm.                        |
+| `af control status [--json] [--remote HOST]`                   | Report remote-control status.                                                                      |
 
 ### Secrets
 
@@ -266,15 +275,17 @@ strictly verified; a tightening pass lands when slicer ships such an
 API. See `internal/sandbox/resources.go` (`// ADR-062 §Resolution step
 6`) for the exact deferral.
 
-**ADR status.** ADRs 031–073 are closed for v1 (`implementation: complete`,
-except ADR-032 which is `n/a`).
+**ADR status.** ADRs 031–073 are ratified for v1 (`status: accepted`,
+`implementation: complete`, except ADR-032 which is `n/a`). Per the
+constitution, `docs/SPEC.md` and `docs/PLAN.md` are frozen; design
+changes go through new ADRs (074+).
 
 **`af session-data sync --continue-host` is accepted but not yet wired.**
 The ADR-066 host-continuation path normalization (rewriting transcript
 metadata so `claude --resume` / `codex resume` / pi can find imported
 sessions from the host worktree) is deferred. The flag prints a stderr
-hint and falls back to the analysis-only import. Inline TODO in
-`internal/sandbox/sessiondata/pull.go`.
+hint and falls back to the analysis-only import. The runtime notice
+lives in `cmd/af/session_data.go`.
 
 ## Building
 

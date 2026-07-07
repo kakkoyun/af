@@ -339,11 +339,11 @@ func TestPR_RefreshUpdatesStateOnFlip(t *testing.T) { //nolint:cyclop,funlen // 
 	t.Cleanup(func() { prRefreshFunc = orig })
 	prRefreshFunc = func(_ context.Context, prState *session.PRState, _ pr.Options) (pr.Result, error) {
 		old := prState.State
-		prState.State = "merged" //nolint:goconst // Test literal; readability over a one-shot const.
+		prState.State = staleTestMerged
 		stamp := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
 		prState.LastRefreshedAt = &stamp
 		prState.LastRefreshError = ""
-		return pr.Result{Old: old, New: "merged", RefreshedAt: stamp, Changed: old != "merged"}, nil
+		return pr.Result{Old: old, New: staleTestMerged, RefreshedAt: stamp, Changed: old != staleTestMerged}, nil
 	}
 
 	home := t.TempDir()
@@ -373,12 +373,12 @@ func TestPR_RefreshUpdatesStateOnFlip(t *testing.T) { //nolint:cyclop,funlen // 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if state.PR.State != "merged" {
+	if state.PR.State != staleTestMerged {
 		t.Errorf("state.PR.State = %q, want merged", state.PR.State)
 	}
 	// Ledger should contain pr_state_changed event.
 	ledgerPath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "flip-refresh", "ledger.jsonl")
-	events, err := session.ReadLedgerTail(ledgerPath, 10)
+	events, err := session.ReadLedgerTail(t.Context(), ledgerPath, 10)
 	if err != nil {
 		t.Fatalf("ReadLedgerTail: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestPR_RefreshUpdatesStateOnFlip(t *testing.T) { //nolint:cyclop,funlen // 
 	for _, e := range events {
 		if e.Type == "pr_state_changed" {
 			flipFound = true
-			if e.Fields["from"] != "open" || e.Fields["to"] != "merged" {
+			if e.Fields["from"] != "open" || e.Fields["to"] != staleTestMerged {
 				t.Errorf("pr_state_changed fields wrong: %+v", e.Fields)
 			}
 		}
@@ -427,7 +427,7 @@ func TestPR_RefreshSkipsLedgerOnNoFlip(t *testing.T) {
 		t.Fatalf("pr --refresh: %v", err)
 	}
 	ledgerPath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", "no-flip", "ledger.jsonl")
-	events, _ := session.ReadLedgerTail(ledgerPath, 10) //nolint:errcheck // best-effort.
+	events, _ := session.ReadLedgerTail(t.Context(), ledgerPath, 10) //nolint:errcheck // best-effort.
 	for _, e := range events {
 		if e.Type == "pr_state_changed" {
 			t.Errorf("no flip → no pr_state_changed event; got %+v", e)

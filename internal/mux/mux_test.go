@@ -2,11 +2,22 @@ package mux_test
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/kakkoyun/af/internal/mux"
 )
+
+// wrapErr adds op context to err for table-test closures, preserving nil
+// results and error identity for errors.Is assertions.
+func wrapErr(op string, err error) error {
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
 
 func TestTmux_CreateSessionRunsExpectedCommands(t *testing.T) {
 	ctx := context.Background()

@@ -38,8 +38,9 @@ type AgentAddDeps struct {
 // AgentAdd registers a new agent slot and, for non-primary slots,
 // creates the sibling sub-worktree on the sibling branch per ADR-038.
 //
-// It returns the loaded state and the created sub-worktree plan (or an
-// empty plan for the primary slot).
+// It returns the loaded state and the computed sub-worktree plan. The
+// plan is computed for every slot (and its path recorded in state),
+// but the worktree itself is only created for non-primary slots.
 func AgentAdd(ctx context.Context, deps AgentAddDeps, opts AgentAddOptions) (session.State, git.SubWorktreePlan, error) {
 	state, err := session.ReadState(opts.StatePath)
 	if err != nil {

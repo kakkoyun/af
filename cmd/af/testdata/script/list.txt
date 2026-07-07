@@ -1,0 +1,58 @@
+# list.txt — af list over the v1 sessions directory.
+#
+# Scenario 1: no sessions dir at all → "no workstreams".
+# Scenario 2: two fixture sessions → one row per workstream, sorted by
+#             name, formatted "<name> <status> <branch>".
+# Scenario 3 (failure): list takes no positional args.
+
+env HOME=$WORK/home
+
+# ── Scenario 1: empty state dir prints the placeholder ────────────────────────
+exec af list
+stdout 'no workstreams'
+
+# ── Scenario 2: two fixture sessions are both listed ──────────────────────────
+# Stage the state.toml fixtures under the canonical sessions dir.
+mkdir $HOME/.local/share/af/v1/sessions/alpha
+mkdir $HOME/.local/share/af/v1/sessions/beta
+cp fixtures/alpha.toml $HOME/.local/share/af/v1/sessions/alpha/state.toml
+cp fixtures/beta.toml $HOME/.local/share/af/v1/sessions/beta/state.toml
+
+exec af list
+stdout 'alpha\s+active\s+kakkoyun/alpha'
+stdout 'beta\s+suspended\s+kakkoyun/beta'
+! stdout 'no workstreams'
+
+# ── Scenario 3 (failure): positional args are rejected ────────────────────────
+! exec af list extra
+stderr 'unknown command "extra" for "af list"'
+
+-- fixtures/alpha.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-00000000000a"
+name = "alpha"
+status = "active"
+created_at = 2026-05-21T12:00:00Z
+
+[worktree]
+path = "/tmp/wt/alpha"
+branch = "kakkoyun/alpha"
+base_branch = "main"
+repo_slug = "github.com/owner/repo"
+
+-- fixtures/beta.toml --
+schema_version = 1
+
+[session]
+id = "00000000-0000-0000-0000-00000000000b"
+name = "beta"
+status = "suspended"
+created_at = 2026-05-22T09:30:00Z
+
+[worktree]
+path = "/tmp/wt/beta"
+branch = "kakkoyun/beta"
+base_branch = "main"
+repo_slug = "github.com/owner/repo"

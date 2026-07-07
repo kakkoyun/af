@@ -120,7 +120,9 @@ func runReview(cmd *cobra.Command, name string, opts reviewOptions) error {
 	}
 	writef(cmd.OutOrStdout(), "review: wrote %s\n", outPath)
 	if statePath != "" {
-		err = emitReviewLedgerEvent(statePath, state, meta, outPath, providerName, model)
+		err = withSessionLock(statePath, func() error {
+			return emitReviewLedgerEvent(statePath, state, meta, outPath, providerName, model)
+		})
 		if err != nil {
 			return fmt.Errorf("review: %w", err)
 		}

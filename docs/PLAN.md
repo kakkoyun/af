@@ -5,11 +5,9 @@
 > per user directive, all implementation work is captured inside the
 > ADRs themselves via their `implementation` frontmatter lifecycle.
 >
-> This document is **editable during the planning phase** so it can
-> stay consistent with the v1 ADRs as they iterate. It freezes once
-> all v1 ADRs are `accepted` (per ADR-032's status lifecycle); after
-> that, design or sequencing changes go through new ADRs in
-> `docs/adr/`. The Rust-era plan is
+> This document is **FROZEN as of 2026-07-03**: all v1 ADRs (031–073)
+> are `status: accepted` (per ADR-032's status lifecycle), so design
+> or sequencing changes go through new ADRs in `docs/adr/`. The Rust-era plan is
 > archived at [`docs/v0/PLAN.md`](v0/PLAN.md).
 
 ---

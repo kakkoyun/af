@@ -1,10 +1,10 @@
 ---
 adr: 050
 title: "Code Quality — golangci-lint Pedantic"
-status: proposed
+status: accepted
 implementation: complete
 date: 2026-05-06
-last_modified: 2026-05-20
+last_modified: 2026-07-03
 supersedes: []
 superseded_by: null
 related: ["031", "034", "051", "053"]

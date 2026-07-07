@@ -9,8 +9,7 @@ import (
 	"github.com/kakkoyun/af/internal/sandbox"
 )
 
-func newPullCmd(opts *rootOptions) *cobra.Command {
-	_ = opts
+func newPullCmd(_ *rootOptions) *cobra.Command {
 	return &cobra.Command{
 		Use:   "pull [session]",
 		Short: "Pull a slicer-wt workstream's VM commits back to the host worktree",
@@ -35,13 +34,21 @@ func runPull(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("pull: %w", err)
 	}
 
-	res, err := lifecycle.Pull(cmd.Context(), lifecycle.PullDeps{
-		Runner: sandbox.ExecRunner{},
-	}, lifecycle.PullOptions{
-		StatePath: statePath,
+	var res lifecycle.PullResult
+	err = withSessionLock(statePath, func() error {
+		var lockedErr error
+		res, lockedErr = lifecycle.Pull(cmd.Context(), lifecycle.PullDeps{
+			Runner: sandbox.ExecRunner{},
+		}, lifecycle.PullOptions{
+			StatePath: statePath,
+		})
+		if lockedErr != nil {
+			return fmt.Errorf("pull: %w", lockedErr)
+		}
+		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("pull: %w", err)
+		return err
 	}
 
 	_, err = fmt.Fprintf(cmd.OutOrStdout(),

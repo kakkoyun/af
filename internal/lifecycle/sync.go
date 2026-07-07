@@ -62,6 +62,11 @@ type SyncResult struct {
 	// BaseAfter is the HEAD commit SHA after the rebase (equals
 	// BaseBefore when Rebased is false).
 	BaseAfter string
+	// FetchWarning carries the failure detail when `git fetch origin
+	// <parentRef>` failed against a configured origin. The rebase still
+	// proceeds against the possibly-stale local parent ref; callers
+	// should surface the warning to the user.
+	FetchWarning string
 	// Rebased is true when commits were actually replayed.
 	Rebased bool
 }
@@ -70,8 +75,9 @@ type SyncResult struct {
 //
 //  1. Validate all options are non-empty.
 //  2. Reject dirty worktrees (`git status --porcelain` non-empty).
-//  3. Attempt `git fetch origin <parentRef>` (errors silently dropped
-//     for local-only stacks with no remote configured).
+//  3. Attempt `git fetch origin <parentRef>` when an origin remote is
+//     configured (local-only stacks skip the fetch). A fetch failure is
+//     surfaced via SyncResult.FetchWarning without aborting the sync.
 //  4. Capture the pre-rebase HEAD SHA.
 //  5. Compute `git merge-base HEAD <parentRef>` and `git rev-parse
 //     <parentRef>`.  If they are equal, Branch already contains all of
@@ -91,7 +97,7 @@ func Sync(ctx context.Context, deps SyncDeps, opts SyncOptions) (SyncResult, err
 		return SyncResult{}, err
 	}
 
-	tryFetchParent(ctx, deps.Git, opts.Worktree, opts.ParentRef)
+	fetchWarning := tryFetchParent(ctx, deps.Git, opts.Worktree, opts.ParentRef)
 
 	baseBefore, err := captureHEADSHA(ctx, deps.Git, opts.Worktree)
 	if err != nil {
@@ -110,12 +116,13 @@ func Sync(ctx context.Context, deps SyncDeps, opts SyncOptions) (SyncResult, err
 
 	if mergeBase == parentSHA {
 		return SyncResult{
-			SessionName: opts.SessionName,
-			Branch:      opts.Branch,
-			ParentRef:   opts.ParentRef,
-			Rebased:     false,
-			BaseBefore:  baseBefore,
-			BaseAfter:   baseBefore,
+			SessionName:  opts.SessionName,
+			Branch:       opts.Branch,
+			ParentRef:    opts.ParentRef,
+			Rebased:      false,
+			BaseBefore:   baseBefore,
+			BaseAfter:    baseBefore,
+			FetchWarning: fetchWarning,
 		}, nil
 	}
 
@@ -130,12 +137,13 @@ func Sync(ctx context.Context, deps SyncDeps, opts SyncOptions) (SyncResult, err
 	}
 
 	return SyncResult{
-		SessionName: opts.SessionName,
-		Branch:      opts.Branch,
-		ParentRef:   opts.ParentRef,
-		Rebased:     true,
-		BaseBefore:  baseBefore,
-		BaseAfter:   baseAfter,
+		SessionName:  opts.SessionName,
+		Branch:       opts.Branch,
+		ParentRef:    opts.ParentRef,
+		Rebased:      true,
+		BaseBefore:   baseBefore,
+		BaseAfter:    baseAfter,
+		FetchWarning: fetchWarning,
 	}, nil
 }
 
@@ -167,12 +175,28 @@ func detectDirtyWorktree(ctx context.Context, runner git.Runner, worktree string
 	return nil
 }
 
-// tryFetchParent attempts `git fetch origin <parentRef>`.  Errors are
-// silently dropped because local-only stacks have no remote configured.
-func tryFetchParent(ctx context.Context, runner git.Runner, worktree, parentRef string) {
+// tryFetchParent attempts `git fetch origin <parentRef>`. The fetch is
+// tried unconditionally (probing origin first would wrongly classify
+// probe failures — multi-valued remote.origin.url, unreadable config —
+// as "local-only" and skip a fetch that would have worked). Only when
+// the fetch fails is origin probed to distinguish a local-only stack
+// (no origin configured: silent, expected) from a real fetch failure,
+// whose detail is returned so callers can warn about rebasing onto a
+// stale parent. Sync proceeds either way.
+func tryFetchParent(ctx context.Context, runner git.Runner, worktree, parentRef string) string {
 	fetchOut, fetchErr := runner.Run(ctx, worktree, "fetch", "origin", parentRef)
-	_ = fetchOut
-	_ = fetchErr
+	if fetchErr == nil {
+		return ""
+	}
+	originOut, originErr := runner.Run(ctx, worktree, "config", "--get", "remote.origin.url")
+	if originErr != nil || strings.TrimSpace(string(originOut)) == "" {
+		return ""
+	}
+	detail := strings.TrimSpace(string(fetchOut))
+	if detail == "" {
+		detail = fetchErr.Error()
+	}
+	return detail
 }
 
 // captureHEADSHA returns the current HEAD commit SHA via `git rev-parse HEAD`.

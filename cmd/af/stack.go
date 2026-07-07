@@ -10,6 +10,7 @@ import (
 	"github.com/kakkoyun/af/internal/git"
 	"github.com/kakkoyun/af/internal/lifecycle"
 	"github.com/kakkoyun/af/internal/session"
+	"github.com/kakkoyun/af/internal/workstream"
 )
 
 var (
@@ -71,16 +72,31 @@ func runStack(cmd *cobra.Command, name, parent string) error {
 	if parent == "" {
 		return fmt.Errorf("stack: %w", errStackParentRequired)
 	}
+	err := workstream.ValidateSessionName(parent)
+	if err != nil {
+		return fmt.Errorf("stack: %w", err)
+	}
 	state, statePath, err := loadStackState(cmd, name)
 	if err != nil {
 		return err
 	}
-	now := time.Now().UTC()
-	state.Stack.ParentSession = parent
-	state.Stack.LinkedAt = &now
-	err = session.WriteState(statePath, state)
+	err = withSessionLock(statePath, func() error {
+		var lockedErr error
+		state, lockedErr = session.ReadState(statePath)
+		if lockedErr != nil {
+			return fmt.Errorf("stack: reread state: %w", lockedErr)
+		}
+		now := time.Now().UTC()
+		state.Stack.ParentSession = parent
+		state.Stack.LinkedAt = &now
+		lockedErr = session.WriteState(statePath, state)
+		if lockedErr != nil {
+			return fmt.Errorf("stack: write state: %w", lockedErr)
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("stack: write state: %w", err)
+		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "stacked %s onto %s\n", state.Session.Name, parent)
 	if err != nil {
@@ -94,12 +110,23 @@ func runUnstack(cmd *cobra.Command, name string) error {
 	if err != nil {
 		return err
 	}
-	state.Stack.ParentSession = ""
-	state.Stack.ParentBranch = ""
-	state.Stack.LinkedAt = nil
-	err = session.WriteState(statePath, state)
+	err = withSessionLock(statePath, func() error {
+		var lockedErr error
+		state, lockedErr = session.ReadState(statePath)
+		if lockedErr != nil {
+			return fmt.Errorf("unstack: reread state: %w", lockedErr)
+		}
+		state.Stack.ParentSession = ""
+		state.Stack.ParentBranch = ""
+		state.Stack.LinkedAt = nil
+		lockedErr = session.WriteState(statePath, state)
+		if lockedErr != nil {
+			return fmt.Errorf("unstack: write state: %w", lockedErr)
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("unstack: write state: %w", err)
+		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "unstacked %s\n", state.Session.Name)
 	if err != nil {
@@ -122,9 +149,11 @@ func runSync(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("sync: read parent state: %w", err)
 	}
 	if parentState.PR.Number != 0 {
-		err = refreshPRCacheForState(cmd.Context(), parentStatePath, &parentState, prCacheRefreshOptions{
-			Command: "sync",
-			Force:   true,
+		err = withSessionLock(parentStatePath, func() error {
+			return refreshPRCacheForState(cmd.Context(), parentStatePath, &parentState, prCacheRefreshOptions{
+				Command: "sync",
+				Force:   true,
+			})
 		})
 		if err != nil {
 			return fmt.Errorf("sync: refresh parent PR state for %s: %w", parentState.Session.Name, err)
@@ -145,6 +174,11 @@ func runSync(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("sync: %w", err)
 	}
 
+	if result.FetchWarning != "" {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), //nolint:errcheck // Informational warning.
+			"warning: could not fetch origin %s: %s (rebasing against possibly-stale parent)\n",
+			result.ParentRef, result.FetchWarning)
+	}
 	if result.Rebased {
 		_, err = fmt.Fprintf(cmd.OutOrStdout(), "sync: rebased %s onto %s (%s..%s)\n",
 			result.Branch, result.ParentRef, shortSHA(result.BaseBefore), shortSHA(result.BaseAfter))
@@ -186,7 +220,10 @@ func loadStackStateByName(name string) (session.State, string, error) {
 	if err != nil {
 		return session.State{}, "", fmt.Errorf("stack: %w", err)
 	}
-	statePath := statePathForSessionName(stateDir, name)
+	statePath, err := statePathForSessionName(stateDir, name)
+	if err != nil {
+		return session.State{}, "", fmt.Errorf("stack: %w", err)
+	}
 	state, err := session.ReadState(statePath)
 	if err != nil {
 		return session.State{}, "", fmt.Errorf("stack: %w: %v", errStackNoState, err) //nolint:errorlint // primary sentinel is errStackNoState; underlying read error is informational.

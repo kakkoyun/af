@@ -205,3 +205,32 @@ func TestRetro_AIModelPassedToAgent(t *testing.T) {
 		t.Fatalf("capturedModel = %q, want %q", capturedModel, "sonnet-4-5")
 	}
 }
+
+// TestRetro_WarnsOnUnreadableArchiveEntries verifies a corrupt archived
+// note is reported on stderr instead of being silently dropped.
+func TestRetro_WarnsOnUnreadableArchiveEntries(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	archiveDir := filepath.Join(home, ".local", "share", "af", "v1", "archive")
+	writeRetroArchiveNote(t, archiveDir, "good", defaultRetroNote("good"))
+	corruptDir := filepath.Join(archiveDir, "corrupt")
+	err := os.MkdirAll(corruptDir, 0o750)
+	if err != nil {
+		t.Fatalf("mkdir corrupt entry: %v", err)
+	}
+	err = os.WriteFile(filepath.Join(corruptDir, "note.md"), []byte("no frontmatter here"), 0o600)
+	if err != nil {
+		t.Fatalf("write corrupt note: %v", err)
+	}
+
+	stdout, stderr, err := executeCommand(t, newRootCmd(), "retro")
+	if err != nil {
+		t.Fatalf("retro: %v", err)
+	}
+	if !strings.Contains(stdout, "good") {
+		t.Fatalf("stdout missing valid note; got:\n%s", stdout)
+	}
+	if !strings.Contains(stderr, "corrupt") {
+		t.Fatalf("stderr missing warning about corrupt entry; got:\n%s", stderr)
+	}
+}
