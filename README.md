@@ -98,9 +98,9 @@ af [--verbose|-v] [--config PATH] [--session NAME] <command>
 
 ### Reaping
 
-| Command                                                                     | Description                                                                        |
-| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `af clean [--dry-run] [--include-abandoned] [--max-age DURATION] [--force]` | Remove state dirs for terminal workstreams. `--max-age` accepts `7d`, `2w`, `24h`. |
+| Command                                                                                  | Description                                                                        |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `af clean [--dry-run] [--include-abandoned] [--max-age DURATION] [--force] [--discard]` | Remove state dirs for terminal workstreams. `--max-age` accepts `7d`, `2w`, `24h`. For each VM-leased target, auto-runs the ADR-067 `session-data sync` before removal; a sync failure skips (keeps) that target and makes `clean` exit non-zero, but other targets in the same run still get reaped. `--discard` skips the sync and acknowledges transcript loss. `--dry-run` prints `would sync + remove NAME` for leased targets. |
 
 ### Stacking
 
@@ -194,6 +194,7 @@ flip. `af pr --refresh` with no PR exits with `EX_DATAERR`-style error.
 | `af pull [session]`                                                                | Run `slicer wt pull`: import VM branches under `refs/slicer/<vm>/*`, fast-forward the host branch, release the host-worktree lease. Requires `lease_state=held_by_vm`. |
 | `af suspend [session] [--force] [--discard]`                                       | Auto-runs `session-data sync` before VM teardown when slicer-backed. `--discard` skips the sync and acknowledges transcript loss; `--force` is the ADR-065 lease bypass and the two compose. |
 | `af done [session] [--force] [--discard]`                                          | Same auto-sync + `--discard` semantics as `af suspend`.                                                                      |
+| `af clean [--force] [--discard] [...]`                                             | Same auto-sync before removal for any VM-leased target it reaps; `--discard` skips the sync. A sync failure keeps that target's state dir and fails the command, without blocking removal of other targets. |
 
 ### Remote control (ADR-063)
 
