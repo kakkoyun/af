@@ -2753,3 +2753,41 @@ files, matching the issue's title scenario — no code change needed on
 the Go side per the task's own instructions, since it isn't computing
 its own dirty flag from git status. `gofumpt`/`golangci-lint`/`go test
 -race` all green (no Go source touched).
+
+## 2026-07-09 — Session 46b: slicer host-group diagnostics (issue #19)
+
+Fixed issue #19: `af create --sandbox slicer` failed opaquely when slicer
+has multiple host groups and `[sandbox.slicer] group` is unset — slicer's
+own "Multiple host groups present (N), specify --hostgroup" stderr was
+swallowed, leaving only `run slicer wt push --launch ...: exit status 1`.
+
+- `sandbox.ExecRunner.Run` now captures stdout/stderr separately and, on
+  failure, calls the new exported `sandbox.WrapCommandError` to embed a
+  trimmed, truncated (512 bytes, `…`-suffixed) stderr snippet in the
+  returned error. This is the shared exec path for every slicer
+  invocation (`Attach`, `IsHealthy`, `Teardown`, `List`, `WTPush`,
+  `WTPull`), so all of them now surface the real diagnostic instead of a
+  bare exit status. Empty stderr keeps the original plain message.
+- `WTPush` (internal/sandbox/slicerwt.go) additionally detects the
+  "Multiple host groups" marker in the propagated error when
+  `opts.HostGroup == ""` and wraps it with the new sentinel
+  `ErrSlicerMultipleHostGroups`, whose text points at setting
+  `[sandbox.slicer] group` (e.g. `group = "sbox"`). When a group is
+  already configured, this guidance is suppressed — only the propagated
+  stderr shows.
+- Deliberately deferred: silently defaulting the group to `"sbox"` when
+  empty. That changes a config default and belongs in a future ADR-036
+  amendment, not this diagnostics fix.
+- **Tests** (TDD, red before green): `internal/sandbox/provider_test.go` —
+  `TestExecRunner_RunErrorIncludesStderr`,
+  `TestExecRunner_RunErrorTruncatesLongStderr`,
+  `TestExecRunner_RunErrorKeepsPlainMessageWhenStderrEmpty`,
+  `TestWrapCommandError_NilErrReturnsNil`,
+  `TestWrapCommandError_TruncatesLongStderr`;
+  `internal/sandbox/slicerwt_edge_test.go` —
+  `TestWTPush_MultipleHostGroupsGuidance`,
+  `TestWTPush_PropagatesArbitraryStderr`,
+  `TestWTPush_MultipleHostGroupsGuidanceSuppressedWhenGroupConfigured`,
+  `TestWTPush_StderrTruncatedAt512Bytes`.
+- Verification: `gofumpt -l cmd/ internal/` clean; `golangci-lint run`
+  (v2.3.0, all linters) 0 issues; `go test -race -count=1 ./...` green.

@@ -229,3 +229,87 @@ func TestExecRunner_RunWrapsFailure(t *testing.T) {
 		t.Fatalf("Run() output = %q, want stderr captured", output)
 	}
 }
+
+// TestExecRunner_RunErrorIncludesStderr covers issue #19: af swallowed the
+// failing command's stderr, reporting only a bare exit status. The error
+// returned by Run must now embed the stderr text so callers (and users) can
+// see what the invoked tool actually said.
+func TestExecRunner_RunErrorIncludesStderr(t *testing.T) {
+	runner := sandbox.ExecRunner{}
+
+	_, err := runner.Run(context.Background(), sandbox.Command{
+		Name: "sh",
+		Args: []string{"-c", "echo boom disk full >&2; exit 1"},
+	})
+	if err == nil {
+		t.Fatal("Run() error = nil, want exit error")
+	}
+	if !strings.Contains(err.Error(), "boom disk full") {
+		t.Fatalf("Run() error = %v, want stderr text embedded", err)
+	}
+}
+
+// TestExecRunner_RunErrorTruncatesLongStderr covers the 512-byte cap on the
+// stderr snippet embedded in the error, per issue #19. The 2000-byte stderr
+// payload is generated entirely inside the shell script (not passed as an
+// argv value) so the argv portion of the error message stays short and
+// doesn't itself trip the "not truncated" assertion.
+func TestExecRunner_RunErrorTruncatesLongStderr(t *testing.T) {
+	runner := sandbox.ExecRunner{}
+
+	_, err := runner.Run(context.Background(), sandbox.Command{
+		Name: "sh",
+		Args: []string{"-c", "head -c 2000 /dev/zero | tr '\\0' 'x' >&2; exit 1"},
+	})
+	if err == nil {
+		t.Fatal("Run() error = nil, want exit error")
+	}
+	if !strings.Contains(err.Error(), "…") {
+		t.Fatalf("Run() error = %v, want truncation marker …", err)
+	}
+	if strings.Contains(err.Error(), strings.Repeat("x", 600)) {
+		t.Fatalf("Run() error contains more than 512 bytes of stderr, want truncated")
+	}
+}
+
+// TestExecRunner_RunErrorKeepsPlainMessageWhenStderrEmpty preserves the
+// original bare-exit-status message when the failing command wrote nothing
+// to stderr.
+func TestExecRunner_RunErrorKeepsPlainMessageWhenStderrEmpty(t *testing.T) {
+	runner := sandbox.ExecRunner{}
+
+	_, err := runner.Run(context.Background(), sandbox.Command{
+		Name: "sh",
+		Args: []string{"-c", "exit 1"},
+	})
+	if err == nil {
+		t.Fatal("Run() error = nil, want exit error")
+	}
+	if err.Error() != "run sh -c exit 1: exit status 1" {
+		t.Fatalf("Run() error = %q, want plain exit-status message", err.Error())
+	}
+}
+
+func TestWrapCommandError_NilErrReturnsNil(t *testing.T) {
+	err := sandbox.WrapCommandError("slicer", []string{"wt", "push"}, nil, []byte("ignored"))
+	if err != nil {
+		t.Fatalf("WrapCommandError() = %v, want nil", err)
+	}
+}
+
+func TestWrapCommandError_TruncatesLongStderr(t *testing.T) {
+	long := strings.Repeat("y", 2000)
+	err := sandbox.WrapCommandError("slicer", []string{"wt", "push"}, errRunnerBoom, []byte(long))
+	if err == nil {
+		t.Fatal("WrapCommandError() = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "…") {
+		t.Fatalf("WrapCommandError() = %v, want truncation marker", err)
+	}
+	if strings.Contains(err.Error(), strings.Repeat("y", 600)) {
+		t.Fatalf("WrapCommandError() = %v, want stderr snippet truncated to <= 512 bytes", err)
+	}
+	if !errors.Is(err, errRunnerBoom) {
+		t.Fatalf("WrapCommandError() = %v, want wrapped %v", err, errRunnerBoom)
+	}
+}

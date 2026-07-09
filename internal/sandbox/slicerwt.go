@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -17,7 +18,19 @@ var (
 	ErrSlicerWTPullFailed = errors.New("slicer wt pull failed")
 	// ErrSlicerWTNameNotFound reports that the VM name could not be parsed from push output.
 	ErrSlicerWTNameNotFound = errors.New("slicer wt push: could not determine VM name from output")
+	// ErrSlicerMultipleHostGroups reports that slicer has more than one host
+	// group configured while af's [sandbox.slicer] group setting is empty
+	// (issue #19). af cannot guess which group to use, so it surfaces
+	// slicer's own stderr plus guidance on setting the group explicitly.
+	// Changing the default group away from empty is a separate ADR-036
+	// matter and deliberately out of scope here.
+	ErrSlicerMultipleHostGroups = errors.New(`slicer has multiple host groups; set [sandbox.slicer] group in your config (e.g. group = "sbox")`)
 )
+
+// multipleHostGroupsMarker is the substring slicer's stderr contains when
+// wt push fails because more than one host group exists and none was
+// specified (issue #19).
+const multipleHostGroupsMarker = "Multiple host groups"
 
 // vmNameRe matches VM name patterns in slicer wt push --launch output.
 // Slicer prints lines like "Launched VM sbox-abc123" or "VM: sbox-abc123".
@@ -55,7 +68,12 @@ func WTPush(ctx context.Context, runner Runner, opts WTPushOptions) (WTPushResul
 	args := wtPushArgs(opts)
 	output, err := runner.Run(ctx, Command{Name: "slicer", Args: args})
 	if err != nil {
-		return WTPushResult{}, fmt.Errorf("%w: %w", ErrSlicerWTPushFailed, err)
+		wrapped := fmt.Errorf("%w: %w", ErrSlicerWTPushFailed, err)
+		if opts.HostGroup == "" && strings.Contains(err.Error(), multipleHostGroupsMarker) {
+			return WTPushResult{}, fmt.Errorf("%w: %w", ErrSlicerMultipleHostGroups, wrapped)
+		}
+
+		return WTPushResult{}, wrapped
 	}
 	vm, err := parseVMName(string(output))
 	if err != nil {

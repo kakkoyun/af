@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -8,6 +9,10 @@ import (
 	"sort"
 	"strings"
 )
+
+// stderrTruncateLen bounds how much of a captured stderr snippet is
+// embedded in a command-failure error (ADR-060 / issue #19).
+const stderrTruncateLen = 512
 
 // ErrUnsupportedProvider reports an unknown or removed sandbox provider name.
 var ErrUnsupportedProvider = errors.New("unsupported sandbox provider")
@@ -54,16 +59,46 @@ type Runner interface {
 // ExecRunner runs commands through os/exec.
 type ExecRunner struct{}
 
-// Run executes command and returns combined stdout/stderr.
+// Run executes command and returns combined stdout/stderr. On failure the
+// returned error embeds a trimmed, truncated snippet of stderr (per
+// WrapCommandError) so callers see the invoked tool's own diagnostic
+// instead of a bare exit status (issue #19).
 func (ExecRunner) Run(ctx context.Context, command Command) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, command.Name, command.Args...) //nolint:gosec // Provider argv is constructed by typed methods, not shell input.
 	cmd.Dir = command.Dir
-	output, err := cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	output := make([]byte, 0, stdout.Len()+stderr.Len())
+	output = append(output, stdout.Bytes()...)
+	output = append(output, stderr.Bytes()...)
 	if err != nil {
-		return output, fmt.Errorf("run %s %s: %w", command.Name, strings.Join(command.Args, " "), err)
+		return output, WrapCommandError(command.Name, command.Args, err, stderr.Bytes())
 	}
 
 	return output, nil
+}
+
+// WrapCommandError builds the error returned for a failed command
+// invocation. When stderr is non-empty, its trimmed text (truncated to
+// stderrTruncateLen bytes with a "…" suffix when cut) is embedded ahead of
+// err so callers see the invoked tool's own diagnostic instead of a bare
+// exit status. If stderr is empty, err is wrapped with the plain
+// "run <name> <args>: <err>" message unchanged. Runner implementations that
+// shell out to real processes (and test doubles simulating one) should call
+// this so command failures are consistent across all sandbox invocations
+// (issue #19).
+func WrapCommandError(name string, args []string, err error, stderr []byte) error {
+	if err == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(string(stderr))
+	if trimmed == "" {
+		return fmt.Errorf("run %s %s: %w", name, strings.Join(args, " "), err)
+	}
+
+	return fmt.Errorf("run %s %s: %s: %w", name, strings.Join(args, " "), truncate(trimmed, stderrTruncateLen), err)
 }
 
 // KnownProviders returns sandbox provider names in fallback order.
