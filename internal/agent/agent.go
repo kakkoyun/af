@@ -238,8 +238,6 @@ func NewRegistry(agents ...Agent) *Registry {
 }
 
 // Resolve returns the provider named name.
-//
-//nolint:ireturn // Registry intentionally hides concrete provider implementations.
 func (registry *Registry) Resolve(name string) (Agent, error) {
 	provider, ok := registry.agents[name]
 	if !ok {
@@ -250,8 +248,6 @@ func (registry *Registry) Resolve(name string) (Agent, error) {
 }
 
 // FirstAvailable returns the first available provider in configured fallback order.
-//
-//nolint:ireturn // Registry intentionally hides concrete provider implementations.
 func (registry *Registry) FirstAvailable(ctx context.Context) (Agent, error) {
 	for _, name := range KnownAgents() {
 		provider, ok := registry.agents[name]

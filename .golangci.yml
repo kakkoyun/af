@@ -78,6 +78,15 @@ linters:
         - unnamedResult
     govet:
       enable-all: true
+    ireturn:
+      # The Registry deliberately returns the Agent interface to hide concrete
+      # provider implementations behind a stable abstraction (registry pattern).
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - 'github\.com/kakkoyun/af/internal/agent\.Agent'
     revive:
       rules:
         - name: var-naming
