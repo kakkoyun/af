@@ -2830,3 +2830,86 @@ path).
 
 `gofumpt -l cmd/ internal/` clean; `golangci-lint run` (v2.3.0, all
 linters) 0 issues; `go test -race -count=1 ./...` green.
+
+## 2026-07-09 — Session 46f: completions --install (issue #22)
+
+Implemented `af completions [SHELL] --install [--dry-run]` on top of
+the existing `cmd/af/completions.go` (previously stdout-only). No new
+flag for shell selection: the existing positional argument now doubles
+as the install-time override, and `completionsArgs` (a custom
+`cobra.PositionalArgs`) switches between `cobra.ExactArgs(1)` (no
+`--install`, unchanged behavior) and `cobra.MaximumNArgs(1)`
+(`--install` set, positional optional) by reading the `--install` flag
+before cobra's argument-count check runs.
+
+- `generateCompletionScript` renders into a `bytes.Buffer` (same
+  `root.GenXxxCompletion` calls as before) so stdout mode and install
+  mode always agree byte-for-byte; stdout mode writes the buffer
+  unchanged.
+- `completionInstallPath` maps shell -> destination: zsh `~/.zfunc/_af`,
+  bash `~/.bash_completion.d/af` (no macOS/Linux split — deliberately
+  user-local, no `/usr/local` probing), fish
+  `~/.config/fish/completions/af.fish`. PowerShell has no destination
+  and is rejected via the same `errUnsupportedShell` sentinel used for
+  unknown shells.
+- `writeCompletionScript` reads the destination first; byte-identical
+  content is a no-op (returns `written=false`), anything else creates
+  the parent dir (`0o750`) and writes via the existing
+  `session.WriteFileAtomic` helper (`0o644`) rather than hand-rolling
+  temp-file-plus-rename again.
+- `detectShellFromEnv` maps `filepath.Base($SHELL)` to bash/zsh/fish;
+  empty or unrecognized returns the new `errCannotDetectShell` sentinel
+  with the exact message the issue specified. ps-based process-tree
+  detection (mentioned in the issue) is deliberately out of scope —
+  `$SHELL` is the only signal.
+- `errDryRunRequiresInstall` covers `--dry-run` without `--install`.
+  Both new sentinels were added to `exit_codes.go`'s
+  `isDomainUsageError` alongside `errUnsupportedShell`, so they map to
+  `exitUsage` (64); `exit_codes_test.go` gained two matching table rows.
+- Activation hints (never touches rc files): zsh prints two lines
+  (`fpath=(~/.zfunc $fpath)` before `compinit`, then
+  `autoload -Uz compinit && compinit`); bash prints one line (source
+  `~/.bash_completion.d/af` from `~/.bashrc`); fish prints one line (no
+  action needed).
+
+### Tests (written first)
+
+- `cmd/af/completions_test.go`: `TestCompletions_InstallWritesExpectedDestination`
+  (table over zsh/bash/fish — path, content byte-equality with stdout
+  mode, 0o644 mode), `TestCompletions_InstallSecondRunIsUpToDate` (mtime
+  unchanged), `TestCompletions_InstallOverwritesStaleContent`,
+  `TestCompletions_InstallAutoDetectsShellFromEnv` (table: zsh detected,
+  empty `$SHELL` errors, `/bin/ksh` errors), `TestCompletions_DryRunInstallWritesNothing`
+  (asserts neither the file nor its parent dir exist),
+  `TestCompletions_DryRunWithoutInstallErrors`,
+  `TestCompletions_InstallRejectsPowerShell`. All new tests were red
+  before `completions.go` was extended, green after.
+- `cmd/af/exit_codes_test.go`: two new rows for `errCannotDetectShell`
+  and `errDryRunRequiresInstall`.
+- `cmd/af/testdata/script/completions.txt` extended (hermetic
+  `HOME=$WORK/home`, a separate `HOME=$WORK/home-dryrun` for the
+  writes-nothing check): per-shell install + idempotent re-run + stale
+  overwrite + powershell rejection + dry-run-without-install error +
+  `$SHELL` auto-detection (zsh/ksh/empty) + dry-run-writes-nothing,
+  using testscript's `stdout`/`cmp`/`exists` builtins (no shell
+  redirection available in testscript's mini-language, so the stale
+  fixture lives in an `-- fixtures/stale-zsh.txt --` archive section
+  rather than an inline `echo >>`).
+
+### Verification
+
+`gofumpt -l cmd/ internal/` clean; `golangci-lint run` (v2.3.0, all
+linters, including `cyclop`, `mnd`, `wrapcheck`, `noinlineerr`,
+`govet` fieldalignment) 0 issues after splitting `installCompletions`
+into `installCompletions` + `writeCompletionScript` (cyclomatic
+complexity), naming the `0o750`/`0o644` permission constants, wrapping
+`session.WriteFileAtomic`'s error, and reordering one test's struct
+fields. `go test -race -count=1 ./...` green across every package,
+including the extended `completions` testscript.
+
+### Deviations from the issue text
+
+- ps-based shell detection (mentioned in the issue as an alternative)
+  was deliberately not implemented — `$SHELL`'s basename is the only
+  detection signal, per the task's explicit instruction to leave
+  process-tree inspection out of scope.

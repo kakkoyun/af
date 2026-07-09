@@ -118,7 +118,9 @@ func isDomainUsageError(err error) bool {
 	return errors.Is(err, errNoteAppendRequired) ||
 		errors.Is(err, errStackParentRequired) ||
 		errors.Is(err, errUnsupportedShell) ||
-		errors.Is(err, workstream.ErrInvalidSessionName)
+		errors.Is(err, workstream.ErrInvalidSessionName) ||
+		errors.Is(err, errCannotDetectShell) ||
+		errors.Is(err, errDryRunRequiresInstall)
 }
 
 // isCobraUsageError detects cobra's own parse-time usage errors.

@@ -36,6 +36,8 @@ func TestExitCodeForError_MapsEveryADR068Row(t *testing.T) {
 		{name: "af domain usage: stack --parent", err: fmt.Errorf("stack: %w", errStackParentRequired), want: exitUsage},
 		{name: "af domain usage: unsupported shell", err: fmt.Errorf("completions: %w", errUnsupportedShell), want: exitUsage},
 		{name: "af domain usage: invalid session name", err: fmt.Errorf("AF_SESSION: %w", workstream.ErrInvalidSessionName), want: exitUsage},
+		{name: "af domain usage: cannot detect shell", err: fmt.Errorf("completions: %w", errCannotDetectShell), want: exitUsage},
+		{name: "af domain usage: dry-run without install", err: fmt.Errorf("completions: %w", errDryRunRequiresInstall), want: exitUsage},
 		{name: "bad state.toml", err: fmt.Errorf("stack: %w", errStackNoState), want: exitNoInput},
 		{name: "session resolution no input", err: errSessionResolutionNoInput, want: exitNoInput},
 		{name: "proxy no state", err: errProxyNoState, want: exitNoInput},

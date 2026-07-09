@@ -17,3 +17,73 @@ stderr 'tcsh'
 
 ! exec af completions
 stderr 'arg'
+
+# ── --install: idempotent per-shell install under a hermetic HOME (issue #22) ─
+env HOME=$WORK/home
+
+# Save the stdout-mode zsh script so the installed file can be compared
+# against it byte-for-byte.
+exec af completions zsh
+cp stdout want-zsh.txt
+
+exec af completions zsh --install
+stdout 'installed zsh completions: '$HOME'/.zfunc/_af'
+stdout 'fpath=\(~/.zfunc \$fpath\)'
+stdout 'autoload -Uz compinit && compinit'
+exists $HOME/.zfunc/_af
+cmp $HOME/.zfunc/_af want-zsh.txt
+
+# Re-running with unchanged content is a no-op (reports up to date,
+# does not rewrite).
+exec af completions zsh --install
+stdout 'completions for zsh already up to date: '$HOME'/.zfunc/_af'
+
+# Stale content at the destination is silently overwritten.
+cp fixtures/stale-zsh.txt $HOME/.zfunc/_af
+exec af completions zsh --install
+stdout 'installed zsh completions: '$HOME'/.zfunc/_af'
+cmp $HOME/.zfunc/_af want-zsh.txt
+
+exec af completions bash --install
+stdout 'installed bash completions: '$HOME'/.bash_completion.d/af'
+stdout 'source `~/.bash_completion.d/af` from ~/.bashrc'
+exists $HOME/.bash_completion.d/af
+
+exec af completions fish --install
+stdout 'installed fish completions: '$HOME'/.config/fish/completions/af.fish'
+stdout 'no action needed'
+exists $HOME/.config/fish/completions/af.fish
+
+# powershell has no standard user-local install destination.
+! exec af completions powershell --install
+stderr 'unsupported completion shell'
+
+# --dry-run without --install is a usage error.
+! exec af completions zsh --dry-run
+stderr 'dry-run only valid together with --install'
+
+# $SHELL auto-detection: a recognized basename picks that shell; an
+# unrecognized or empty $SHELL is a domain usage error.
+env SHELL=/bin/zsh
+exec af completions --install
+stdout $HOME'/.zfunc/_af'
+
+env SHELL=/bin/ksh
+! exec af completions --install
+stderr 'cannot detect shell from \$SHELL'
+
+env SHELL=
+! exec af completions --install
+stderr 'cannot detect shell from \$SHELL'
+
+# --dry-run --install writes nothing, under a fresh hermetic HOME.
+env HOME=$WORK/home-dryrun
+exec af completions zsh --install --dry-run
+stdout 'would install zsh completions to '$HOME'/.zfunc/_af'
+stdout 'fpath=\(~/.zfunc \$fpath\)'
+! exists $HOME/.zfunc/_af
+! exists $HOME/.zfunc
+
+-- fixtures/stale-zsh.txt --
+# stale completions script from a previous af version; --install must
+# overwrite this silently and report "installed", not "already up to date".

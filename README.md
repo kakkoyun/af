@@ -237,6 +237,21 @@ Backed by `zalando/go-keyring` (macOS Keychain / Linux Secret Service).
 | `af config init`                               | Write the annotated config template to `~/.config/af/config.toml`. Refuses to overwrite. |
 | `af config show`                               | Print the effective merged configuration as canonical TOML.                              |
 | `af completions <bash\|zsh\|fish\|powershell>` | Emit a shell completion script to stdout.                                                |
+| `af completions [SHELL] --install [--dry-run]` | Install the completion script to the shell's standard user-local path instead of stdout. |
+
+`af completions --install` has no separate `--shell` flag: the existing positional argument doubles as the shell override (`af completions zsh --install`). Omit the positional with `--install` to auto-detect the shell from the basename of `$SHELL` (bash, zsh, or fish only); an empty or unrecognized `$SHELL` is an error asking you to pass one explicitly. Install destinations are user-local and root-free:
+
+| Shell  | Destination                              |
+| ------ | ----------------------------------------- |
+| zsh    | `~/.zfunc/_af`                            |
+| bash   | `~/.bash_completion.d/af`                 |
+| fish   | `~/.config/fish/completions/af.fish`      |
+
+Installing is idempotent: re-running with unchanged content writes nothing and reports `completions for <shell> already up to date: <path>`; changed or missing content is written atomically and reported as `installed <shell> completions: <path>`. `--dry-run` (only valid together with `--install`) reports what would happen without writing anything. `af` never edits your rc files itself; after installing, add the activation snippet for your shell:
+
+- **zsh**: ensure `fpath=(~/.zfunc $fpath)` and `autoload -Uz compinit && compinit` are both in `~/.zshrc` (the `fpath` line before `compinit` runs).
+- **bash**: source `~/.bash_completion.d/af` from `~/.bashrc`.
+- **fish**: no action needed — fish picks up `~/.config/fish/completions/` automatically.
 
 ### Meta
 
