@@ -32,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from the archived directory (after the rename, so the flock held by
   the running `done` stays valid on its open descriptor).
 
+### Fixed (dirty detection, issue #18)
+
+- `make warn-dirty` no longer treats untracked (including gitignored)
+  files as making the tree dirty — it now checks `! git diff --quiet
+  HEAD` (tracked changes only) instead of `git status --porcelain`,
+  matching what `af version`'s `dirty` flag actually reflects.
+
 ### Changed (lock windows, issue #3)
 
 - **PR-refresh flows no longer hold the session lock across the `gh`
