@@ -205,6 +205,71 @@ func TestCreate_SandboxProviderFactory_RejectsSBX(t *testing.T) {
 	}
 }
 
+// installFakeSandboxProvider overrides newSandboxProvider so `af create
+// --sandbox slicer` tests never shell out to a real `slicer` binary
+// (issue #33 Fix 3). The returned *sandboxpkg.Fake records every launch,
+// each producing a deterministic Handle with a distinguishable
+// AttachCmd.
+func installFakeSandboxProvider(t *testing.T) *sandboxpkg.Fake {
+	t.Helper()
+	fake := sandboxpkg.NewFake("slicer")
+	orig := newSandboxProvider
+	newSandboxProvider = func(sandboxpkg.SlicerOptions) sandboxpkg.Sandbox { return fake }
+	t.Cleanup(func() { newSandboxProvider = orig })
+	return fake
+}
+
+// TestCreate_SandboxLandsHostPaneInVMShell is the issue #33 Fix 3
+// regression pin: a --sandbox create must SendKeys the sandbox
+// provider's attach command (a plain shell into the VM) into the host
+// tmux pane, and must NOT also SendKeys the agent launch argv there —
+// the agent already launches inside the VM via `slicer wt push
+// --launch`.
+func TestCreate_SandboxLandsHostPaneInVMShell(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	muxFake := installFakeCreatePipeline(t)
+	fakeSandbox := installFakeSandboxProvider(t)
+
+	_, _, err := executeCommand(t, newRootCmd(), "create", "demo", "--sandbox", "slicer")
+	if err != nil {
+		t.Fatalf("create --sandbox slicer: %v", err)
+	}
+
+	handles, err := fakeSandbox.List(t.Context())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(handles) != 1 {
+		t.Fatalf("len(handles) = %d, want exactly one sandbox launch", len(handles))
+	}
+
+	sentKeys := muxFake.SentKeys("af-demo")
+	wantKeys := strings.Join(handles[0].AttachCmd, " ") + "\n"
+	if len(sentKeys) != 1 || sentKeys[0] != wantKeys {
+		t.Fatalf("SentKeys(af-demo) = %#v, want exactly [%q]", sentKeys, wantKeys)
+	}
+}
+
+// TestCreate_NonSandboxStillLaunchesAgentOnHost pins that the ordinary
+// (non-sandbox) create path is unchanged by Fix 3: the host tmux pane
+// still gets the agent launch argv via SendKeys.
+func TestCreate_NonSandboxStillLaunchesAgentOnHost(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	muxFake := installFakeCreatePipeline(t)
+
+	_, _, err := executeCommand(t, newRootCmd(), "create", "demo")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	sentKeys := muxFake.SentKeys("af-demo")
+	if len(sentKeys) != 1 || sentKeys[0] != "pi\n" {
+		t.Fatalf("SentKeys(af-demo) = %#v, want exactly [%q] (the default agent launch)", sentKeys, "pi\n")
+	}
+}
+
 // TestDefaultCreateContext_WiresDiskNoteStore guards the ADR-047 wiring:
 // production creates must carry a real note store, not nil, or
 // note-on-create silently becomes a no-op.

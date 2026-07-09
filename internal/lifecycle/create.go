@@ -47,6 +47,15 @@ type CreateOptions struct { //nolint:govet // Field grouping by semantic domain 
 	PrefixOnForkOnly bool
 	HasUpstream      bool
 	Bare             bool // skip agent launch
+	// HostAgentless allows CreateDeps.Agent to be nil for a non-bare
+	// create: the tmux session and AF_SESSION env are still created, but
+	// no primary agent is launched in the host pane. `af create --sandbox`
+	// sets this (issue #33 Fix 3) because the agent launches inside the
+	// sandbox VM instead, via `slicer wt push --launch`; the host pane
+	// becomes a plain shell into that VM. The primary agent slot in
+	// state.toml is always recorded from AgentName regardless of this
+	// flag, since buildInitialState never reads CreateDeps.Agent.
+	HostAgentless bool
 	// Control holds effective resolved ADR-061 control settings captured from
 	// ResolveControl. Zero value means all defaults.
 	Control ControlContext
@@ -210,7 +219,7 @@ func validateCreateDeps(deps CreateDeps, opts CreateOptions) error {
 	if !opts.Bare && deps.Mux == nil {
 		return fmt.Errorf("%w: nil mux for non-bare create", ErrCreate)
 	}
-	if !opts.Bare && deps.Agent == nil {
+	if !opts.Bare && !opts.HostAgentless && deps.Agent == nil {
 		return fmt.Errorf("%w: nil agent for non-bare create", ErrCreate)
 	}
 	return nil

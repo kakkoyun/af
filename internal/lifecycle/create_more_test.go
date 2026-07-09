@@ -228,6 +228,60 @@ func TestCreate_ValidatesOptionsAndDeps(t *testing.T) {
 	}
 }
 
+// TestCreate_HostAgentlessAllowsNilAgent is the issue #33 Fix 3
+// regression pin: a --sandbox create passes deps.Agent=nil (the agent
+// launches inside the VM instead, via `slicer wt push --launch`), but
+// Create must not reject that the way it rejects an accidental nil
+// agent for an ordinary non-bare create. The tmux session is still
+// created, and the primary agent slot in state.toml is still recorded
+// from AgentName (never from deps.Agent).
+func TestCreate_HostAgentlessAllowsNilAgent(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	opts := makeCreateOpts(t, home)
+	opts.Bare = false
+	opts.HostAgentless = true
+	muxFake := mux.NewFakeMultiplexer()
+
+	res, err := lifecycle.Create(context.Background(), lifecycle.CreateDeps{
+		Git: git.NewFakeRunner(),
+		Mux: muxFake,
+	}, opts)
+	if err != nil {
+		t.Fatalf("Create with HostAgentless and nil Agent: %v", err)
+	}
+	if res.TmuxSession == "" {
+		t.Fatal("TmuxSession empty, want a session even for a host-agentless sandbox create")
+	}
+
+	state, err := session.ReadState(res.StatePath)
+	if err != nil {
+		t.Fatalf("ReadState: %v", err)
+	}
+	if len(state.Agents) != 1 || state.Agents[0].Provider != "pi" {
+		t.Fatalf("state.Agents = %#v, want primary slot recorded from AgentName (pi)", state.Agents)
+	}
+}
+
+// TestCreate_NilAgentStillRejectedWithoutHostAgentless pins that
+// HostAgentless is required to opt out of the nil-agent guard — an
+// ordinary non-bare, non-sandbox create with a nil Agent must still
+// fail the way it always has.
+func TestCreate_NilAgentStillRejectedWithoutHostAgentless(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	opts := makeCreateOpts(t, home)
+	opts.Bare = false
+
+	_, err := lifecycle.Create(context.Background(), lifecycle.CreateDeps{
+		Git: git.NewFakeRunner(),
+		Mux: mux.NewFakeMultiplexer(),
+	}, opts)
+	if !errors.Is(err, lifecycle.ErrCreate) {
+		t.Fatalf("want ErrCreate, got %v", err)
+	}
+}
+
 func TestCreate_GitWorktreeAddFailureAborts(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()

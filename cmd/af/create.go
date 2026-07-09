@@ -92,7 +92,7 @@ func newCreateCmd(opts *rootOptions) *cobra.Command {
 	return cmd
 }
 
-func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, name string) error { //nolint:funlen // Pipeline orchestration; further splitting hurts readability.
+func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, name string) error {
 	cfg, err := loadCreateConfig(ctx, opts.root)
 	if err != nil {
 		return err
@@ -125,12 +125,50 @@ func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, nam
 		return err
 	}
 
-	result, err := lifecycle.Create(ctx, lifecycle.CreateDeps{
+	createDeps, createOpts := buildLifecycleCreateInputs(cc, opts, primary, agentName, name, gitRoot, repoSlug, fromBranch, hasUpstream, cfg)
+	result, err := lifecycle.Create(ctx, createDeps, createOpts)
+	if err != nil {
+		return fmt.Errorf("create: %w", err)
+	}
+
+	err = launchAndAttachSandbox(ctx, cc.mux, opts, cfg, result, primary)
+	if err != nil {
+		return err
+	}
+
+	err = printCreateResult(cmd, result)
+	if err != nil {
+		return err
+	}
+
+	return finishCreateOutput(ctx, cmd, cc, opts, result)
+}
+
+// buildLifecycleCreateInputs assembles the CreateDeps/CreateOptions pair
+// passed to lifecycle.Create. It exists to keep runCreate under the
+// cyclop complexity budget; the one piece of actual logic it holds is
+// issue #33 Fix 3: a --sandbox create must not launch the agent in the
+// host tmux pane (the agent launches inside the sandbox VM instead, via
+// launchSandbox below), so the host pane must stay a plain shell.
+// HostAgentless tells lifecycle.Create to allow CreateDeps.Agent=nil
+// without rejecting it as the usual "forgot to pass an agent" mistake;
+// the primary agent slot in state.toml is still recorded from AgentName
+// either way, since lifecycle never reads CreateDeps.Agent for that.
+func buildLifecycleCreateInputs(
+	cc *createContext, opts *createOptions, primary agent.Agent,
+	agentName, name, gitRoot, repoSlug, fromBranch string, hasUpstream bool, cfg config.Config,
+) (lifecycle.CreateDeps, lifecycle.CreateOptions) {
+	hostAgentless := opts.sandbox != ""
+	deps := lifecycle.CreateDeps{
 		Git:   cc.git,
 		Mux:   cc.mux,
 		Agent: primary,
 		Notes: cc.notes,
-	}, lifecycle.CreateOptions{
+	}
+	if hostAgentless {
+		deps.Agent = nil
+	}
+	createOpts := lifecycle.CreateOptions{
 		Name:             name,
 		FromBranch:       fromBranch,
 		GitRoot:          gitRoot,
@@ -144,22 +182,9 @@ func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, nam
 		HasUpstream:      hasUpstream,
 		Bare:             opts.bare,
 		AgentName:        agentName,
-	})
-	if err != nil {
-		return fmt.Errorf("create: %w", err)
+		HostAgentless:    hostAgentless,
 	}
-
-	err = launchSandbox(ctx, opts, cfg, result, primary)
-	if err != nil {
-		return err
-	}
-
-	err = printCreateResult(cmd, result)
-	if err != nil {
-		return err
-	}
-
-	return finishCreateOutput(ctx, cmd, cc, opts, result)
+	return deps, createOpts
 }
 
 // finishCreateOutput implements issue #21: attach to the just-created
@@ -230,15 +255,39 @@ func printCreateFooter(w io.Writer, name, tmuxSession string) error {
 	return nil
 }
 
+// newSandboxProvider constructs the sandbox.Sandbox used by
+// launchSandbox. It is a package-level test seam (matching
+// newCreateContextOverride/newResumeMux/isInteractiveCreateFunc) so
+// tests can substitute a fake and never shell out to a real `slicer`
+// binary.
+//
+//nolint:gochecknoglobals // Test seam for `af create --sandbox`'s provider construction (issue #33 Fix 3).
+var newSandboxProvider = func(opts sandbox.SlicerOptions) sandbox.Sandbox {
+	return sandbox.NewSlicerProvider(opts, sandbox.ExecRunner{})
+}
+
+// launchAndAttachSandbox runs launchSandbox and, when it produced a
+// handle, attachSandboxShell — split out of runCreate purely to keep
+// runCreate's cyclomatic complexity under budget.
+func launchAndAttachSandbox(ctx context.Context, multiplexer mux.Multiplexer, opts *createOptions, cfg config.Config, result lifecycle.CreateResult, primary agent.Agent) error {
+	handle, err := launchSandbox(ctx, opts, cfg, result, primary)
+	if err != nil {
+		return err
+	}
+	return attachSandboxShell(ctx, multiplexer, result, handle)
+}
+
 // launchSandbox invokes lifecycle.LaunchSandboxWorkstream after the
 // worktree and state files have been created by lifecycle.Create.
-// Returns nil immediately when --sandbox is unset or --bare is active.
-// The envelope file is placed in the same directory as state.toml so
-// the slicer mount can source it, and is deleted by the deferred
-// lifecycle.LaunchSandboxWorkstream cleanup.
-func launchSandbox(ctx context.Context, opts *createOptions, cfg config.Config, result lifecycle.CreateResult, primary agent.Agent) error {
+// Returns a nil handle immediately when --sandbox is unset or --bare is
+// active. The envelope file is placed in the same directory as
+// state.toml so the slicer mount can source it, and is deleted by the
+// deferred lifecycle.LaunchSandboxWorkstream cleanup. The returned
+// handle (when non-nil) is used by attachSandboxShell to land the host
+// tmux pane inside the VM (issue #33 Fix 3).
+func launchSandbox(ctx context.Context, opts *createOptions, cfg config.Config, result lifecycle.CreateResult, primary agent.Agent) (*sandbox.Handle, error) {
 	if opts.sandbox == "" || opts.bare {
-		return nil
+		return nil, nil //nolint:nilnil // Absence of a sandbox launch is not an error; callers check the handle.
 	}
 	resources := sandbox.SlicerResources{
 		Name:        cfg.Sandbox.Slicer.Resources.Name,
@@ -252,18 +301,18 @@ func launchSandbox(ctx context.Context, opts *createOptions, cfg config.Config, 
 	prober := sandbox.ExecGroupProber{Runner: sandbox.ExecRunner{}}
 	group, _, err := sandbox.ResolveLaunchGroup(ctx, prober, result.SessionName, cfg.Sandbox.Slicer.Group, resources)
 	if err != nil {
-		return fmt.Errorf("create --sandbox resolve group: %w", err)
+		return nil, fmt.Errorf("create --sandbox resolve group: %w", err)
 	}
-	provider := sandbox.NewSlicerProvider(sandbox.SlicerOptions{
+	provider := newSandboxProvider(sandbox.SlicerOptions{
 		Group:     group,
 		Resources: resources,
-	}, sandbox.ExecRunner{})
+	})
 	agentArgv := primary.LaunchCmd(agent.LaunchOpts{
 		Cwd:       result.WorktreePath,
 		SessionID: result.SessionID,
 	})
 	envelopePath := filepath.Join(filepath.Dir(result.StatePath), result.SessionName+"-sandbox.env")
-	_, err = lifecycle.LaunchSandboxWorkstream(ctx, lifecycle.SandboxContext{
+	handle, err := lifecycle.LaunchSandboxWorkstream(ctx, lifecycle.SandboxContext{
 		Provider: provider,
 		Envelope: secret.Envelope{Path: envelopePath},
 	}, sandbox.LaunchOpts{
@@ -272,7 +321,32 @@ func launchSandbox(ctx context.Context, opts *createOptions, cfg config.Config, 
 		AgentArgv:  agentArgv,
 	})
 	if err != nil {
-		return fmt.Errorf("create --sandbox launch: %w", err)
+		return nil, fmt.Errorf("create --sandbox launch: %w", err)
+	}
+	return handle, nil
+}
+
+// attachSandboxShell sends the sandbox provider's attach command (a
+// plain shell into the VM, e.g. `slicer vm shell <vm>`) into the host
+// tmux pane after a successful --sandbox launch (issue #33 Fix 3). The
+// host pane must not also run the agent: the agent already launches
+// inside the VM via `slicer wt push --launch`'s AgentArgv. handle is nil
+// for non-sandbox and --bare creates (launchSandbox's early return), in
+// which case this is a no-op; a create with no tmux session (--bare) can
+// never reach here with a non-nil handle since launchSandbox itself
+// returns nil for --bare.
+//
+// Deliberate deviation from the issue's sketch: no --cwd flag is passed
+// to `slicer vm shell`. Nothing in this codebase indicates slicer
+// supports one, and `slicer wt push` already provisions the workspace
+// inside the VM, so the shell lands in a sensible directory on its own.
+func attachSandboxShell(ctx context.Context, multiplexer mux.Multiplexer, result lifecycle.CreateResult, handle *sandbox.Handle) error {
+	if handle == nil || result.TmuxSession == "" {
+		return nil
+	}
+	err := multiplexer.SendKeys(ctx, result.TmuxSession, "", strings.Join(handle.AttachCmd, " ")+"\n")
+	if err != nil {
+		return fmt.Errorf("create --sandbox attach shell: %w", err)
 	}
 	return nil
 }
