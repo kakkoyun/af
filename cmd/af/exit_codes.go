@@ -83,7 +83,8 @@ func exitCodeForSentinel(err error) (int, bool) {
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, errSessionPickerInterrupted):
 		return exitInterrupted, true
-	case errors.Is(err, errSessionResolutionNoInput), errors.Is(err, errProxyNoState), errors.Is(err, errStackNoState):
+	case errors.Is(err, errSessionResolutionNoInput), errors.Is(err, errProxyNoState), errors.Is(err, errStackNoState),
+		errors.Is(err, session.ErrSessionDirNotFound):
 		return exitNoInput, true
 	case errors.Is(err, errPRRefreshNoPR), errors.Is(err, errPRAIEmptyDiff), errors.Is(err, errReviewEmptyDiff), errors.Is(err, errReviewEmptyBody):
 		return exitDataErr, true

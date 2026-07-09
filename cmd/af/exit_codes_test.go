@@ -39,6 +39,7 @@ func TestExitCodeForError_MapsEveryADR068Row(t *testing.T) {
 		{name: "af domain usage: cannot detect shell", err: fmt.Errorf("completions: %w", errCannotDetectShell), want: exitUsage},
 		{name: "af domain usage: dry-run without install", err: fmt.Errorf("completions: %w", errDryRunRequiresInstall), want: exitUsage},
 		{name: "bad state.toml", err: fmt.Errorf("stack: %w", errStackNoState), want: exitNoInput},
+		{name: "session dir not found", err: fmt.Errorf("session 'ghost' not found: %w", session.ErrSessionDirNotFound), want: exitNoInput},
 		{name: "session resolution no input", err: errSessionResolutionNoInput, want: exitNoInput},
 		{name: "proxy no state", err: errProxyNoState, want: exitNoInput},
 		{name: "pr --refresh no PR", err: errPRRefreshNoPR, want: exitDataErr},

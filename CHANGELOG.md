@@ -13,6 +13,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (public-repo README pass)
+
+- `README.md` installation command now points at the real main package:
+  `go install github.com/kakkoyun/af/cmd/af@latest` (the previous
+  root-module form failed — the module has no root main package). The
+  stated Go requirement now matches `go.mod` (1.26+, was "1.22+").
+- An unknown session name now exits **66** (`EX_NOINPUT`) as ADR-068's
+  table always said it should: `session.ErrSessionDirNotFound`
+  (introduced with the issue #24 not-found rework) was never wired into
+  the exit-code sentinel switch, so it fell through to the generic
+  exit 1. Found while verifying the examples page's exit-code recipes
+  against a real binary. The doctor self-smoke's
+  `unknown-session-rejected` step now expects 66.
+- `af agent stop --remove-worktree` now clears the removed
+  sub-worktree/sub-branch from `state.toml`. Previously the paths were
+  left in state, so a later `af done` re-ran `git worktree remove` on
+  the already-removed path — real git fatals and the whole `done`
+  aborts. Found by executing every `docs/EXAMPLES.md` recipe against a
+  real binary (the add → stop → done sequence); existing tests missed
+  it because the done tests use the fake git runner, which tolerates
+  double removal.
+
+### Added (examples page)
+
+- `docs/EXAMPLES.md`: copy-pasteable recipes for every feature — daily
+  lifecycle, resume hints and session resolution, multi-agent slots,
+  stacked workstreams, diff/PR/review flows, slicer sandbox +
+  `--continue-host` transcript sync, remote control, notes/Obsidian/
+  retro, secrets, housekeeping, JSON + exit-code scripting, and
+  completions install. Linked from the README quickstart and
+  documentation table.
+
+### Changed (public-repo README pass)
+
+- README gained CI / Go Report Card / pkg.go.dev / Go-version / license
+  badges, a create-lifecycle diagram, a Highlights section, a runtime
+  requirements paragraph, and a Contributing section; the v1 status
+  blockquote was rewritten from implementer stage/ADR jargon into a
+  reader-facing summary.
+
 ### Fixed (owner smoke-test findings; issues #15, #16)
 
 - **A malformed `AF_SESSION` now fails every `af` invocation up front**

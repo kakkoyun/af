@@ -121,6 +121,13 @@ func AgentStop(ctx context.Context, runner git.Runner, opts AgentStopOptions) er
 	if err != nil {
 		return err
 	}
+	if opts.RemoveWorktree {
+		// The worktree and branch are gone; clear them from state so a
+		// later `af done` does not re-run `git worktree remove` on the
+		// already-removed path (real git fatals and aborts the done).
+		state.Agents[idx].SubWorktree = ""
+		state.Agents[idx].SubBranch = ""
+	}
 	return writeAgentStopped(state, idx, opts)
 }
 
