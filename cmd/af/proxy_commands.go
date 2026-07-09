@@ -338,7 +338,7 @@ func computeWorktreeDiff(ctx context.Context, runner git.Runner, dir, base, head
 
 // resolveBodyAgent resolves the agent provider named agentName (defaults to
 // defaultBodyAgentName when empty) from the default registry.
-func resolveBodyAgent(agentName string) (agent.Agent, error) { //nolint:ireturn // Returns agent.Agent; registry hides concrete provider implementations.
+func resolveBodyAgent(agentName string) (agent.Agent, error) {
 	name := agentName
 	if name == "" {
 		name = defaultBodyAgentName

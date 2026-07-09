@@ -424,7 +424,6 @@ func resolveFromBranch(ctx context.Context, cc *createContext, gitRoot string, o
 	return "HEAD", nil
 }
 
-//nolint:ireturn // Agent interface decouples cmd from concrete providers.
 func resolvePrimaryAgent(agentName string) (agent.Agent, error) {
 	registry := agent.DefaultRegistry()
 	resolved, err := registry.Resolve(agentName)
