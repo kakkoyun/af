@@ -158,6 +158,13 @@ func handleResumeAlreadyActive(cmd *cobra.Command, multiplexer mux.Multiplexer, 
 		}
 		return nil
 	}
+	// Issue #33 Fix 2: a workstream can be recorded "active" in state.toml
+	// while its tmux session is gone (tmux server restarted, session killed
+	// out-of-band). Respawn it with the exact helper the suspended->active
+	// transition already uses (lifecycle.MaybeRespawnTmux is a no-op when
+	// the session is still alive) before attaching, so attach never targets
+	// a dead session.
+	lifecycle.MaybeRespawnTmux(cmd.Context(), multiplexer, state, false)
 	return attachResumeSession(cmd, multiplexer, state.Execution.TmuxSession)
 }
 

@@ -147,6 +147,51 @@ func TestSuspendWorkstream_ReadStateError(t *testing.T) {
 	}
 }
 
+// TestMaybeRespawnTmux_RespawnsWhenMissing pins the exported entry
+// point cmd/af's resume-on-active path calls directly (issue #33 Fix
+// 2): it must respawn the session when SessionExists reports it's gone.
+func TestMaybeRespawnTmux_RespawnsWhenMissing(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	state := session.State{
+		Worktree:  session.WorktreeState{Path: dir},
+		Execution: session.ExecutionState{TmuxSession: "af-demo"},
+	}
+	muxFake := mux.NewFakeMultiplexer()
+
+	lifecycle.MaybeRespawnTmux(context.Background(), muxFake, state, false)
+
+	exists, err := muxFake.SessionExists(context.Background(), "af-demo")
+	if err != nil {
+		t.Fatalf("SessionExists: %v", err)
+	}
+	if !exists {
+		t.Fatal("MaybeRespawnTmux did not respawn a missing session")
+	}
+}
+
+// TestMaybeRespawnTmux_NoOpWhenAlive pins that MaybeRespawnTmux leaves
+// an existing session untouched.
+func TestMaybeRespawnTmux_NoOpWhenAlive(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	state := session.State{
+		Worktree:  session.WorktreeState{Path: dir},
+		Execution: session.ExecutionState{TmuxSession: "af-demo"},
+	}
+	tracker := &trackingMux{FakeMultiplexer: mux.NewFakeMultiplexer()}
+	err := tracker.FakeMultiplexer.CreateSession(context.Background(), "af-demo", dir)
+	if err != nil {
+		t.Fatalf("pre-create session: %v", err)
+	}
+
+	lifecycle.MaybeRespawnTmux(context.Background(), tracker, state, false)
+
+	if tracker.createCalls != 0 {
+		t.Fatalf("createCalls = %d, want 0 for an alive session", tracker.createCalls)
+	}
+}
+
 func TestResumeWorkstream_RespawnsDeadTmuxSession(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
