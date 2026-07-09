@@ -1,33 +1,55 @@
 # af
 
-**af** manages isolated AI-agent workstreams across git worktrees, tmux sessions,
-sandboxes, and SSH remotes. Give it a task name, and it creates a branch, a
-dedicated worktree, a tmux session, and launches a primary agent (pi, claude, or
-codex) — all tied together under a single durable state file. When the task is
-done, everything is cleaned up with one command.
+[![CI](https://github.com/kakkoyun/af/actions/workflows/ci.yml/badge.svg)](https://github.com/kakkoyun/af/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kakkoyun/af)](https://goreportcard.com/report/github.com/kakkoyun/af)
+[![Go Reference](https://pkg.go.dev/badge/github.com/kakkoyun/af.svg)](https://pkg.go.dev/github.com/kakkoyun/af)
+![Go Version](https://img.shields.io/github/go-mod/go-version/kakkoyun/af)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> **Status — v1 (single-user).** Stages 0–14 are implemented and all
-> v1 ADRs are closed: ADRs 031–073 are `implementation: complete`
-> (ADR-032 is `implementation: n/a`). Stage 15 is release prep.
-> `make check` is
-> green. The proxy commands (`af editor`, `af diff`, `af pr`, `af retro`),
-> suspend/resume lifecycle, stack-aware `af sync`, opinionated diff
-> rendering (hunk + diffity), repo-scoped `[control]` settings,
-> `af control up/down/status` remote-control via Tailscale + superterm,
-> slicer-only sandbox with `[sandbox.slicer.resources]` profile capture,
-> slicer worktree transport (`slicer wt push/pull`) with host-worktree
-> lease enforcement and `af pull`, slicer VM agent-session export +
-> automatic sync (`af session-data sync|list` with append-aware JSONL
-> merge and auto-sync hooks on `af suspend` / `af done`), and
-> goreleaser snapshot builds are all exercised by unit + integration
-> testscripts. Remote / sandbox launches go through `secret.Envelope`
-> for ephemeral env-file transport. See [Caveats](#caveats) for the
-> remaining single-user assumptions.
+**af** (*agentic-flow*) manages isolated AI-agent workstreams across git
+worktrees, tmux sessions, sandboxes, and SSH remotes. Give it a task name and
+it creates a branch, a dedicated worktree, a tmux session, and launches an
+agent (pi, claude, or codex) — all tied together under a single durable state
+file. When the task is done, everything is cleaned up with one command.
+
+```
+af create fix-auth
+   ├─ git branch + worktree     ~/Workspace/.worktrees/<repo>/fix-auth
+   ├─ durable state + ledger    ~/.local/share/af/v1/sessions/fix-auth/
+   ├─ tmux session              af-fix-auth
+   └─ agent launched            pi / claude / codex   → attaches
+```
+
+## Highlights
+
+- **One command per task** — branch, worktree, tmux, agent, note: created
+  together, torn down together, never leaking into your main checkout.
+- **A durable ledger per workstream** — every lifecycle event, note, and sync
+  lands in an append-only `ledger.jsonl` you can mine later (`af retro`,
+  optionally AI-synthesised).
+- **Multi-agent slots** — add parallel agents on sibling sub-worktrees and
+  sibling branches (`af agent add`).
+- **Sandboxed agents** — run the agent inside an isolated Linux VM
+  (slicer-backed), lease the worktree to it, and sync agent transcripts back
+  to the host — resumable with `--continue-host`.
+- **Stack-aware branches** — parent/child workstreams with fetch + rebase
+  (`af stack`, `af sync`), plus PR helpers with cached state and AI-drafted
+  bodies and reviews.
+- **Scriptable by design** — versioned `--json` envelopes, a full
+  sysexits-style exit-code contract, bounded locking, shell completions.
+- **Self-diagnosing** — `af doctor --all --report` smoke-tests the whole
+  command surface on your machine in an isolated scratch HOME and writes a
+  paste-ready report (it can even file the failures as a GitHub issue).
+
+> **Status — v1, single-user, pre-release.** The full v1 surface is
+> implemented, ratified through 43 ADRs, and exercised by unit, property,
+> and golden-script tests plus real tmux/keychain integration jobs on Linux
+> and macOS CI. See [Caveats](#caveats) for the single-user assumptions.
 
 ## Installation
 
 ```bash
-go install github.com/kakkoyun/af@latest
+go install github.com/kakkoyun/af/cmd/af@latest
 ```
 
 Or build from source:
@@ -38,7 +60,13 @@ cd af
 make install   # installs to $GOPATH/bin
 ```
 
-Requires Go 1.22+. Binaries are not published; this is a single-user tool.
+Building requires **Go 1.26+**. At runtime af orchestrates the tools you
+already have: `git` and `tmux` are required, plus at least one agent CLI
+(`pi`, `claude`, or `codex`). Optional integrations light up when present:
+`fzf` (interactive session picker), `gh` (PR helpers), `slicer` (VM
+sandbox), an Obsidian vault (notes). Run `af doctor` to see what your
+machine is missing — binaries are not published; this is a single-user tool
+installed from source.
 
 ## Quickstart
 
@@ -142,9 +170,6 @@ These commands run the user-configured executables from `[diff]`, `[pr]`, and
 | `af diff [session] [--base REF] [--web] [--interactive]`                  | Run the configured diff command in the workstream worktree; `--web` opens the range via diffity (ADR-064). |
 | `af pr [session] [--title T] [--body B] [--draft] [--web] [--ai] [--ai-model MODEL] [--refresh]` | Run the PR-create command; `--ai` builds the body from the worktree diff via `agent.BodyCmd` (rejects `--ai` + `--web`); `--refresh` force-refreshes the cached PR state (ADR-071) without opening anything. |
 | `af editor [session] [--terminal\|-t] [--visual]`                          | Open the configured editor at the workstream worktree path.              |
-
-
-
 
 ### State schema roll-up (ADR-072)
 
@@ -376,6 +401,16 @@ make release-snapshot  # cross-compile snapshot via goreleaser
 | [`docs/v0/`](docs/v0/)                       | Frozen Rust-era archive (30 ADRs, SPEC, PLAN, eleven-session PROGRESS log) |
 | [`AGENTS.md`](AGENTS.md)                     | Working agreement for AI agents                                            |
 | [`CLAUDE.md`](CLAUDE.md)                     | Project constitution                                                       |
+
+## Contributing
+
+`af` is a single-user tool built in public — scope decisions are recorded as
+ADRs under [`docs/adr/`](docs/adr/INDEX.md) and the project constitution
+lives in [`CLAUDE.md`](CLAUDE.md). Bug reports with reproductions are very
+welcome (an `af doctor --all --report` markdown attachment is the perfect
+bug report). PRs are welcome too, with the caveat that anything changing
+design goes through a new ADR first, and the bar is strict TDD +
+`make check` green.
 
 ## License
 

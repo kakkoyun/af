@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (public-repo README pass)
+
+- `README.md` installation command now points at the real main package:
+  `go install github.com/kakkoyun/af/cmd/af@latest` (the previous
+  root-module form failed — the module has no root main package). The
+  stated Go requirement now matches `go.mod` (1.26+, was "1.22+").
+
+### Changed (public-repo README pass)
+
+- README gained CI / Go Report Card / pkg.go.dev / Go-version / license
+  badges, a create-lifecycle diagram, a Highlights section, a runtime
+  requirements paragraph, and a Contributing section; the v1 status
+  blockquote was rewritten from implementer stage/ADR jargon into a
+  reader-facing summary.
+
 ### Fixed (owner smoke-test findings; issues #15, #16)
 
 - **A malformed `AF_SESSION` now fails every `af` invocation up front**
