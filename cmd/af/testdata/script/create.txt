@@ -28,6 +28,11 @@ stdout 'branch:    demo'
 stdout 'worktree:'
 stdout 'tmux:      af-demo'
 
+# No config.toml exists, so [obsidian] notes_vault defaults to empty
+# (issue #17): the note step is skipped, and af create says so exactly
+# once on stderr rather than silently dropping it.
+stderr -count=1 'note: Obsidian integration is disabled \(notes_vault is empty'
+
 # Durable state lands under the v1 sessions dir.
 exists $HOME/.local/share/af/v1/sessions/demo/state.toml
 exists $HOME/.local/share/af/v1/sessions/demo/ledger.jsonl

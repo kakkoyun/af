@@ -812,6 +812,8 @@ test/CI coverage, docs-vs-reality). All executed on branch
       and the group is unset; defaulting the group to `"sbox"`
       automatically is deferred to a future ADR-036 amendment.
 
+- [x] I16.24 (issue #17): `af config init` now generates `[obsidian.vaults]` example paths from the real `os.UserHomeDir()` instead of the hardcoded `/Users/owner` placeholder (Option 3), and `af create` prints a one-line stderr warning — never affecting the exit code — whenever it skips the Obsidian note step because `notes_vault` is empty (Option 2); interactive vault prompting (Option 1) is deliberately deferred, out of scope for this fix.
+
 ---
 
 ## Backlog (post-v1, unscheduled)

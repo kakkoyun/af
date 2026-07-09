@@ -8,5 +8,10 @@ stdout 'config\.toml'
 exists $WORK/home/.config/af/config.toml
 grep 'schema_version = 1' $WORK/home/.config/af/config.toml
 
+# issue #17: the [obsidian.vaults] example paths must be derived from
+# the real $HOME, never ship the old hardcoded /Users/owner placeholder.
+! grep '/Users/owner' $WORK/home/.config/af/config.toml
+grep 'personal = ".*Vaults/personal"' $WORK/home/.config/af/config.toml
+
 ! exec af config init
 stderr 'already exists'

@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -67,8 +68,8 @@ notes_template = ""             # optional path to a markdown template
 [obsidian.vaults]
 # Map of vault-name -> absolute path on this machine. Multiple entries allowed.
 # THIS SECTION IS GLOBAL ONLY: never appears in <repo>/.af/config.toml.
-# personal = "/Users/owner/Vaults/personal"
-# work     = "/Users/owner/Vaults/work"
+# personal = "{{personal_vault_example}}"
+# work     = "{{work_vault_example}}"
 
 [doctor]
 extra_tools = []                # extra binaries to probe beyond the built-in defaults
@@ -94,8 +95,37 @@ var ErrEmptyPath = errors.New("config path is empty")
 
 // UserConfigTemplate returns the annotated TOML template emitted by
 // `af config init`. The body decodes back to Defaults() via Load.
+//
+// The example paths commented out under [obsidian.vaults] are derived
+// from the current user's home directory (os.UserHomeDir) at call
+// time, so a freshly generated config never ships another user's
+// placeholder path (issue #17). notes_vault itself stays "" — the
+// Obsidian integration remains opt-in until the operator uncomments
+// and points a vault entry themselves.
 func UserConfigTemplate() string {
-	return userConfigTemplateBody
+	return renderUserConfigTemplate()
+}
+
+// exampleVaultPaths returns plausible personal/work vault paths rooted
+// at the current user's home directory, falling back to "~" if the
+// home directory cannot be resolved.
+func exampleVaultPaths() (string, string) {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		home = "~"
+	}
+	return filepath.Join(home, "Vaults", "personal"), filepath.Join(home, "Vaults", "work")
+}
+
+// renderUserConfigTemplate substitutes the real-home vault placeholders
+// into userConfigTemplateBody.
+func renderUserConfigTemplate() string {
+	personal, work := exampleVaultPaths()
+	replacer := strings.NewReplacer(
+		"{{personal_vault_example}}", personal,
+		"{{work_vault_example}}", work,
+	)
+	return replacer.Replace(userConfigTemplateBody)
 }
 
 // WriteUserConfig writes the user-config template to path.
@@ -121,7 +151,7 @@ func WriteUserConfig(path string) error {
 		return fmt.Errorf("create parent dir for %s: %w", path, err)
 	}
 
-	err = os.WriteFile(path, []byte(userConfigTemplateBody), userConfigFilePerm)
+	err = os.WriteFile(path, []byte(renderUserConfigTemplate()), userConfigFilePerm)
 	if err != nil {
 		return fmt.Errorf("write user config %s: %w", path, err)
 	}

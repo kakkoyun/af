@@ -52,4 +52,14 @@ Obsidian Bases can filter on them (e.g. `af_status`, `af_tags`,
 only ever rewrites the frontmatter block.
 
 When `notes_vault` is empty (the default), note creation is skipped
-entirely.
+entirely, and `af create` prints a one-line warning to stderr so the
+skip is never silent (issue #17):
+
+```
+note: Obsidian integration is disabled (notes_vault is empty — set [obsidian] notes_vault in ~/.config/af/config.toml)
+```
+
+The `af config init` template itself no longer ships a fixed
+`/Users/owner` placeholder path under `[obsidian.vaults]` — the
+commented-out example paths are generated from the real `$HOME` of
+whoever runs `af config init`.

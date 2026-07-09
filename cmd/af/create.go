@@ -50,6 +50,13 @@ var (
 
 const remoteURLHostAndPath = 2
 
+// obsidianDisabledWarning is printed to stderr, at most once per
+// invocation, whenever `af create` skips the Obsidian note step
+// because [obsidian] notes_vault is unset (issue #17 Option 2). The
+// skip itself is not an error, so the warning never changes the exit
+// code — it only makes the silent skip visible.
+const obsidianDisabledWarning = "note: Obsidian integration is disabled (notes_vault is empty — set [obsidian] notes_vault in ~/.config/af/config.toml)"
+
 func newCreateCmd(opts *rootOptions) *cobra.Command {
 	cOpts := &createOptions{root: opts}
 	cmd := &cobra.Command{
@@ -80,6 +87,7 @@ func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, nam
 	if err != nil {
 		return err
 	}
+	warnIfObsidianVaultUnset(cmd, cfg)
 
 	cc := defaultCreateContext(opts.root)
 	if newCreateContextOverride != nil {
@@ -341,6 +349,18 @@ func resolvePrimaryAgent(agentName string) (agent.Agent, error) {
 		return nil, fmt.Errorf("resolve agent %q: %w", agentName, err)
 	}
 	return resolved, nil
+}
+
+// warnIfObsidianVaultUnset prints obsidianDisabledWarning to stderr
+// exactly once when cfg.Obsidian.NotesVault is empty — the same
+// condition under which resolveNotesDir skips the Obsidian note step.
+// It never returns an error and never affects the command's exit code;
+// it exists solely so the skip in issue #17 is no longer silent.
+func warnIfObsidianVaultUnset(cmd *cobra.Command, cfg config.Config) {
+	if cfg.Obsidian.NotesVault != "" {
+		return
+	}
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), obsidianDisabledWarning) //nolint:errcheck // Best-effort diagnostic; a stderr write failure must not fail `af create`.
 }
 
 func resolveNotesDir(cfg config.Config) string {
