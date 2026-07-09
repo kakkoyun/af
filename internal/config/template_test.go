@@ -57,6 +57,36 @@ func TestUserConfigTemplate_DecodesToDefaults(t *testing.T) {
 	}
 }
 
+// TestUserConfigTemplate_UsesRealHomeDirNotPlaceholder guards issue #17:
+// the [obsidian.vaults] example paths must be derived from the actual
+// user's home directory at generation time, never the hardcoded
+// "/Users/owner" placeholder that silently broke every new user's
+// Obsidian integration.
+func TestUserConfigTemplate_UsesRealHomeDirNotPlaceholder(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("UserHomeDir: %v", err)
+	}
+
+	template := config.UserConfigTemplate()
+
+	if strings.Contains(template, "/Users/owner") {
+		t.Fatalf("template still contains the /Users/owner placeholder:\n%s", template)
+	}
+	wantPersonal := filepath.Join(home, "Vaults", "personal")
+	wantWork := filepath.Join(home, "Vaults", "work")
+	if !strings.Contains(template, wantPersonal) {
+		t.Fatalf("template missing real-home personal vault path %q; template:\n%s", wantPersonal, template)
+	}
+	if !strings.Contains(template, wantWork) {
+		t.Fatalf("template missing real-home work vault path %q; template:\n%s", wantWork, template)
+	}
+	// notes_vault stays empty by default; the integration is opt-in.
+	if !strings.Contains(template, `notes_vault    = ""`) {
+		t.Fatalf("template must default notes_vault to empty; template:\n%s", template)
+	}
+}
+
 func TestUserConfigTemplate_IsAnnotatedWithSectionComments(t *testing.T) {
 	template := config.UserConfigTemplate()
 
