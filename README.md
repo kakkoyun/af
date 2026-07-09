@@ -22,8 +22,9 @@ af create fix-auth
 
 ## Highlights
 
-- **One command per task** — branch, worktree, tmux, agent, note: created
-  together, torn down together, never leaking into your main checkout.
+- **One command per task** — branch, worktree, tmux session, agent, and
+  note, created together and torn down together, never leaking into your
+  main checkout.
 - **A durable ledger per workstream** — every lifecycle event, note, and sync
   lands in an append-only `ledger.jsonl` you can mine later (`af retro`,
   optionally AI-synthesised).
