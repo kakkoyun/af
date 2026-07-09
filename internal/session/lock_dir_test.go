@@ -45,6 +45,9 @@ func TestWithDirLock_FailsWhenDirMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("WithDirLock() on missing dir succeeded, want error")
 	}
+	if !errors.Is(err, session.ErrSessionDirNotFound) {
+		t.Fatalf("WithDirLock() on missing dir = %v, want ErrSessionDirNotFound", err)
+	}
 	_, statErr := os.Stat(dir)
 	if !errors.Is(statErr, os.ErrNotExist) {
 		t.Fatalf("dir was recreated by WithDirLock: stat err = %v", statErr)

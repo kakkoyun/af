@@ -31,7 +31,7 @@ var (
 func newSessionDataCmd(_ *rootOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "session-data",
-		Short: "Import agent and harness session data from slicer VMs (ADR-066)",
+		Short: "Import agent and harness session data from slicer VMs",
 		Long: "session-data harvests agent transcripts and harness session metadata from a slicer VM and " +
 			"merges them into the host-side agent directories. Used before VM teardown so VM-only " +
 			"conversation history survives suspend/done.",
@@ -50,7 +50,7 @@ func newSessionDataSyncCmd() *cobra.Command {
 	var opts sessionDataSyncOptions
 	cmd := &cobra.Command{
 		Use:   "sync [session]",
-		Short: "Sync session data out of a slicer VM and merge it into the host (ADR-067)",
+		Short: "Sync session data out of a slicer VM and merge it into the host",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := ""

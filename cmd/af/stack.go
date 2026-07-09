@@ -23,7 +23,7 @@ func newStackCmd(_ *rootOptions) *cobra.Command {
 	var parent string
 	cmd := &cobra.Command{
 		Use:   "stack [session]",
-		Short: "Link this workstream as a child of --parent in the stack model (ADR-059)",
+		Short: "Link this workstream as a child of --parent in the stack model",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := ""
@@ -56,7 +56,7 @@ func newSyncCmd(_ *rootOptions) *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync [session]",
 		Short: "Rebase this workstream's branch onto its stack parent",
-		Long:  "sync fetches the parent branch and rebases the current workstream branch onto it per ADR-059. On conflict git is left mid-rebase; resolve the conflict, run 'git rebase --continue', then re-run 'af sync'.",
+		Long:  "sync fetches the parent branch and rebases the current workstream branch onto it. On conflict git is left mid-rebase; resolve the conflict, run 'git rebase --continue', then re-run 'af sync'.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := ""

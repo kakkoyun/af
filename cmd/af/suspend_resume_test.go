@@ -8,9 +8,53 @@ import (
 	"time"
 
 	"github.com/kakkoyun/af/internal/lifecycle"
+	"github.com/kakkoyun/af/internal/mux"
 	"github.com/kakkoyun/af/internal/sandbox/sessiondata"
 	"github.com/kakkoyun/af/internal/session"
 )
+
+// writeTestSessionStateWithTmux is writeTestSessionState plus an
+// Execution.TmuxSession, needed by the resume-attach tests below since
+// attach targets state.Execution.TmuxSession.
+func writeTestSessionStateWithTmux(t *testing.T, home, name, branch, status, tmuxSession string) {
+	t.Helper()
+	writeTestSessionState(t, home, name, branch, status)
+	statePath := filepath.Join(home, ".local", "share", "af", "v1", "sessions", name, "state.toml")
+	err := session.Update(statePath, func(s *session.State) error {
+		s.Execution.TmuxSession = tmuxSession
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("set tmux session: %v", err)
+	}
+}
+
+// installFakeResumeMux replaces newResumeMux with a fresh
+// *mux.FakeMultiplexer and restores the real constructor on cleanup.
+func installFakeResumeMux(t *testing.T) *mux.FakeMultiplexer {
+	t.Helper()
+	fake := mux.NewFakeMultiplexer()
+	orig := newResumeMux
+	newResumeMux = func() mux.Multiplexer { return fake }
+	t.Cleanup(func() { newResumeMux = orig })
+	return fake
+}
+
+// sessionAttached reports whether name is attached in fake, per
+// mux.FakeMultiplexer's Session.Attached bookkeeping.
+func sessionAttached(t *testing.T, fake *mux.FakeMultiplexer, name string) bool {
+	t.Helper()
+	sessions, err := fake.ListSessions(t.Context())
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	for _, s := range sessions {
+		if s.Name == name {
+			return s.Attached
+		}
+	}
+	return false
+}
 
 func TestSuspend_TransitionsActiveToSuspended(t *testing.T) {
 	home := t.TempDir()
@@ -37,6 +81,104 @@ func TestResume_TransitionsSuspendedToActive(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "active") {
 		t.Fatalf("expected stdout to mention 'active'; got:\n%s", stdout)
+	}
+}
+
+// TestResume_SuspendedNonBareAttaches pins that a normal (non-bare)
+// resume of a suspended workstream attaches to its tmux session via the
+// shared attach mechanism, once it is back to active.
+func TestResume_SuspendedNonBareAttaches(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionStateWithTmux(t, home, "mywork", "feat/mywork", "suspended", "af-mywork")
+	fake := installFakeResumeMux(t)
+	err := fake.CreateSession(t.Context(), "af-mywork", home)
+	if err != nil {
+		t.Fatalf("pre-create fake tmux session: %v", err)
+	}
+
+	stdout, _, err := executeCommand(t, newRootCmd(), "resume", "mywork")
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if !strings.Contains(stdout, "active") {
+		t.Fatalf("expected stdout to mention 'active'; got:\n%s", stdout)
+	}
+	if !sessionAttached(t, fake, "af-mywork") {
+		t.Fatal("resume (non-bare) should attach to the respawned tmux session")
+	}
+}
+
+// TestResume_ActiveSessionAttachesInsteadOfErroring is the issue #23
+// regression pin: `af resume` on an already-active workstream must not
+// hit the lifecycle FSM's "invalid transition" error. It should print a
+// no-op notice on stderr and attach.
+func TestResume_ActiveSessionAttachesInsteadOfErroring(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionStateWithTmux(t, home, "demo", "feat/demo", "active", "af-demo")
+	fake := installFakeResumeMux(t)
+	err := fake.CreateSession(t.Context(), "af-demo", home)
+	if err != nil {
+		t.Fatalf("pre-create fake tmux session: %v", err)
+	}
+
+	_, stderr, err := executeCommand(t, newRootCmd(), "resume", "demo")
+	if err != nil {
+		t.Fatalf("resume on active session should not error, got: %v", err)
+	}
+	if !strings.Contains(stderr, "session 'demo' is already active") {
+		t.Fatalf("stderr = %q, want the already-active notice", stderr)
+	}
+	if !sessionAttached(t, fake, "af-demo") {
+		t.Fatal("resume on an active session should attach to its tmux session")
+	}
+}
+
+// TestResume_ActiveSessionBareIsNoOp covers the --bare branch of issue
+// #23: no attach, just the notice plus a manual-attach hint, and still
+// exit 0 (not an error).
+func TestResume_ActiveSessionBareIsNoOp(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionStateWithTmux(t, home, "demo", "feat/demo", "active", "af-demo")
+	fake := installFakeResumeMux(t)
+	err := fake.CreateSession(t.Context(), "af-demo", home)
+	if err != nil {
+		t.Fatalf("pre-create fake tmux session: %v", err)
+	}
+
+	_, stderr, err := executeCommand(t, newRootCmd(), "resume", "demo", "--bare")
+	if err != nil {
+		t.Fatalf("resume --bare on active session should not error, got: %v", err)
+	}
+	if !strings.Contains(stderr, "session 'demo' is already active") {
+		t.Fatalf("stderr = %q, want the already-active notice", stderr)
+	}
+	if !strings.Contains(stderr, "to attach: tmux attach -t af-demo") {
+		t.Fatalf("stderr = %q, want the manual attach hint", stderr)
+	}
+	if sessionAttached(t, fake, "af-demo") {
+		t.Fatal("resume --bare on an active session must not attach")
+	}
+}
+
+// TestResume_TerminalStatesStillError pins that completed/abandoned
+// sessions keep erroring on resume (only the active-session case
+// becomes a no-op per issue #23).
+func TestResume_TerminalStatesStillError(t *testing.T) {
+	for _, status := range []string{"completed", "abandoned"} {
+		t.Run(status, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			writeTestSessionState(t, home, "demo", "feat/demo", status)
+			installFakeResumeMux(t)
+
+			_, _, err := executeCommand(t, newRootCmd(), "resume", "demo")
+			if !errors.Is(err, lifecycle.ErrLifecycleTransition) {
+				t.Fatalf("resume on %s = %v, want ErrLifecycleTransition", status, err)
+			}
+		})
 	}
 }
 

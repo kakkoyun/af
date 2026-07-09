@@ -21,6 +21,7 @@ stderr 'ghost'
 # ── Scenario 2: complete demo ─────────────────────────────────────────────────
 exec af done demo
 stdout 'workstream demo -> completed'
+stdout '→ archived; see: af retro   \(list archives: af clean --dry-run\)'
 
 exists $HOME/.local/share/af/v1/archive/demo/state.toml
 ! exists $HOME/.local/share/af/v1/sessions/demo/state.toml

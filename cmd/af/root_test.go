@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -67,6 +68,36 @@ func TestRootHelpWrapsWriteError(t *testing.T) {
 		t.Fatalf("ExecuteContext() error = %v, want wrapped %v", err, want)
 	}
 }
+
+// TestNoCommandHelpTextMentionsADRs pins issue #25 Part 4.2: user-facing
+// cobra Short/Long/Example strings must read in plain language, not cite
+// internal ADR numbers (git history and code comments still may). Any
+// command that regresses to an "(ADR-NNN)" aside fails this test.
+func TestNoCommandHelpTextMentionsADRs(t *testing.T) {
+	root := newRootCmd()
+	walkCommandsForADRText(t, root)
+}
+
+func walkCommandsForADRText(t *testing.T, cmd *cobra.Command) {
+	t.Helper()
+	for _, field := range []struct {
+		name  string
+		value string
+	}{
+		{"Short", cmd.Short},
+		{"Long", cmd.Long},
+		{"Example", cmd.Example},
+	} {
+		if adrMentionPattern.MatchString(field.value) {
+			t.Errorf("%s.%s mentions an ADR number: %q", cmd.CommandPath(), field.name, field.value)
+		}
+	}
+	for _, child := range cmd.Commands() {
+		walkCommandsForADRText(t, child)
+	}
+}
+
+var adrMentionPattern = regexp.MustCompile(`ADR-\d+`)
 
 func executeCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, string, error) {
 	t.Helper()

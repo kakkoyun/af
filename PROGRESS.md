@@ -2913,3 +2913,100 @@ including the extended `completions` testscript.
   was deliberately not implemented — `$SHELL`'s basename is the only
   detection signal, per the task's explicit instruction to leave
   process-tree inspection out of scope.
+
+## 2026-07-09 — Session 46e: attach/resume UX cluster (issues #21/#23/#24/#25)
+
+Four related UX issues around `af create`/`af resume`/error text, fixed
+together since they all revolve around the same tmux-attach mechanism
+and the same session-resolution chokepoint.
+
+- **Issue #23 (bug)**: `af resume` on an already-active workstream used
+  to hit the lifecycle FSM's `invalid lifecycle transition` error.
+  `cmd/af/suspend_resume.go`'s `runResume` now reads state under the
+  session lock first; if it's already active it skips
+  `lifecycle.ResumeWorkstream` entirely and either attaches (default)
+  or, with `--bare`, prints the notice plus a manual `tmux attach -t`
+  hint and exits 0. Suspended/completed/abandoned behavior is
+  unchanged at the lifecycle-package level. A new `newResumeMux` test
+  seam (same pattern as `sessionPickerFunc`/`fzfCommandFunc`) lets tests
+  assert on `mux.FakeMultiplexer`'s recorded `Attach` calls without a
+  real tmux server.
+  - **Deviation**: the issue text describes the suspended-resume path
+    as "current behavior" already attaching. It wasn't — no `af resume`
+    path called `mux.Attach` anywhere before this session. Implemented
+    attach freshly for both the suspended-then-resumed path and the
+    already-active path, reusing `mux.Multiplexer.Attach` (the same
+    method `internal/mux/tmux.go` already exposed and unit-tested via
+    `TestTmux_CommandArgv`'s "attach session" case), per "reuse that
+    mechanism everywhere; do not invent a new one."
+- **Issue #21 (feat)**: `af create` now attaches to its new tmux
+  session by default when the invocation is interactive. Interactivity
+  reuses the exact TTY-detection helpers the ADR-070 fzf session picker
+  already uses (`isTerminalReader`/`isTerminalWriter` in
+  `cmd/af/session_resolve.go`), checked against stdin/stdout instead of
+  stdin/stderr since attaching takes over stdout. A new
+  `isInteractiveCreateFunc` package var wraps that check as a test seam.
+  New `--no-attach` flag; `--bare` implies it. Non-interactive/--no-attach/
+  --bare all print the issue #25 next-steps footer instead.
+- **Issue #24 (ux)**: `statePathForSessionName` (the single chokepoint
+  documented in its own comment) now stat's the session directory
+  itself, ahead of any lock/read attempt, and wraps a missing directory
+  with `session '<name>' not found: ...`. When `<name>` starts with
+  `af-`, it appends a hint at the likely `af resume <name-without-af->`
+  invocation (Option B), unless the stripped remainder still contains
+  `--` (workstream.Sanitize's separator encoding, which is lossy to
+  reverse) — that case falls back to a generic `af list` pointer instead
+  of guessing wrong. `af create`'s tmux summary line changed to
+  `tmux:      <tmux-name>   (attach: af resume <session-name>)` (Option
+  C); a `--bare` create (no tmux session at all) omits the parenthetical
+  instead of pointing at an empty target. Added
+  `session.ErrSessionDirNotFound` so both this chokepoint and
+  `WithDirLock`'s pre-existing ghost-directory guard share one sentinel.
+- **Issue #25 (ux)**: next-steps footers on `af create` (non-attaching
+  paths) and `af done`; swept every cobra command's `Short`/`Long`/
+  `Example` for `ADR-\d+` and reworded in plain language (flag help text
+  and code comments were left alone — out of the swept scope, and the
+  pinning test only checks Short/Long/Example); reworded the remaining
+  lifecycle transition errors (`internal/lifecycle/suspend_resume.go`'s
+  `transitionBlockedError`, `internal/lifecycle/done.go`'s
+  `ErrDoneAlreadyTerminal` message) to `cannot <verb> a <status>
+  workstream (<hint>)`; added `Example:` blocks to
+  create/resume/done/status/doctor; added a five-line "Quick start:"
+  block to the root command's `--help`. Did not touch
+  `internal/sandbox` error text (issue #19, a different branch).
+
+### Tests
+
+- `cmd/af/suspend_resume_test.go`: `TestResume_ActiveSessionAttaches...`,
+  `TestResume_ActiveSessionBareIsNoOp`, `TestResume_SuspendedNonBareAttaches`,
+  `TestResume_TerminalStatesStillError` — all via the new
+  `installFakeResumeMux`/`sessionAttached` helpers.
+- `cmd/af/create_test.go`: `TestCreate_NonInteractivePrintsFooterAndDoesNotAttach`,
+  `TestCreate_NoAttachFlagPrintsFooterAndDoesNotAttach`,
+  `TestCreate_InteractiveAttachesToTmuxSession`, `TestCreate_BareImpliesNoAttach`,
+  `TestCreate_TmuxLineIncludesAttachCommand` — via a new
+  `installFakeCreatePipeline` helper (fake git runner + fake mux through
+  `newCreateContextOverride`) and `forceInteractiveCreate`.
+- `cmd/af/session_resolve_test.go`: the did-you-mean hint, the `--`-
+  containing fallback, and the no-hint plain-name case.
+- `cmd/af/root_test.go`: `TestNoCommandHelpTextMentionsADRs` walks the
+  whole cobra tree and fails if any Short/Long/Example matches `ADR-\d+`.
+- `internal/lifecycle`: pinned the new `cannot <verb> a <status>
+  workstream` message shape for suspend/resume/done.
+- `internal/session/lock_dir_test.go`: pinned
+  `errors.Is(err, session.ErrSessionDirNotFound)`.
+- Updated `cmd/af/testdata/script/create.txt` (new tmux line + footer,
+  with a comment explaining why testscript's exec is always
+  non-interactive) and `done.txt` (new footer line).
+
+### Verification
+
+`gofumpt -l cmd/ internal/` clean; `goimports -l cmd/ internal/` clean;
+`golangci-lint run` (v2.3.0, all linters) 0 issues; `go test -race
+-count=1 ./...` green across every package.
+
+### Deferred / not done
+
+None new. I16.13 (issue #7, Pages tombstone) remains an open owner
+decision from Session 43. Issue #19 (slicer stderr propagation) is
+explicitly out of scope here per the task brief — untouched.

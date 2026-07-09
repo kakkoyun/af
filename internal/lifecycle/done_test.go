@@ -183,6 +183,9 @@ func TestFinishWorkstream_RejectsTerminalStates(t *testing.T) {
 			if !errors.Is(err, lifecycle.ErrDoneAlreadyTerminal) {
 				t.Fatalf("want ErrDoneAlreadyTerminal, got %v", err)
 			}
+			if !strings.Contains(err.Error(), "cannot finish a "+status+" workstream") {
+				t.Fatalf("FinishWorkstream on %s = %v, want 'cannot finish a %s workstream' style", status, err, status)
+			}
 		})
 	}
 }

@@ -17,10 +17,11 @@ type statusOptions struct {
 func newStatusCmd(opts *rootOptions) *cobra.Command {
 	sOpts := &statusOptions{root: opts}
 	cmd := &cobra.Command{
-		Use:   "status",
-		Short: "Workstream dashboard (active/suspended counts + per-workstream rows)",
-		Long:  "status reads every state.toml under the sessions dir and prints a dashboard. With --json the dashboard is emitted as JSON; with --filter STATE only matching workstreams are shown; with --all completed/abandoned workstreams are included.",
-		Args:  cobra.NoArgs,
+		Use:     "status",
+		Short:   "Workstream dashboard (active/suspended counts + per-workstream rows)",
+		Long:    "status reads every state.toml under the sessions dir and prints a dashboard. With --json the dashboard is emitted as JSON; with --filter STATE only matching workstreams are shown; with --all completed/abandoned workstreams are included.",
+		Example: "  af status --filter active",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runStatus(cmd, sOpts)
 		},
