@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (owner smoke-test findings; issues #15, #16)
+
+- **A malformed `AF_SESSION` now fails every `af` invocation up front**
+  (issue #15). Previously only commands that consume the variable
+  rejected a traversal name like `../../etc` at the session-name
+  chokepoint; commands that never resolve a session (`af list`,
+  `af version`, …) silently ignored the poisoned environment and
+  exited 0. The root command's `PersistentPreRunE` now validates
+  `AF_SESSION` whenever it is set, so every command exits with
+  `invalid session name`. Invalid session names (from any source) now
+  also map to exit code **64** (`EX_USAGE`) per ADR-068 §2 instead of
+  falling through to the generic exit 1.
+- **`.af.lock` no longer survives into the archive** (issue #16,
+  ADR-068 §4). `af done` archives the session directory by rename; the
+  lazily-created lock file rode along and sat permanently stale in
+  `archive/<name>/`. The `done` teardown now removes the lock file
+  from the archived directory (after the rename, so the flock held by
+  the running `done` stays valid on its open descriptor).
+
 ### Changed (lock windows, issue #3)
 
 - **PR-refresh flows no longer hold the session lock across the `gh`

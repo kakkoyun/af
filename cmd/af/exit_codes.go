@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/kakkoyun/af/internal/session"
+	"github.com/kakkoyun/af/internal/workstream"
 )
 
 // Exit codes follow BSD sysexits conventions plus the three universal
@@ -116,7 +117,8 @@ func exitCodeForPattern(err error) int {
 func isDomainUsageError(err error) bool {
 	return errors.Is(err, errNoteAppendRequired) ||
 		errors.Is(err, errStackParentRequired) ||
-		errors.Is(err, errUnsupportedShell)
+		errors.Is(err, errUnsupportedShell) ||
+		errors.Is(err, workstream.ErrInvalidSessionName)
 }
 
 // isCobraUsageError detects cobra's own parse-time usage errors.

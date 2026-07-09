@@ -51,6 +51,13 @@ stderr 'invalid session name'
 # No state directory may leak out of the rejected create.
 ! exists $HOME/.local/share/af/v1/evil
 
+# ── Failure: path-escaping AF_SESSION is rejected for EVERY command ──────────
+# (issue #15) — even ones that never consume the variable, like list.
+env AF_SESSION=../../etc
+! exec af list
+stderr 'invalid session name'
+env AF_SESSION=
+
 # ── Failure: strict name collision (ADR-069 §3) ──────────────────────────────
 ! exec af create demo
 stderr 'already in use'

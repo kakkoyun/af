@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kakkoyun/af/internal/session"
+	"github.com/kakkoyun/af/internal/workstream"
 )
 
 // errExitCodesBoom is a test-only sentinel for the exitGeneral fallback row.
@@ -34,6 +35,7 @@ func TestExitCodeForError_MapsEveryADR068Row(t *testing.T) {
 		{name: "af domain usage: note --append", err: fmt.Errorf("note: %w", errNoteAppendRequired), want: exitUsage},
 		{name: "af domain usage: stack --parent", err: fmt.Errorf("stack: %w", errStackParentRequired), want: exitUsage},
 		{name: "af domain usage: unsupported shell", err: fmt.Errorf("completions: %w", errUnsupportedShell), want: exitUsage},
+		{name: "af domain usage: invalid session name", err: fmt.Errorf("AF_SESSION: %w", workstream.ErrInvalidSessionName), want: exitUsage},
 		{name: "bad state.toml", err: fmt.Errorf("stack: %w", errStackNoState), want: exitNoInput},
 		{name: "session resolution no input", err: errSessionResolutionNoInput, want: exitNoInput},
 		{name: "proxy no state", err: errProxyNoState, want: exitNoInput},
