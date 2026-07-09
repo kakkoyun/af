@@ -18,7 +18,7 @@ func newNoteCmd(_ *rootOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "note [session]",
 		Short: "Append a free-form note event to the workstream ledger",
-		Long:  "note records an entry in the workstream's ledger.jsonl. Pass --append \"text\" to add a structured note event used by the Obsidian integration (ADR-047).",
+		Long:  "note records an entry in the workstream's ledger.jsonl. Pass --append \"text\" to add a structured note event used by the Obsidian integration.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := ""

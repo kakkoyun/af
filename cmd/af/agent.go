@@ -32,7 +32,7 @@ func newAgentCmd(opts *rootOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "agent",
 		Short: "Manage multi-agent slots on a workstream",
-		Long:  "agent subcommands add, list, and stop named agent slots per ADR-039.",
+		Long:  "agent subcommands add, list, and stop named agent slots on a workstream.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			_, err := fmt.Fprint(cmd.OutOrStdout(), cmd.UsageString())

@@ -20,7 +20,13 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "af",
 		Short: "Manage isolated AI-agent workstreams",
-		Long:  "af manages isolated AI-agent workstreams across git worktrees, tmux, sandboxes, and remote hosts.",
+		Long: "af manages isolated AI-agent workstreams across git worktrees, tmux, sandboxes, and remote hosts.\n\n" +
+			"Quick start:\n" +
+			"  af setup                  # one-time: state dirs, config, gitignore, completions\n" +
+			"  af doctor                 # check required tools (git, tmux, an agent) are present\n" +
+			"  af create fix-auth        # new branch + worktree + tmux session + agent, then attach\n" +
+			"  af list                   # see every active/suspended workstream\n" +
+			"  af done fix-auth          # complete and archive the workstream",
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: true,
 		},

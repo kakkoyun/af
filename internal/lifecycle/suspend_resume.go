@@ -18,6 +18,33 @@ var (
 	ErrSuspendLeasedToVM = errors.New("suspend: workstream is still leased to a slicer VM")
 )
 
+// transitionHint returns a short, user-facing suggestion for recovering
+// from a blocked lifecycle transition, or "" when none applies. It backs
+// the "cannot <verb> a <status> workstream (<hint>)" error style (issue
+// #25 Part 4.3a).
+func transitionHint(verb string, status State) string {
+	switch {
+	case verb == "suspend" && status == Suspended:
+		return "it is already suspended"
+	case verb == "resume" && status == Active:
+		return "it is already active"
+	case status == Completed || status == Abandoned:
+		return "it has already finished; see 'af retro'"
+	default:
+		return ""
+	}
+}
+
+// transitionBlockedError builds the ErrLifecycleTransition-wrapping error
+// for a verb that cannot apply to a workstream currently in status.
+func transitionBlockedError(verb string, status State) error {
+	hint := transitionHint(verb, status)
+	if hint == "" {
+		return fmt.Errorf("cannot %s a %s workstream: %w", verb, status, ErrLifecycleTransition)
+	}
+	return fmt.Errorf("cannot %s a %s workstream (%s): %w", verb, status, hint, ErrLifecycleTransition)
+}
+
 // SuspendOptions configures SuspendWorkstream.
 type SuspendOptions struct {
 	Now       time.Time
@@ -38,7 +65,7 @@ func SuspendWorkstream(_ context.Context, opts SuspendOptions) (session.State, e
 	}
 	next, ok := Apply(State(state.Session.Status), Suspend)
 	if !ok {
-		return state, fmt.Errorf("suspend: %w from %s", ErrLifecycleTransition, state.Session.Status)
+		return state, fmt.Errorf("suspend: %w", transitionBlockedError("suspend", State(state.Session.Status)))
 	}
 	state, err = checkAndClearLease(state, opts.Force, ErrSuspendLeasedToVM)
 	if err != nil {
@@ -88,7 +115,7 @@ func ResumeWorkstream(ctx context.Context, deps ResumeDeps, opts ResumeOptions) 
 	}
 	next, ok := Apply(State(state.Session.Status), Resume)
 	if !ok {
-		return state, fmt.Errorf("resume: %w from %s", ErrLifecycleTransition, state.Session.Status)
+		return state, fmt.Errorf("resume: %w", transitionBlockedError("resume", State(state.Session.Status)))
 	}
 
 	maybeRespawnTmux(ctx, deps.Mux, state, opts.Bare)

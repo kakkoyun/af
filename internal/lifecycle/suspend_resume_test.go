@@ -279,6 +279,30 @@ func TestResumeWorkstream_RejectsInvalidSourceStates(t *testing.T) {
 	}
 }
 
+// TestTransitionErrors_UseCannotVerbStatusStyle pins the issue #25 Part
+// 4.3a error-message style: "cannot <verb> a <status> workstream", with
+// the allowed next action hinted in parens.
+func TestTransitionErrors_UseCannotVerbStatusStyle(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := writeLifecycleState(t, dir, "suspended", "")
+
+	_, err := lifecycle.SuspendWorkstream(context.Background(), lifecycle.SuspendOptions{StatePath: path})
+	if err == nil || !strings.Contains(err.Error(), "cannot suspend a suspended workstream") {
+		t.Fatalf("SuspendWorkstream on suspended = %v, want 'cannot suspend a suspended workstream' style", err)
+	}
+
+	dir2 := t.TempDir()
+	path2 := writeLifecycleState(t, dir2, "completed", "")
+	_, err = lifecycle.ResumeWorkstream(context.Background(), lifecycle.ResumeDeps{}, lifecycle.ResumeOptions{StatePath: path2})
+	if err == nil || !strings.Contains(err.Error(), "cannot resume a completed workstream") {
+		t.Fatalf("ResumeWorkstream on completed = %v, want 'cannot resume a completed workstream' style", err)
+	}
+	if !strings.Contains(err.Error(), "af retro") {
+		t.Fatalf("ResumeWorkstream on completed = %v, want a hint pointing at af retro", err)
+	}
+}
+
 // blockLedger occupies <dir>/ledger.jsonl with a directory so that
 // session.AppendEvent fails with EISDIR.
 func blockLedger(t *testing.T, dir string) {

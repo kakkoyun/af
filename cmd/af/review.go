@@ -59,7 +59,7 @@ func newReviewCmd(_ *rootOptions) *cobra.Command {
 	var opts reviewOptions
 	cmd := &cobra.Command{
 		Use:   "review [session]",
-		Short: "Generate a draft PR review report (ADR-073). Read-only; never posts.",
+		Short: "Generate a draft PR review report. Read-only; never posts.",
 		Long: "review assembles the af-owned immutable system prompt with any repo-specific " +
 			"append layers, fetches the PR metadata and diff via gh, asks the configured " +
 			"agent for a review, and writes the markdown to .af/reviews/. Never posts.",

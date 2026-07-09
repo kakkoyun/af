@@ -25,7 +25,7 @@ func newSetupCmd(opts *rootOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Initialise the user-scope af environment (no sudo, no installs)",
-		Long:  "setup writes the user-scope files described in ADR-045: state directory tree, default config, global gitignore entry, shell completions, and an Obsidian vault hint.",
+		Long:  "setup writes the user-scope files af needs: state directory tree, default config, global gitignore entry, shell completions, and an Obsidian vault hint.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSetup(cmd.Context(), cmd, setupOpts)

@@ -29,10 +29,11 @@ type doctorOptions struct {
 func newDoctorCmd(opts *rootOptions) *cobra.Command {
 	docOpts := &doctorOptions{root: opts}
 	cmd := &cobra.Command{
-		Use:   "doctor",
-		Short: "Probe the local (or remote) environment for required tools",
-		Long:  "doctor probes the local machine (or, with --remote, an SSH host) for the tools af relies on and prints install hints. It never installs anything.",
-		Args:  cobra.NoArgs,
+		Use:     "doctor",
+		Short:   "Probe the local (or remote) environment for required tools",
+		Long:    "doctor probes the local machine (or, with --remote, an SSH host) for the tools af relies on and prints install hints. It never installs anything.",
+		Example: "  af doctor --all --report",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			err := validateDoctorFlags(docOpts)
 			if err != nil {

@@ -63,7 +63,7 @@ func FinishWorkstream(ctx context.Context, deps DoneDeps, opts DoneOptions) (ses
 		return state, fmt.Errorf("done: read state: %w", err)
 	}
 	if IsTerminal(State(state.Session.Status)) {
-		return state, fmt.Errorf("done: %w (status=%s)", ErrDoneAlreadyTerminal, state.Session.Status)
+		return state, fmt.Errorf("done: cannot finish a %s workstream (it has already finished; see 'af retro'): %w", state.Session.Status, ErrDoneAlreadyTerminal)
 	}
 	state, err = checkAndClearLease(state, opts.Force, ErrDoneLeasedToVM)
 	if err != nil {

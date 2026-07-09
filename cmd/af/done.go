@@ -25,7 +25,9 @@ func newDoneCmd(opts *rootOptions) *cobra.Command {
 		Use:   "done [session]",
 		Short: "Complete (or --force abandon) a workstream and archive its state",
 		Long:  "done tears down the tmux session, removes the git worktree(s), records a terminal lifecycle event, and moves the session dir into the archive. --force marks the workstream Abandoned and skips merged-into-base checks.",
-		Args:  cobra.MaximumNArgs(1),
+		Example: "  af done demo\n" +
+			"  af done demo --force   # abandon instead of complete; skip safety checks",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := ""
 			if len(args) == 1 {
@@ -55,6 +57,10 @@ func runDone(cmd *cobra.Command, opts *doneOptions, name string) error {
 	}
 
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "workstream %s -> %s\n", state.Session.Name, state.Session.Status)
+	if err != nil {
+		return fmt.Errorf("done write: %w", err)
+	}
+	_, err = fmt.Fprintln(cmd.OutOrStdout(), "  → archived; see: af retro   (list archives: af clean --dry-run)")
 	if err != nil {
 		return fmt.Errorf("done write: %w", err)
 	}
