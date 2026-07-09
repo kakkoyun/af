@@ -789,6 +789,16 @@ test/CI coverage, docs-vs-reality). All executed on branch
       refresh flows — `refreshPRCacheForState`/`af pr --refresh` now
       fetch via `gh pr view` outside the session lock and only
       reacquire it for the short merge-back write + ledger emit.
+- [x] I16.20 (issue #15): validate `AF_SESSION` for every af
+      invocation from the root `PersistentPreRunE`, not only in the
+      commands that consume it; invalid session names now exit 64
+      (`EX_USAGE`, ADR-068 §2). Found by the owner's smoke run
+      (Lane C, Stage 3 security containment).
+- [x] I16.21 (issue #16): remove `.af.lock` from the archived session
+      directory in `af done`'s teardown (ADR-068 §4) — the lazily
+      created lock previously rode the rename into `archive/<name>/`
+      and sat there permanently stale. Found by the owner's smoke run
+      (Lane E, Stage 5 lifecycle end-to-end).
 
 ---
 

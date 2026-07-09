@@ -2701,3 +2701,36 @@ package.
 
 None new. I16.13 (issue #7, Pages tombstone) remains an open owner
 decision from Session 43.
+
+## 2026-07-09 — Session 46: owner smoke-run findings (issues #15, #16)
+
+### Context
+
+The owner ran the post-merge macOS verification plan; its automated
+lanes filed two bugs. Branch `claude/issue-15-16-smoke-fixes`, both
+fixed TDD (red tests reproduced each report verbatim before the fix).
+
+### Done
+
+- Issue #15: `AF_SESSION='../../etc' af list` exited 0, silently
+  ignoring the traversal name — only session-consuming commands hit
+  the `statePathForSessionName` validator. Root `PersistentPreRunE`
+  now calls `validateSessionEnv()` so a malformed `AF_SESSION` fails
+  every invocation with `invalid session name`. Also mapped
+  `workstream.ErrInvalidSessionName` to exit 64 (`EX_USAGE`) in the
+  ADR-068 table (was falling through to exit 1). Tests:
+  `TestRootCommand_RejectsInvalidAFSessionEnv` (4 vectors),
+  `TestRootCommand_AcceptsValidAFSessionEnv`, a new exit-code table
+  row, and an `AF_SESSION` block in the create testscript.
+- Issue #16: `.af.lock` rode `archiveSessionDir`'s rename into
+  `archive/<name>/` (ADR-068 §4 violation). The teardown now removes
+  the lock file after the rename (the running done's flock stays valid
+  on its open descriptor; concurrent lockers are stopped by the
+  ghost-dir guard). Tests:
+  `TestFinishWorkstream_RemovesLockFileBeforeArchive` plus
+  `! exists …/.af.lock` assertions in the done testscript.
+
+### Verification
+
+`gofumpt -l` clean, `golangci-lint run` 0 issues,
+`go test -race -count=1 ./...` all green.
