@@ -154,11 +154,13 @@ func TestCreate_NoteLayout_NestedSessionNameCreatesNoSubdirectory(t *testing.T) 
 	}
 }
 
-// TestCreate_NoteLayout_EmptyRepoSlugFallsBackToGitRootBasename guards
-// the issue #34 fallback: when the workstream's repo slug is empty
-// (no remote configured), the repo subfolder falls back to the
-// basename of the git root.
-func TestCreate_NoteLayout_EmptyRepoSlugFallsBackToGitRootBasename(t *testing.T) {
+// TestCreate_NoteLayout_BareSlugMatchesGitRootBasename covers the
+// closest empty-slug scenario reachable through lifecycle.Create: a
+// local-only repo whose slug is just the directory name (Create's
+// validateCreateOpts rejects a truly empty RepoSlug, so the actual
+// empty-slug -> git-root-basename fallback is pinned at the unit level
+// by TestComposeNotePath in internal/obsidian instead).
+func TestCreate_NoteLayout_BareSlugMatchesGitRootBasename(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
 	gitRoot := filepath.Join(home, "scratch-repo")

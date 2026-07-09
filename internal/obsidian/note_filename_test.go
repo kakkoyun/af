@@ -37,6 +37,12 @@ func TestNoteFileName(t *testing.T) {
 			want:        "team-x.md",
 		},
 		{
+			name:        "backslashes sanitised too (Windows path separator)",
+			sessionName: `team\x`,
+			repoSlug:    "github.com/kakkoyun/af",
+			want:        "team-x.md",
+		},
+		{
 			name:        "slug prefix present but remainder is not a timestamp",
 			sessionName: "github.com/kakkoyun/af-feature/sub",
 			repoSlug:    "github.com/kakkoyun/af",

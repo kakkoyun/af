@@ -3213,31 +3213,18 @@ Obsidian config snippet, all for the new tree, filename rules, and
 ### Verification
 
 `gofumpt -l cmd/ internal/` clean; `goimports -l cmd/ internal/` clean;
-`golangci-lint run` (v2.3.0, all linters) 0 issues (needed one factor-out,
-`buildLifecycleCreateInputs`/`launchAndAttachSandbox`, to keep
-`runCreate` under the `cyclop` complexity budget); `go test -race
-
 `golangci-lint run` (v2.3.0, all linters) 0 issues; `go test -race
 -count=1 ./...` green across every package.
 
-### Deferred / not done
+### Deferred / notes
 
-None on the four fixes themselves — all implemented and tested. One
-doc-pass instruction couldn't be carried out as written: the brief asked
-for a `docs/EXAMPLES.md` update (daily-driver attach note, sandbox
-recipe), but no such file exists anywhere in the v1 tree (checked
-`docs/`, repo root, and a full-tree `*.md` grep for "daily driver" —
-only `docs/v0/` mentions ADRs, no EXAMPLES.md at any path). Rather than
-inventing a new doc file that isn't part of the current documentation
-hierarchy, README.md's Lifecycle table absorbed the equivalent
-attach/sandbox behaviour notes instead (see the `af create`/`af resume`
-row updates above).
-
-- `docs/EXAMPLES.md` does not exist in this repository (no such file
-  under `docs/`), so its Obsidian recipe could not be updated as the
-  task brief described; updated `docs/PRE_RELEASE_SMOKE.md`'s Obsidian
-  config snippet instead as the closest analog. Flagged for the owner
-  to confirm whether a `docs/EXAMPLES.md` should exist.
+- The fixer worktree was based on a pre-PR-#31 main where
+  `docs/EXAMPLES.md` did not exist yet, so the subagent updated
+  `docs/PRE_RELEASE_SMOKE.md`'s Obsidian snippet instead; after
+  rebasing onto current main the coordinator applied the intended
+  `docs/EXAMPLES.md` recipe update (repo-grouped layout +
+  `notes_subfolder_mode = "flat"` opt-out) in a follow-up commit on
+  this branch.
 - ADR-036 and ADR-047 (both `status: accepted`, `docs/adr/` is
   append-only per CLAUDE.md §4) still describe the pre-issue-#34 flat
   layout and the `"00 - af"` default. Left untouched rather than

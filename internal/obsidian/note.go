@@ -220,7 +220,12 @@ func NoteFileName(sessionName, repoSlug string) string {
 		}
 	}
 
-	return strings.ReplaceAll(remainder, "/", "-") + ".md"
+	// Both slash variants: "/" is the legal nested-name separator, and
+	// "\\" would still act as a path separator on Windows via
+	// filepath.Join — a note filename must never mint directories on
+	// any platform.
+	remainder = strings.ReplaceAll(remainder, "/", "-")
+	return strings.ReplaceAll(remainder, "\\", "-") + ".md"
 }
 
 // reformatAutoTimestamp turns a workstream.AutoSessionName timestamp
