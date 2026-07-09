@@ -107,6 +107,7 @@ func renderObsidian(b *strings.Builder, o ObsidianConfig) {
 	renderString(b, "notes_vault", o.NotesVault)
 	renderString(b, "notes_folder", o.NotesFolder)
 	renderString(b, "notes_template", o.NotesTemplate)
+	renderString(b, "notes_subfolder_mode", o.NotesSubfolderMode)
 	b.WriteString("\n")
 
 	b.WriteString("[obsidian.vaults]\n")

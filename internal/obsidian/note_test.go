@@ -96,16 +96,38 @@ func TestEmitNote_WritesFrontmatterAndPreservesBody(t *testing.T) {
 
 func TestResolveNotePath_UsesConfiguredVaultAndFolder(t *testing.T) {
 	cfg := obsidian.PathConfig{
-		Vaults:      map[string]string{"personal": string(filepath.Separator) + filepath.Join("vaults", "personal")},
-		NotesVault:  "personal",
-		NotesFolder: filepath.Join("00 - af", "workstreams"),
+		Vaults:        map[string]string{"personal": string(filepath.Separator) + filepath.Join("vaults", "personal")},
+		NotesVault:    "personal",
+		NotesFolder:   filepath.Join("00 - workstreams", "extra"),
+		SubfolderMode: obsidian.SubfolderModeFlat,
 	}
 
-	got, err := obsidian.ResolveNotePath(cfg, "kakkoyun--issue-42")
+	got, err := obsidian.ResolveNotePath(cfg, "kakkoyun--issue-42", "", "")
 	if err != nil {
 		t.Fatalf("ResolveNotePath() error = %v", err)
 	}
-	want := filepath.Join(string(filepath.Separator)+filepath.Join("vaults", "personal"), "00 - af", "workstreams", "kakkoyun--issue-42.md")
+	want := filepath.Join(string(filepath.Separator)+filepath.Join("vaults", "personal"), "00 - workstreams", "extra", "kakkoyun--issue-42.md")
+	if got != want {
+		t.Fatalf("ResolveNotePath() = %q, want %q", got, want)
+	}
+}
+
+// TestResolveNotePath_RepoModeNestsUnderRepoSubfolder guards issue #34:
+// the default "repo" subfolder mode nests the note under a folder
+// named after the last path element of the repo slug.
+func TestResolveNotePath_RepoModeNestsUnderRepoSubfolder(t *testing.T) {
+	vaultPath := string(filepath.Separator) + filepath.Join("vaults", "personal")
+	cfg := obsidian.PathConfig{
+		Vaults:      map[string]string{"personal": vaultPath},
+		NotesVault:  "personal",
+		NotesFolder: "00 - workstreams",
+	}
+
+	got, err := obsidian.ResolveNotePath(cfg, "github.com/kakkoyun/dotfiles-20260709-085045", "github.com/kakkoyun/dotfiles", "")
+	if err != nil {
+		t.Fatalf("ResolveNotePath() error = %v", err)
+	}
+	want := filepath.Join(vaultPath, "00 - workstreams", "dotfiles", "2026-07-09-085045.md")
 	if got != want {
 		t.Fatalf("ResolveNotePath() = %q, want %q", got, want)
 	}

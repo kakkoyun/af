@@ -65,9 +65,9 @@ func TestEmitNote_ParseNoteRoundTrip(t *testing.T) {
 
 func TestResolveNotePath_SingleVaultAutoSelected(t *testing.T) {
 	vaultPath := filepath.Join(string(filepath.Separator)+"vaults", "solo")
-	cfg := obsidian.PathConfig{Vaults: map[string]string{"solo": vaultPath}}
+	cfg := obsidian.PathConfig{Vaults: map[string]string{"solo": vaultPath}, SubfolderMode: obsidian.SubfolderModeFlat}
 
-	got, err := obsidian.ResolveNotePath(cfg, "session-1")
+	got, err := obsidian.ResolveNotePath(cfg, "session-1", "", "")
 	if err != nil {
 		t.Fatalf("ResolveNotePath() error = %v", err)
 	}
@@ -96,7 +96,7 @@ func TestResolveNotePath_Errors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := obsidian.ResolveNotePath(tt.cfg, "session-1")
+			_, err := obsidian.ResolveNotePath(tt.cfg, "session-1", "", "")
 			if !errors.Is(err, obsidian.ErrVaultNotConfigured) {
 				t.Fatalf("ResolveNotePath() error = %v, want ErrVaultNotConfigured", err)
 			}
