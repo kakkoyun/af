@@ -21,7 +21,9 @@ af create fix-auth                 # branch + worktree + tmux + agent, then atta
 af status                          # dashboard: every workstream, PR state, age
 af note fix-auth --append "auth middleware done; tests pending"
 
-af resume fix-auth                 # jump back in any time (attaches)
+af resume fix-auth                 # jump back in any time (attaches; when you're
+                                   # already inside tmux it switches your client
+                                   # to the session instead of nesting)
 af done fix-auth                   # tear down + archive when merged
 ```
 
@@ -146,6 +148,8 @@ group = "sbox"                     # your slicer host group
 
 ```bash
 af create risky-migration --sandbox slicer   # worktree pushed into a fresh VM
+# the tmux session's pane is a shell INSIDE the VM (slicer vm shell) —
+# the agent runs there, not on the host
 
 af session-data list risky-migration         # inventory transcripts inside the VM
 af session-data sync risky-migration         # copy + merge them into your host home
