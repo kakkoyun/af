@@ -830,6 +830,7 @@ test/CI coverage, docs-vs-reality). All executed on branch
 - [x] I16.28 (issue #25): next-steps footers on `create`/`done`, an ADR
       sweep of every cobra command's user-facing help text, reworded
       lifecycle transition errors, and new `Example:` blocks.
+- [x] I16.30 (issue #33): fixed attach running through captured (non-tty) stdio so it always failed, added the inside-tmux `switch-client` path, made `af resume` respawn a dead tmux session before attaching on the already-active fast path, and made `af create --sandbox slicer` land the host tmux pane as a VM shell instead of double-launching the agent.
 
 ---
 
