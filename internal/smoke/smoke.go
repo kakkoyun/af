@@ -39,6 +39,10 @@ const scratchDirPerm = 0o750
 // argument validation failures, e.g. an invalid session name.
 const exitUsage = 64
 
+// exitNoInput mirrors cmd/af's EX_NOINPUT (ADR-068 §2): a session,
+// branch, or file that does not exist.
+const exitNoInput = 66
+
 // skippedExitCode marks steps that never executed in the JSON report,
 // disambiguating them from a successful exit 0.
 const skippedExitCode = -1
@@ -162,7 +166,7 @@ func steps() []step {
 		{name: "suspend", requires: []string{"git"}, args: []string{"suspend", "smoke-ws"}, expect: "exit 0, status flips to suspended", stdoutContains: "suspended"},
 		{name: "resume", requires: []string{"git"}, args: []string{"resume", "smoke-ws", "--bare"}, expect: "exit 0, status flips to active", stdoutContains: "active"},
 		{name: "done", requires: []string{"git"}, args: []string{"done", "smoke-ws"}, expect: "exit 0, workstream archived", stdoutContains: "completed"},
-		{name: "unknown-session-rejected", args: []string{"info", "ghost-session-does-not-exist"}, wantExit: 1, expect: "unknown session names error cleanly"},
+		{name: "unknown-session-rejected", args: []string{"info", "ghost-session-does-not-exist"}, wantExit: exitNoInput, expect: "unknown session names error cleanly with EX_NOINPUT (ADR-068)"},
 		{name: "clean-dry-run", args: []string{"clean", "--dry-run"}, expect: "exit 0, dry run reaps nothing"},
 		{name: "retro", args: []string{"retro"}, expect: "exit 0, archive mined (may be empty)", wantExit: -1},
 		{name: "completions", args: []string{"completions", "bash"}, expect: "exit 0, completion script on stdout"},

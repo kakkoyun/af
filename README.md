@@ -90,6 +90,11 @@ af info fix-auth
 af done fix-auth
 ```
 
+Want more? **[docs/EXAMPLES.md](docs/EXAMPLES.md)** has copy-pasteable
+recipes for every feature: multi-agent slots, stacked branches, sandboxed
+VMs with transcript sync, PR/review flows, retro mining, and scripting af
+with JSON output and exit codes.
+
 ## Commands
 
 Global flags available on every command:
@@ -391,6 +396,7 @@ make release-snapshot  # cross-compile snapshot via goreleaser
 
 | Resource                                     | Description                                                                |
 | -------------------------------------------- | -------------------------------------------------------------------------- |
+| [`docs/EXAMPLES.md`](docs/EXAMPLES.md)       | Worked recipes for every feature (actionable commands)                     |
 | [`CHANGELOG.md`](CHANGELOG.md)               | Full feature history (`[Unreleased]` for v1)                               |
 | [`PROGRESS.md`](PROGRESS.md)                 | Narrative session log                                                      |
 | [`TODO.md`](TODO.md)                         | Implementation checklist (Stages 0–14)                                     |
