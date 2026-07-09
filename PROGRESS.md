@@ -2791,3 +2791,42 @@ swallowed, leaving only `run slicer wt push --launch ...: exit status 1`.
   `TestWTPush_StderrTruncatedAt512Bytes`.
 - Verification: `gofumpt -l cmd/ internal/` clean; `golangci-lint run`
   (v2.3.0, all linters) 0 issues; `go test -race -count=1 ./...` green.
+
+## 2026-07-09 — Session 46d: config init vault defaults (issue #17)
+
+Fixed `af config init` shipping a dead-on-arrival Obsidian config:
+`notes_vault = ""` plus hardcoded `/Users/owner/Vaults/...` example
+paths under `[obsidian.vaults]`, so every new user's `af create`/`af
+note` silently skipped the note step. Worked in
+`.claude/worktrees/issue-17-config-vault-defaults` on
+`claude/issue-17-config-vault-defaults`.
+
+Implemented the issue's Option 2 + Option 3, explicitly not Option 1:
+
+- **Option 3** (`internal/config/template.go`): the `[obsidian.vaults]`
+  example comments are now rendered from `os.UserHomeDir()` at
+  generation time via `renderUserConfigTemplate`/`exampleVaultPaths`,
+  replacing `{{personal_vault_example}}`/`{{work_vault_example}}`
+  placeholders in the template body. `notes_vault = ""` is unchanged —
+  the integration stays opt-in.
+- **Option 2** (`cmd/af/create.go`): `warnIfObsidianVaultUnset` prints
+  `obsidianDisabledWarning` to stderr exactly once per `af create`
+  invocation when `cfg.Obsidian.NotesVault == ""` — the same condition
+  `resolveNotesDir` already used to skip the note step silently. Never
+  changes the exit code. `af note` doesn't consult the vault at all (it
+  only appends ledger events), so it needed no change.
+- **Option 1** (interactive vault prompting) is deliberately out of
+  scope, per the issue.
+
+Tests: `TestUserConfigTemplate_UsesRealHomeDirNotPlaceholder`
+(`internal/config/template_test.go`), `TestCreate_WarnsOnStderrOnce_WhenNotesVaultEmpty`
+and `TestCreate_NoWarning_WhenNotesVaultConfigured`
+(`cmd/af/obsidian_warning_test.go`, using a fake `git.Runner` +
+`mux.FakeMultiplexer` + `obsidian.MemoryStore` createContext override).
+Updated `cmd/af/testdata/script/create.txt` (asserts the stderr warning
+exactly once via `-count=1`) and `cmd/af/testdata/script/config-init.txt`
+(asserts no `/Users/owner` literal and a real-`$HOME`-rooted vault
+path).
+
+`gofumpt -l cmd/ internal/` clean; `golangci-lint run` (v2.3.0, all
+linters) 0 issues; `go test -race -count=1 ./...` green.

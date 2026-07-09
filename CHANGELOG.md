@@ -52,6 +52,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   considered and deliberately deferred — that's a config-default change
   for a future ADR-036 amendment, not this fix.
 
+### Fixed (config init vault paths, issue #17)
+
+- `af config init` no longer ships the hardcoded `/Users/owner/Vaults/...`
+  placeholder under `[obsidian.vaults]` — the commented-out example
+  paths are now derived from the real `$HOME` of whoever runs the
+  command. `notes_vault` still defaults to `""`, so the Obsidian
+  integration stays opt-in.
+- `af create` now prints a one-line stderr warning — `note: Obsidian
+  integration is disabled (notes_vault is empty — set [obsidian]
+  notes_vault in ~/.config/af/config.toml)` — whenever it skips the
+  Obsidian note step because `notes_vault` is empty, instead of
+  silently doing nothing. The warning never changes the exit code and
+  never prints when a vault is configured.
+
 ### Changed (lock windows, issue #3)
 
 - **PR-refresh flows no longer hold the session lock across the `gh`

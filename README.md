@@ -125,6 +125,12 @@ af [--verbose|-v] [--config PATH] [--session NAME] <command>
 | `af note [session] --append TEXT`                                             | Append a structured note event to the workstream ledger.                          |
 | `af retro [--since DURATION] [--tag TAG] [--search QUERY] [--limit N] [--ai] [--ai-model MODEL]` | Mine archived workstream notes; `--ai` synthesises a narrative via the primary agent's `BodyCmd`. |
 
+`af create` writes an Obsidian note only when `[obsidian] notes_vault` is
+set. When it is empty (the compiled default), the note step is skipped
+and `af create` prints one line to stderr — `note: Obsidian integration
+is disabled (notes_vault is empty — set [obsidian] notes_vault in
+~/.config/af/config.toml)` — so the skip is never silent (issue #17).
+
 ### Proxy commands
 
 These commands run the user-configured executables from `[diff]`, `[pr]`, and
@@ -259,7 +265,10 @@ Key sections:
 - `[general]` — default agent, multiplexer, max sessions, worktree root.
 - `[branch]` — branch prefix and `prefix_on_fork_only` gate.
 - `[diff]` / `[pr]` / `[editor]` — proxy command shapes (argv or shell mode).
-- `[obsidian]` — vault paths, notes folder, template path.
+- `[obsidian]` — vault paths, notes folder, template path. `af config init`
+  writes `notes_vault = ""` (opt-in) and comments out example
+  `[obsidian.vaults]` entries rooted at your real `$HOME` (issue #17) —
+  uncomment and point one at a real vault to enable the integration.
 - `[secret]` — keyring service name and extra redact keys.
 
 ## Caveats
