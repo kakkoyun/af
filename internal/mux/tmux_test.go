@@ -36,6 +36,14 @@ func (runner *flakyRunner) Run(context.Context, mux.Command) ([]byte, error) {
 	return nil, nil
 }
 
+// failingInteractiveRunner always fails, exercising Tmux.Attach's
+// InteractiveRunner error wrapping (issue #33 Fix 0).
+type failingInteractiveRunner struct{}
+
+func (failingInteractiveRunner) RunInteractive(context.Context, mux.Command) error {
+	return errRunFailed
+}
+
 // tmuxArgvCase pairs a Tmux call with the tmux argv it must produce.
 type tmuxArgvCase struct {
 	call func(ctx context.Context, tmux mux.Tmux) error
@@ -58,11 +66,6 @@ func tmuxArgvCases() []tmuxArgvCase {
 				return wrapErr("session exists", err)
 			},
 			want: []string{"has-session", "-t", "work"},
-		},
-		{
-			name: "attach session",
-			call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.Attach(ctx, "work") },
-			want: []string{"attach-session", "-t", "work"},
 		},
 		{
 			name: "send keys to session",
@@ -135,6 +138,75 @@ func TestTmux_CommandArgv(t *testing.T) {
 	}
 }
 
+// TestTmux_Attach_InsideTmux_UsesSwitchClientViaCapturedRunner is the
+// issue #33 Fix 1 regression pin: when the calling process is already
+// inside a tmux client ($TMUX set), Attach must run `switch-client`
+// through the normal captured Runner instead of attach-session, and must
+// never touch the InteractiveRunner — switch-client works from inside
+// the existing client and needs no new terminal.
+func TestTmux_Attach_InsideTmux_UsesSwitchClientViaCapturedRunner(t *testing.T) {
+	t.Setenv("TMUX", "/tmp/tmux-1000/default,1234,0")
+	runner := mux.NewRecordingRunner()
+	interactive := mux.NewRecordingInteractiveRunner()
+	tmux := mux.NewTmuxWithRunners(runner, interactive)
+
+	err := tmux.Attach(context.Background(), "work")
+	requireNoError(t, err)
+
+	want := []mux.Command{{Name: "tmux", Args: []string{"switch-client", "-t", "work"}}}
+	if got := runner.Commands(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("captured commands = %#v, want %#v", got, want)
+	}
+	if got := interactive.Commands(); len(got) != 0 {
+		t.Fatalf("interactive commands = %#v, want none (switch-client must not use RunInteractive)", got)
+	}
+}
+
+// TestTmux_Attach_OutsideTmux_UsesInteractiveRunner is the issue #33
+// Fix 0 regression pin: when the calling process is NOT inside tmux,
+// Attach must run attach-session through the InteractiveRunner (the
+// caller's real stdin/stdout/stderr) instead of the captured Runner —
+// tmux refuses to attach with piped stdio ("open terminal failed").
+func TestTmux_Attach_OutsideTmux_UsesInteractiveRunner(t *testing.T) {
+	t.Setenv("TMUX", "")
+	runner := mux.NewRecordingRunner()
+	interactive := mux.NewRecordingInteractiveRunner()
+	tmux := mux.NewTmuxWithRunners(runner, interactive)
+
+	err := tmux.Attach(context.Background(), "work")
+	requireNoError(t, err)
+
+	if got := runner.Commands(); len(got) != 0 {
+		t.Fatalf("captured commands = %#v, want none (attach-session must not use the captured runner)", got)
+	}
+	want := []mux.Command{{Name: "tmux", Args: []string{"attach-session", "-t", "work"}}}
+	if got := interactive.Commands(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("interactive commands = %#v, want %#v", got, want)
+	}
+}
+
+// TestTmux_Attach_InsideTmux_SwitchClientFailureWraps pins that a
+// switch-client failure from the captured runner still surfaces through
+// Attach's error wrapping.
+func TestTmux_Attach_InsideTmux_SwitchClientFailureWraps(t *testing.T) {
+	t.Setenv("TMUX", "/tmp/tmux-1000/default,1234,0")
+	tmux := mux.NewTmuxWithRunners(failingRunner{}, mux.NewRecordingInteractiveRunner())
+
+	err := tmux.Attach(context.Background(), "work")
+	requireErrorIs(t, err, errRunFailed)
+}
+
+// TestTmux_Attach_OutsideTmux_InteractiveFailureWraps pins that an
+// attach-session failure from the InteractiveRunner still surfaces
+// through Attach's error wrapping.
+func TestTmux_Attach_OutsideTmux_InteractiveFailureWraps(t *testing.T) {
+	t.Setenv("TMUX", "")
+	tmux := mux.NewTmuxWithRunners(mux.NewRecordingRunner(), failingInteractiveRunner{})
+
+	err := tmux.Attach(context.Background(), "work")
+	requireErrorIs(t, err, errRunFailed)
+}
+
 func TestTmux_RunnerFailuresWrapSentinel(t *testing.T) {
 	tests := []struct {
 		call func(ctx context.Context, tmux mux.Tmux) error
@@ -146,7 +218,6 @@ func TestTmux_RunnerFailuresWrapSentinel(t *testing.T) {
 			_, err := tmux.SessionExists(ctx, "work")
 			return wrapErr("session exists", err)
 		}},
-		{name: "attach", call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.Attach(ctx, "work") }},
 		{name: "send keys", call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.SendKeys(ctx, "work", "", "claude") }},
 		{name: "set env", call: func(ctx context.Context, tmux mux.Tmux) error { return tmux.SetEnv(ctx, "work", "AF_WS", "v") }},
 		{name: "get env", call: func(ctx context.Context, tmux mux.Tmux) error {

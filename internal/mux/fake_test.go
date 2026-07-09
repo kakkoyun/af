@@ -62,6 +62,34 @@ func TestFakeMultiplexer_SendKeysAndSetOption(t *testing.T) {
 	requireNoError(t, fake.SetOption(ctx, "work", "@AF_WORKSTREAM", "issue-42"))
 }
 
+// TestFakeMultiplexer_SentKeysRecordsCallsInOrder pins the issue #33
+// Fix 3 test seam: SendKeys must be observable so cmd-layer tests can
+// assert what was actually typed into a fake tmux pane (e.g.
+// distinguishing a sandbox shell command from an agent launch argv).
+func TestFakeMultiplexer_SentKeysRecordsCallsInOrder(t *testing.T) {
+	ctx := context.Background()
+	fake := mux.NewFakeMultiplexer()
+	requireNoError(t, fake.CreateSession(ctx, "work", "/repo"))
+
+	requireNoError(t, fake.SendKeys(ctx, "work", "", "slicer vm shell vm1\n"))
+	requireNoError(t, fake.SendKeys(ctx, "work", "", "pi\n"))
+
+	want := []string{"slicer vm shell vm1\n", "pi\n"}
+	if got := fake.SentKeys("work"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("SentKeys() = %#v, want %#v", got, want)
+	}
+}
+
+// TestFakeMultiplexer_SentKeysMissingSessionReturnsNil pins that
+// SentKeys on a session that never received SendKeys (or never existed)
+// returns nil rather than panicking or erroring.
+func TestFakeMultiplexer_SentKeysMissingSessionReturnsNil(t *testing.T) {
+	fake := mux.NewFakeMultiplexer()
+	if got := fake.SentKeys("gone"); got != nil {
+		t.Fatalf("SentKeys() = %#v, want nil", got)
+	}
+}
+
 func TestFakeMultiplexer_GetEnvMissingKey(t *testing.T) {
 	ctx := context.Background()
 	fake := mux.NewFakeMultiplexer()
