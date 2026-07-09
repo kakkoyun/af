@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +30,7 @@ type createOptions struct {
 	current   bool
 	bare      bool
 	yolo      bool
+	noAttach  bool
 }
 
 // createContext bundles the seams used by `af create` so tests can
@@ -62,8 +64,15 @@ func newCreateCmd(opts *rootOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create [name]",
 		Short: "Create a local workstream: branch, worktree, state, tmux, primary agent",
-		Long:  "create scaffolds a local workstream per ADR-038/ADR-039: a git worktree on a new branch, the durable state.toml + ledger.jsonl, an optional Obsidian note, a tmux session at the worktree path, and the primary agent launch.",
-		Args:  cobra.MaximumNArgs(1),
+		Long: "create scaffolds a local workstream: a git worktree on a new branch, the durable state.toml + " +
+			"ledger.jsonl, an optional Obsidian note, a tmux session at the worktree path, and the primary agent " +
+			"launch. When run interactively it then attaches to that tmux session by default; pass --no-attach " +
+			"(or --bare) to skip the attach and print the next-steps hint instead.",
+		Example: "  af create fix-auth\n" +
+			"  af create fix-auth --agent claude\n" +
+			"  af create fix-auth --no-attach\n" +
+			"  af create fix-auth --sandbox slicer",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := ""
 			if len(args) == 1 {
@@ -75,10 +84,11 @@ func newCreateCmd(opts *rootOptions) *cobra.Command {
 	cmd.Flags().StringVar(&cOpts.from, "from", "", "base branch to fork the new workstream from")
 	cmd.Flags().BoolVar(&cOpts.current, "current", false, "fork from the current HEAD")
 	cmd.Flags().StringVar(&cOpts.agentName, "agent", "", "primary agent (pi, claude, codex); defaults to [general].default_agent")
-	cmd.Flags().BoolVar(&cOpts.bare, "bare", false, "skip tmux + agent launch (create state + worktree only)")
+	cmd.Flags().BoolVar(&cOpts.bare, "bare", false, "skip tmux + agent launch (create state + worktree only); implies --no-attach")
 	cmd.Flags().BoolVar(&cOpts.yolo, "yolo", false, "launch the primary agent with permissive approval mode")
 	cmd.Flags().StringVar(&cOpts.remote, "remote", "", "ssh host to create the workstream on (ADR-041)")
 	cmd.Flags().StringVar(&cOpts.sandbox, "sandbox", "", "sandbox provider: slicer (ADR-060)")
+	cmd.Flags().BoolVar(&cOpts.noAttach, "no-attach", false, "never attach after create; print the next-steps hint instead")
 	return cmd
 }
 
@@ -144,7 +154,80 @@ func runCreate(ctx context.Context, cmd *cobra.Command, opts *createOptions, nam
 		return err
 	}
 
-	return printCreateResult(cmd, result)
+	err = printCreateResult(cmd, result)
+	if err != nil {
+		return err
+	}
+
+	return finishCreateOutput(ctx, cmd, cc, opts, result)
+}
+
+// finishCreateOutput implements issue #21: attach to the just-created
+// tmux session by default, reusing the exact mux.Multiplexer.Attach
+// mechanism `af resume` uses (attachResumeSession in
+// cmd/af/suspend_resume.go), or print the next-steps footer when
+// attaching would be wrong (bare, --no-attach, non-interactive, or no
+// tmux session to attach to at all).
+func finishCreateOutput(ctx context.Context, cmd *cobra.Command, cc *createContext, opts *createOptions, result lifecycle.CreateResult) error {
+	if shouldAttachAfterCreate(cmd, opts, result) {
+		err := cc.mux.Attach(ctx, result.TmuxSession)
+		if err != nil {
+			return fmt.Errorf("create: attach: %w", err)
+		}
+		return nil
+	}
+	return printCreateFooter(cmd.OutOrStdout(), result.SessionName, result.TmuxSession)
+}
+
+// isInteractiveCreateFunc detects whether the current invocation has a
+// real terminal to attach to. It reuses the exact TTY-detection approach
+// the ADR-070 fzf session picker already uses (isTerminalReader /
+// isTerminalWriter in session_resolve.go), just checked against
+// stdin/stdout instead of stdin/stderr, since attaching (unlike the
+// picker) takes over stdout, not just stderr. It is a package-level var,
+// like sessionPickerFunc/fzfCommandFunc/newResumeMux, so tests can force
+// the interactive branch without a real pty.
+//
+//nolint:gochecknoglobals // Test seam for `af create`'s attach-vs-footer decision (issue #21).
+var isInteractiveCreateFunc = func(cmd *cobra.Command) bool {
+	return isTerminalReader(cmd.InOrStdin()) && isTerminalWriter(cmd.OutOrStdout())
+}
+
+// shouldAttachAfterCreate reports whether create should attach rather
+// than print the footer. --bare and --no-attach both opt out
+// unconditionally; otherwise create only attaches when there is a tmux
+// session to attach to and the invocation is interactive.
+func shouldAttachAfterCreate(cmd *cobra.Command, opts *createOptions, result lifecycle.CreateResult) bool {
+	if opts.bare || opts.noAttach {
+		return false
+	}
+	if result.TmuxSession == "" {
+		return false
+	}
+	return isInteractiveCreateFunc(cmd)
+}
+
+// printCreateFooter prints the issue #25 Part 4.1 next-steps footer used
+// whenever create does not attach. When there is no tmux session (a
+// --bare/--no-attach create with nothing to attach to), the parenthetical
+// tmux alternative is omitted rather than printing an empty target.
+func printCreateFooter(w io.Writer, name, tmuxSession string) error {
+	attachLine := "  → to attach:   af resume " + name
+	if tmuxSession != "" {
+		attachLine += "     (or: tmux attach -t " + tmuxSession + ")"
+	}
+	lines := []string{
+		attachLine,
+		"  → to check in: af status",
+		"  → to finish:   af done " + name,
+	}
+	for _, line := range lines {
+		_, err := fmt.Fprintln(w, line)
+		if err != nil {
+			return fmt.Errorf("write create footer: %w", err)
+		}
+	}
+	return nil
 }
 
 // launchSandbox invokes lifecycle.LaunchSandboxWorkstream after the
@@ -399,7 +482,7 @@ func printCreateResult(cmd *cobra.Command, res lifecycle.CreateResult) error {
 		"  worktree:  " + res.WorktreePath,
 		"  state:     " + res.StatePath,
 		"  ledger:    " + res.LedgerPath,
-		"  tmux:      " + res.TmuxSession,
+		createTmuxLine(res),
 	} {
 		_, err = fmt.Fprintln(w, line)
 		if err != nil {
@@ -413,6 +496,19 @@ func printCreateResult(cmd *cobra.Command, res lifecycle.CreateResult) error {
 		}
 	}
 	return nil
+}
+
+// createTmuxLine renders the create summary's tmux line. Issue #24
+// Option C: point users at the workstream name they should actually pass
+// to af commands (session name), not the tmux session name, since
+// passing the tmux name to `af resume` is exactly the confusion issue
+// #24 is about. A --bare create has no tmux session at all, so the
+// attach hint is omitted rather than pointing at an empty target.
+func createTmuxLine(res lifecycle.CreateResult) string {
+	if res.TmuxSession == "" {
+		return "  tmux:      "
+	}
+	return fmt.Sprintf("  tmux:      %s   (attach: af resume %s)", res.TmuxSession, res.SessionName)
 }
 
 // resolveArchiveDir returns the canonical archive directory used to

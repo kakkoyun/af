@@ -12,6 +12,12 @@
 #                                      EnsureStateSymlink mkdirs the path)
 # tmux + pi remain the passthrough fakes from $WORK/fakebin, so the
 # tmux new-session / set-environment / send-keys calls all succeed.
+#
+# testscript's `exec` never gives the child a real controlling TTY, so
+# every create below is "non-interactive" per af's own detection
+# (isTerminalReader/isTerminalWriter) — create prints the issue #25
+# next-steps footer instead of attaching, and the fake tmux never sees
+# an attach-session call.
 
 env HOME=$WORK/home
 
@@ -26,7 +32,12 @@ exec af create demo
 stdout 'created workstream demo'
 stdout 'branch:    demo'
 stdout 'worktree:'
-stdout 'tmux:      af-demo'
+stdout 'tmux:      af-demo   \(attach: af resume demo\)'
+
+# Non-interactive (no TTY): the next-steps footer prints, not an attach.
+stdout 'to attach:   af resume demo     \(or: tmux attach -t af-demo\)'
+stdout 'to check in: af status'
+stdout 'to finish:   af done demo'
 
 # No config.toml exists, so [obsidian] notes_vault defaults to empty
 # (issue #17): the note step is skipped, and af create says so exactly
