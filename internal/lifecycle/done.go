@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -158,6 +159,16 @@ func archiveSessionDir(sessionDir, archiveRoot, name string) error {
 	err = os.Rename(sessionDir, target)
 	if err != nil {
 		return fmt.Errorf("move %s -> %s: %w", sessionDir, target, err)
+	}
+	// ADR-068 §4 (issue #16): the lazily-created .af.lock must not
+	// survive into the archive — nothing will ever hold it again.
+	// Removal happens after the rename so the caller's flock (done runs
+	// under withSessionLock) stays valid on the open descriptor; a
+	// concurrent locker retrying against the old sessions/<name> path is
+	// stopped by LockFile's ghost-dir guard once the rename lands.
+	err = os.Remove(filepath.Join(target, session.LockFileName))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("remove archived lock file: %w", err)
 	}
 	return nil
 }

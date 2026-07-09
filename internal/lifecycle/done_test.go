@@ -109,6 +109,46 @@ func TestFinishWorkstream_CompletesAndArchives(t *testing.T) {
 	}
 }
 
+// TestFinishWorkstream_RemovesLockFileBeforeArchive pins ADR-068 §4
+// (issue #16): the .af.lock file — created lazily by the first locked
+// operation on the session — must not survive into the archive
+// directory. Once archived, no process will ever hold it again, so a
+// leftover lock is permanently stale and misleading to anything
+// inspecting archive state.
+func TestFinishWorkstream_RemovesLockFileBeforeArchive(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	sessionsDir := filepath.Join(home, "sessions")
+	archiveDir := filepath.Join(home, "archive")
+	path := writeFinishState(t, sessionsDir, "active", "", nil)
+	lockPath := filepath.Join(filepath.Dir(path), session.LockFileName)
+	err := os.WriteFile(lockPath, nil, 0o600)
+	if err != nil {
+		t.Fatalf("materialise lock file: %v", err)
+	}
+
+	_, err = lifecycle.FinishWorkstream(context.Background(),
+		lifecycle.DoneDeps{Git: git.NewFakeRunner(), Mux: mux.NewFakeMultiplexer()},
+		lifecycle.DoneOptions{
+			StatePath:  path,
+			ArchiveDir: archiveDir,
+			Now:        time.Date(2026, 5, 24, 16, 0, 0, 0, time.UTC),
+		})
+	if err != nil {
+		t.Fatalf("FinishWorkstream: %v", err)
+	}
+
+	_, statErr := os.Stat(filepath.Join(archiveDir, demoName, session.LockFileName))
+	if !os.IsNotExist(statErr) {
+		t.Fatalf(".af.lock must not survive into the archive (stat err = %v)", statErr)
+	}
+	// The rest of the session dir must still have been archived.
+	_, statErr = os.Stat(filepath.Join(archiveDir, demoName, "state.toml"))
+	if statErr != nil {
+		t.Fatalf("archived state.toml missing: %v", statErr)
+	}
+}
+
 func TestFinishWorkstream_ForceAbandons(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()

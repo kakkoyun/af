@@ -26,6 +26,9 @@ exists $HOME/.local/share/af/v1/archive/demo/state.toml
 ! exists $HOME/.local/share/af/v1/sessions/demo/state.toml
 grep 'status = "completed"' $HOME/.local/share/af/v1/archive/demo/state.toml
 grep '"event":"completed"' $HOME/.local/share/af/v1/archive/demo/ledger.jsonl
+# ADR-068 §4 (issue #16): the lock done itself materialised must not
+# survive into the archive.
+! exists $HOME/.local/share/af/v1/archive/demo/.af.lock
 
 # ── Scenario 3: force-abandon demo2 ───────────────────────────────────────────
 exec af done demo2 --force
@@ -35,6 +38,7 @@ exists $HOME/.local/share/af/v1/archive/demo2/state.toml
 ! exists $HOME/.local/share/af/v1/sessions/demo2/state.toml
 grep 'status = "abandoned"' $HOME/.local/share/af/v1/archive/demo2/state.toml
 grep '"event":"abandoned"' $HOME/.local/share/af/v1/archive/demo2/ledger.jsonl
+! exists $HOME/.local/share/af/v1/archive/demo2/.af.lock
 
 # ── Failure 4: done again on the archived session ─────────────────────────────
 # The state dir moved to the archive, so a second done finds no session dir.
