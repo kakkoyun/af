@@ -56,7 +56,7 @@ install: warn-dirty release-build
 	$(GO) install -ldflags '$(LD_FLAGS)' ./cmd/af
 
 warn-dirty:
-	@if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && [ -n "$$(git status --porcelain)" ]; then \
+	@if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && ! git diff --quiet HEAD; then \
 		printf '%s\n' 'warning: working tree has uncommitted changes; installed af will report dirty: true' >&2; \
 		printf '%s\n' 'warning: commit or stash changes before release approval if this was not intentional' >&2; \
 	fi

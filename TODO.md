@@ -800,6 +800,11 @@ test/CI coverage, docs-vs-reality). All executed on branch
       and sat there permanently stale. Found by the owner's smoke run
       (Lane E, Stage 5 lifecycle end-to-end).
 
+- [x] I16.23 (issue #18): `make warn-dirty` now checks `! git diff
+      --quiet HEAD` instead of `git status --porcelain`, so untracked
+      (including gitignored) files no longer flip the dirty warning or
+      `af version`'s `dirty` flag.
+
 ---
 
 ## Backlog (post-v1, unscheduled)

@@ -2734,3 +2734,22 @@ fixed TDD (red tests reproduced each report verbatim before the fix).
 
 `gofumpt -l` clean, `golangci-lint run` 0 issues,
 `go test -race -count=1 ./...` all green.
+
+## 2026-07-09 — Session 46c: tracked-only dirty detection (issue #18)
+
+Fixed `make warn-dirty` (Makefile) treating untracked files as dirty:
+swapped `[ -n "$(git status --porcelain)" ]` for `! git diff --quiet
+HEAD` (tracked changes only), per the issue's exact prescribed fix.
+Verified manually: an untracked file no longer trips the warning; a
+modified tracked file still does. Read `internal/version/version.go`
+and confirmed it does **not** shell out to `git status` itself — it
+only reads `vcs.modified` from `debug.ReadBuildInfo()`, which the Go
+toolchain populates internally (`cmd/go/internal/vcs`) from `git
+status --porcelain`'s "uncommitted" flag. Traced and empirically
+verified (isolated repro, not this worktree, whose nested `.git`-file
+layout confuses `cmd/go`'s directory-based VCS-root detection) that
+Go's own stamping already excludes genuinely `.gitignore`d untracked
+files, matching the issue's title scenario — no code change needed on
+the Go side per the task's own instructions, since it isn't computing
+its own dirty flag from git status. `gofumpt`/`golangci-lint`/`go test
+-race` all green (no Go source touched).
