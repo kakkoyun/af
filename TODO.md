@@ -814,6 +814,8 @@ test/CI coverage, docs-vs-reality). All executed on branch
 
 - [x] I16.24 (issue #17): `af config init` now generates `[obsidian.vaults]` example paths from the real `os.UserHomeDir()` instead of the hardcoded `/Users/owner` placeholder (Option 3), and `af create` prints a one-line stderr warning — never affecting the exit code — whenever it skips the Obsidian note step because `notes_vault` is empty (Option 2); interactive vault prompting (Option 1) is deliberately deferred, out of scope for this fix.
 
+- [x] I16.29 (issue #22): `af completions [SHELL] --install [--dry-run]` idempotently installs the per-shell completion script to its user-local path, auto-detecting the shell from `$SHELL` when the positional is omitted.
+
 ---
 
 ## Backlog (post-v1, unscheduled)

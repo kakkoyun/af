@@ -66,6 +66,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   silently doing nothing. The warning never changes the exit code and
   never prints when a vault is configured.
 
+### Added (completions --install, issue #22)
+
+- `af completions [SHELL] --install` writes the shell's completion
+  script to its standard user-local path instead of stdout:
+  `~/.zfunc/_af` (zsh), `~/.bash_completion.d/af` (bash),
+  `~/.config/fish/completions/af.fish` (fish). Installing is
+  idempotent — a destination with byte-identical content is left
+  untouched and reported as already up to date; anything else is
+  written atomically (temp file + rename) and reported as installed.
+  There is no separate `--shell` flag: the existing positional
+  argument doubles as the shell override, and omitting it under
+  `--install` auto-detects the shell from the basename of `$SHELL`
+  (bash/zsh/fish only), erroring otherwise. `--dry-run` (only valid
+  with `--install`) previews the action without writing anything. `af`
+  never edits rc files; each install prints the shell's activation
+  hint instead.
+
 ### Changed (lock windows, issue #3)
 
 - **PR-refresh flows no longer hold the session lock across the `gh`
