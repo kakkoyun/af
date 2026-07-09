@@ -89,6 +89,25 @@ func envSessionStatePath(stateDir string) (string, error) {
 	return statePathForSessionName(stateDir, envName)
 }
 
+// validateSessionEnv rejects a malformed AF_SESSION for EVERY af
+// invocation, from the root command's PersistentPreRunE (issue #15).
+// Commands that never consume the variable (list, version, doctor …)
+// would otherwise silently ignore a traversal name like "../../etc",
+// while the consuming commands reject it at the
+// statePathForSessionName chokepoint — an inconsistency that hid the
+// poisoned environment until a consuming command ran.
+func validateSessionEnv() error {
+	envName := strings.TrimSpace(os.Getenv("AF_SESSION"))
+	if envName == "" {
+		return nil
+	}
+	err := workstream.ValidateSessionName(envName)
+	if err != nil {
+		return fmt.Errorf("AF_SESSION: %w", err)
+	}
+	return nil
+}
+
 func cwdSessionStatePath(stateDir string) (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {

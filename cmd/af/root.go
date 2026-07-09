@@ -38,7 +38,7 @@ func newRootCmdWithOptions(opts *rootOptions) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("prepare af command: %w", err)
 			}
-			return nil
+			return validateSessionEnv()
 		},
 	}
 

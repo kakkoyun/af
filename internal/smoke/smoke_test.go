@@ -62,9 +62,15 @@ func compliantExec() *fakeExec {
 	} {
 		f.queue(key, fakeResult{stdout: out})
 	}
+	// Invalid session names exit 64 (EX_USAGE per ADR-068 §2); the
+	// other rejections stay on the generic exit 1.
 	for key, msg := range map[string]string{
-		"af create ../evil --bare":             "invalid session name",
-		"af stack smoke-ws --parent ../evil":   "invalid session name",
+		"af create ../evil --bare":           "invalid session name",
+		"af stack smoke-ws --parent ../evil": "invalid session name",
+	} {
+		f.queue(key, fakeResult{stderr: msg, exit: 64})
+	}
+	for key, msg := range map[string]string{
 		"af sync smoke-ws":                     "sync requires Stack.ParentSession to be set",
 		"af info ghost-session-does-not-exist": "session directory missing",
 	} {

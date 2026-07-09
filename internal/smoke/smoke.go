@@ -35,6 +35,10 @@ const maxCapturedBytes = 8 * 1024
 // scratchDirPerm is the mode for directories inside the scratch root.
 const scratchDirPerm = 0o750
 
+// exitUsage mirrors cmd/af's EX_USAGE (ADR-068 §2): af's own
+// argument validation failures, e.g. an invalid session name.
+const exitUsage = 64
+
 // skippedExitCode marks steps that never executed in the JSON report,
 // disambiguating them from a successful exit 0.
 const skippedExitCode = -1
@@ -148,12 +152,12 @@ func steps() []step {
 		{name: "doctor-probe", args: []string{"doctor"}, expect: "runs; tool inventory captured for the report (exit ignored)", wantExit: -1},
 		{name: "list-empty", args: []string{"list"}, expect: "exit 0, reports no workstreams", stdoutContains: "no workstreams"},
 		{name: "create", requires: []string{"git"}, args: []string{"create", "smoke-ws", "--bare", "--from", "main"}, inRepo: true, expect: "exit 0, workstream created", stdoutContains: "created workstream"},
-		{name: "create-traversal-rejected", requires: []string{"git"}, args: []string{"create", "../evil", "--bare"}, inRepo: true, wantExit: 1, stderrContains: "invalid session name", expect: "traversal names rejected (ADR-069)"},
+		{name: "create-traversal-rejected", requires: []string{"git"}, args: []string{"create", "../evil", "--bare"}, inRepo: true, wantExit: exitUsage, stderrContains: "invalid session name", expect: "traversal names rejected (ADR-069) with EX_USAGE (ADR-068)"},
 		{name: "list", requires: []string{"git"}, args: []string{"list"}, expect: "exit 0, lists smoke-ws", stdoutContains: "smoke-ws"},
 		{name: "status", requires: []string{"git"}, args: []string{"status"}, expect: "exit 0, dashboard lists smoke-ws", stdoutContains: "smoke-ws"},
 		{name: "info", requires: []string{"git"}, args: []string{"info", "smoke-ws", "--ledger", "5"}, expect: "exit 0, state summary with ledger tail", stdoutContains: "smoke-ws"},
 		{name: "note", requires: []string{"git"}, args: []string{"note", "smoke-ws", "--append", "doctor self-smoke probe"}, expect: "exit 0, ledger event appended"},
-		{name: "stack-parent-validation", requires: []string{"git"}, args: []string{"stack", "smoke-ws", "--parent", "../evil"}, wantExit: 1, stderrContains: "invalid session name", expect: "stack parent names validated"},
+		{name: "stack-parent-validation", requires: []string{"git"}, args: []string{"stack", "smoke-ws", "--parent", "../evil"}, wantExit: exitUsage, stderrContains: "invalid session name", expect: "stack parent names validated with EX_USAGE (ADR-068)"},
 		{name: "sync-without-parent", requires: []string{"git"}, args: []string{"sync", "smoke-ws"}, wantExit: 1, stderrContains: "ParentSession", expect: "sync without a stack parent fails with guidance"},
 		{name: "suspend", requires: []string{"git"}, args: []string{"suspend", "smoke-ws"}, expect: "exit 0, status flips to suspended", stdoutContains: "suspended"},
 		{name: "resume", requires: []string{"git"}, args: []string{"resume", "smoke-ws", "--bare"}, expect: "exit 0, status flips to active", stdoutContains: "active"},
