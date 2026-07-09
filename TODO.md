@@ -816,6 +816,21 @@ test/CI coverage, docs-vs-reality). All executed on branch
 
 - [x] I16.29 (issue #22): `af completions [SHELL] --install [--dry-run]` idempotently installs the per-shell completion script to its user-local path, auto-detecting the shell from `$SHELL` when the positional is omitted.
 
+- [x] I16.25 (issue #23): `af resume` on an active workstream attaches
+      instead of hitting the lifecycle FSM's invalid-transition error;
+      `--bare` prints the same notice as an idempotent no-op instead.
+- [x] I16.26 (issue #21): `af create` attaches to its new tmux session
+      by default when run interactively, reusing the resume attach
+      mechanism; `--no-attach` (implied by `--bare`) prints the
+      next-steps footer instead.
+- [x] I16.27 (issue #24): session resolution hints at the intended
+      `af resume <name>` invocation when a raw tmux session name is
+      passed instead, and `af create`'s tmux summary line names the
+      usable attach command.
+- [x] I16.28 (issue #25): next-steps footers on `create`/`done`, an ADR
+      sweep of every cobra command's user-facing help text, reworded
+      lifecycle transition errors, and new `Example:` blocks.
+
 ---
 
 ## Backlog (post-v1, unscheduled)

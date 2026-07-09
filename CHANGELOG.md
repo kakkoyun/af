@@ -83,6 +83,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   never edits rc files; each install prints the shell's activation
   hint instead.
 
+### Changed (create/resume attach UX; issues #21, #23, #24, #25)
+
+- **`af resume` on an already-active workstream now attaches instead of
+  erroring** (issue #23). Previously it hit the lifecycle FSM's
+  `invalid lifecycle transition` error. Now: without `--bare` it prints
+  `session '<name>' is already active` on stderr and attaches to the
+  tmux session; with `--bare` it prints the same notice plus a manual
+  `tmux attach -t <tmux-session>` hint and exits 0 as an idempotent
+  no-op. Terminal states (completed/abandoned) still error.
+- **`af create` attaches by default** (issue #21). After a successful
+  non-bare create, when the invocation is interactive (same TTY
+  detection the ADR-070 fzf session picker already uses), create
+  attaches to the new tmux session via the same `mux.Attach` mechanism
+  `af resume` uses. Non-interactive invocations (tests, CI, pipes) and
+  the new `--no-attach` flag print the next-steps footer instead;
+  `--bare` implies `--no-attach`.
+- **Helpful hint when a tmux session name is passed where a workstream
+  name is expected** (issue #24). When session resolution fails because
+  the session directory doesn't exist and the name starts with `af-`,
+  the error now appends `hint: '<name>' looks like a tmux session name;
+  did you mean: af resume <name-without-af-prefix>` (or, when the
+  stripped remainder still contains `--`, a generic pointer at
+  `af list` instead of guessing a wrong name). `af create`'s tmux
+  summary line now reads `tmux:      <tmux-name>   (attach: af resume
+  <session-name>)` so the usable command is right there instead of the
+  raw tmux name.
+- **User-facing output and help text pass** (issue #25): `af create`
+  (when not attaching) and `af done` print a next-steps footer; cobra
+  `Short`/`Long`/`Example` strings across every command no longer cite
+  internal ADR numbers (git history and code comments still do); the
+  remaining lifecycle transition errors read `cannot <verb> a <status>
+  workstream (<hint>)` instead of `invalid lifecycle transition from
+  <status>`; the root command's `--help` gains a five-line "Quick
+  start:" walkthrough; and `create`/`resume`/`done`/`status`/`doctor`
+  gained `Example:` blocks.
+
 ### Changed (lock windows, issue #3)
 
 - **PR-refresh flows no longer hold the session lock across the `gh`
