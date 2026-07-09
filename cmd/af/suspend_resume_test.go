@@ -135,6 +135,71 @@ func TestResume_ActiveSessionAttachesInsteadOfErroring(t *testing.T) {
 	}
 }
 
+// TestResume_ActiveSessionRespawnsDeadTmuxBeforeAttach is the issue #33
+// Fix 2 regression pin: `af resume` on an already-active workstream
+// whose tmux session died out from under it (tmux server restarted, or
+// the session was killed out-of-band) must respawn the session before
+// attaching, instead of attaching directly into a session that no
+// longer exists.
+func TestResume_ActiveSessionRespawnsDeadTmuxBeforeAttach(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionStateWithTmux(t, home, "demo", "feat/demo", "active", "af-demo")
+	fake := installFakeResumeMux(t)
+	// No pre-created fake tmux session: simulates a dead tmux server.
+
+	_, stderr, err := executeCommand(t, newRootCmd(), "resume", "demo")
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if !strings.Contains(stderr, "session 'demo' is already active") {
+		t.Fatalf("stderr = %q, want the already-active notice", stderr)
+	}
+	exists, existsErr := fake.SessionExists(t.Context(), "af-demo")
+	if existsErr != nil {
+		t.Fatalf("SessionExists: %v", existsErr)
+	}
+	if !exists {
+		t.Fatal("resume on an active workstream with a dead tmux session must respawn it")
+	}
+	if !sessionAttached(t, fake, "af-demo") {
+		t.Fatal("resume on an active workstream must attach after respawning the dead tmux session")
+	}
+}
+
+// TestResume_ActiveSessionLiveSessionSkipsRespawn pins the other half of
+// issue #33 Fix 2: when the tmux session is still alive, resume must
+// attach only — it must not recreate (and thereby reset) the session.
+func TestResume_ActiveSessionLiveSessionSkipsRespawn(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeTestSessionStateWithTmux(t, home, "demo", "feat/demo", "active", "af-demo")
+	fake := installFakeResumeMux(t)
+	err := fake.CreateSession(t.Context(), "af-demo", home)
+	if err != nil {
+		t.Fatalf("pre-create fake tmux session: %v", err)
+	}
+	err = fake.SetEnv(t.Context(), "af-demo", "AF_MARK", "original")
+	if err != nil {
+		t.Fatalf("mark original session: %v", err)
+	}
+
+	_, _, err = executeCommand(t, newRootCmd(), "resume", "demo")
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	mark, err := fake.GetEnv(t.Context(), "af-demo", "AF_MARK")
+	if err != nil {
+		t.Fatalf("GetEnv: %v", err)
+	}
+	if mark != "original" {
+		t.Fatal("resume on an active workstream with a live tmux session must not recreate it")
+	}
+	if !sessionAttached(t, fake, "af-demo") {
+		t.Fatal("resume on an active workstream must attach to the live tmux session")
+	}
+}
+
 // TestResume_ActiveSessionBareIsNoOp covers the --bare branch of issue
 // #23: no attach, just the notice plus a manual-attach hint, and still
 // exit 0 (not an error).

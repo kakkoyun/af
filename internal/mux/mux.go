@@ -60,6 +60,17 @@ type Runner interface {
 	Run(ctx context.Context, command Command) ([]byte, error)
 }
 
+// InteractiveRunner runs a command with the caller's inherited
+// stdin/stdout/stderr, blocking until the process exits. Tmux.Attach
+// uses it for the attach-session path only: tmux refuses to attach with
+// piped/non-tty stdio ("open terminal failed" on every invocation, not
+// just inside tmux), so attach-session must run against the real
+// terminal instead of the captured Runner every other Tmux method uses
+// (issue #33 Fix 0).
+type InteractiveRunner interface {
+	RunInteractive(ctx context.Context, command Command) error
+}
+
 // ExecRunner runs commands through os/exec.
 type ExecRunner struct{}
 
@@ -75,24 +86,57 @@ func (ExecRunner) Run(ctx context.Context, command Command) ([]byte, error) {
 	return output, nil
 }
 
+// RunInteractive executes command with the caller's real stdin,
+// stdout, and stderr, and blocks until it exits. Unlike Run, output is
+// never captured: capturing stdio is exactly what makes tmux
+// attach-session fail immediately (issue #33 Fix 0).
+func (ExecRunner) RunInteractive(ctx context.Context, command Command) error {
+	cmd := exec.CommandContext(ctx, command.Name, command.Args...) //nolint:gosec // Command argv is constructed by typed provider methods, not shell input.
+	cmd.Dir = command.Dir
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("run interactive %s %s: %w", command.Name, strings.Join(command.Args, " "), err)
+	}
+
+	return nil
+}
+
 // Tmux implements Multiplexer with the tmux CLI.
 type Tmux struct {
-	runner Runner
-	binary string
+	runner      Runner
+	interactive InteractiveRunner
+	binary      string
 }
 
-// NewTmux returns a tmux multiplexer using os/exec.
+// NewTmux returns a tmux multiplexer using os/exec for both captured
+// commands and Attach's interactive attach-session path.
 func NewTmux() Tmux {
-	return NewTmuxWithRunner(ExecRunner{})
+	return NewTmuxWithRunners(ExecRunner{}, ExecRunner{})
 }
 
-// NewTmuxWithRunner returns a tmux multiplexer using runner.
+// NewTmuxWithRunner returns a tmux multiplexer using runner for
+// captured commands. Attach's interactive attach-session path falls
+// back to ExecRunner{} (real os/exec with inherited stdio); use
+// NewTmuxWithRunners to override that too, e.g. in tests.
 func NewTmuxWithRunner(runner Runner) Tmux {
+	return NewTmuxWithRunners(runner, nil)
+}
+
+// NewTmuxWithRunners returns a tmux multiplexer using runner for
+// captured commands and interactive for Attach's attach-session path. A
+// nil runner or interactive falls back to ExecRunner{}.
+func NewTmuxWithRunners(runner Runner, interactive InteractiveRunner) Tmux {
 	if runner == nil {
 		runner = ExecRunner{}
 	}
+	if interactive == nil {
+		interactive = ExecRunner{}
+	}
 
-	return Tmux{runner: runner, binary: "tmux"}
+	return Tmux{runner: runner, interactive: interactive, binary: "tmux"}
 }
 
 // IsAvailable reports whether tmux can be found on PATH.
@@ -160,8 +204,30 @@ func (tmux Tmux) SessionExists(ctx context.Context, name string) (bool, error) {
 }
 
 // Attach attaches the user's terminal to a tmux session.
+//
+// When the calling process is already inside a tmux client (per
+// InsideSession, the single source of truth for that check), Attach
+// runs `switch-client` through the normal captured Runner: switch-client
+// works from inside the existing client and needs no new terminal.
+// Otherwise it runs `attach-session` through the InteractiveRunner,
+// which inherits the caller's real stdin/stdout/stderr instead of
+// capturing them, and blocks until the user detaches — tmux refuses to
+// attach a piped/non-tty stdio, and detaching is the correct point for
+// af to exit (issue #33 Fix 0 / Fix 1).
 func (tmux Tmux) Attach(ctx context.Context, name string) error {
-	_, err := tmux.run(ctx, "attach-session", "-t", name)
+	_, inside, err := tmux.InsideSession(ctx)
+	if err != nil {
+		return fmt.Errorf("attach tmux session %s: %w", name, err)
+	}
+	if inside {
+		_, err = tmux.run(ctx, "switch-client", "-t", name)
+		if err != nil {
+			return fmt.Errorf("attach tmux session %s: %w", name, err)
+		}
+
+		return nil
+	}
+	err = tmux.interactive.RunInteractive(ctx, Command{Name: tmux.binary, Args: []string{"attach-session", "-t", name}})
 	if err != nil {
 		return fmt.Errorf("attach tmux session %s: %w", name, err)
 	}

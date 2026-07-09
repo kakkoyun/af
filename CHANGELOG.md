@@ -53,6 +53,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   blockquote was rewritten from implementer stage/ADR jargon into a
   reader-facing summary.
 
+### Fixed (attach and slicer landing; issue #33)
+
+- **`af create`/`af resume` attach never actually worked, anywhere**
+  (issue #33 Fix 0, the hidden root cause). `Tmux.Attach` ran `tmux
+  attach-session` through the same captured runner as every other tmux
+  call, which pipes stdin/stdout instead of connecting a real
+  terminal — tmux immediately fails with "open terminal failed" no
+  matter where `af` is run from, not just from inside another tmux
+  session. Attach now runs `attach-session` through a new
+  `InteractiveRunner` seam (implemented by `ExecRunner`) that inherits
+  the caller's real stdin/stdout/stderr and blocks until the user
+  detaches — af exiting on detach is the correct behaviour.
+- **Attaching from inside tmux now runs `switch-client`, not
+  `attach-session`** (issue #33 Fix 1). `Tmux.Attach` checks
+  `InsideSession`'s `$TMUX` signal and, when already inside a tmux
+  client, runs `switch-client -t <name>` through the normal captured
+  runner instead — switch-client works from inside the existing client
+  and needs no new terminal.
+- **`af resume` on an active workstream no longer attaches into a dead
+  tmux session** (issue #33 Fix 2). The resume-on-active fast path
+  attached directly without checking whether the tmux server or
+  session had died out from under it (server restarted, session
+  killed out-of-band). It now respawns the session first via the same
+  `lifecycle.MaybeRespawnTmux` helper the suspended→active transition
+  already used, then attaches.
+- **`af create --sandbox slicer` no longer double-launches the agent**
+  (issue #33 Fix 3). The host tmux pane used to `SendKeys` the agent
+  launch argv directly on the host *and* `slicer wt push --launch`
+  launched it again inside the VM — the host pane never actually put
+  you inside the sandbox. The host pane is now a plain shell into the
+  VM (`slicer vm shell <vm>`, sent via the exported
+  `sandbox.Provider.AttachCommand`); the agent still launches inside
+  the VM only, unchanged.
+
 ### Fixed (owner smoke-test findings; issues #15, #16)
 
 - **A malformed `AF_SESSION` now fails every `af` invocation up front**

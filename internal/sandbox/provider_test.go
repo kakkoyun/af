@@ -98,6 +98,38 @@ func TestProvider_TeardownBuildsCommand(t *testing.T) {
 	}
 }
 
+// TestProvider_AttachCommandExported pins that AttachCommand (issue #33
+// Fix 3) is the single source of truth for the argv used to attach to a
+// running sandbox, so cmd/af can build the exact same shell command it
+// sends into the host tmux pane.
+func TestProvider_AttachCommandExported(t *testing.T) {
+	provider := sandbox.NewSlicer()
+	want := []string{"slicer", "vm", "shell", "vm-1"}
+	if got := provider.AttachCommand("vm-1"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("AttachCommand() = %#v, want %#v", got, want)
+	}
+}
+
+// TestProvider_Launch_HandleAttachCmdMatchesAttachCommand pins that
+// slicerWTLaunch builds Handle.AttachCmd via the exported AttachCommand
+// method rather than a second, potentially-drifting inline copy of the
+// same argv shape.
+func TestProvider_Launch_HandleAttachCmdMatchesAttachCommand(t *testing.T) {
+	ctx := context.Background()
+	runner := sandbox.NewRecordingRunner()
+	runner.QueueOutput("Launched VM vm-123\n")
+	provider := sandbox.NewSlicerWithRunner(runner)
+
+	handle, err := provider.Launch(ctx, sandbox.LaunchOpts{Worktree: "/repo"})
+	if err != nil {
+		t.Fatalf("Launch() error = %v", err)
+	}
+	want := provider.AttachCommand(handle.VMName)
+	if !reflect.DeepEqual(handle.AttachCmd, want) {
+		t.Fatalf("Handle.AttachCmd = %#v, want %#v (from AttachCommand)", handle.AttachCmd, want)
+	}
+}
+
 func TestProvider_ListSortsHandlesAndSetsAttachCmd(t *testing.T) {
 	ctx := context.Background()
 	runner := sandbox.NewRecordingRunner()

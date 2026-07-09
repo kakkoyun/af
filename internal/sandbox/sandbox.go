@@ -211,6 +211,17 @@ func (provider Provider) Attach(ctx context.Context, handle *Handle) error {
 	return nil
 }
 
+// AttachCommand returns the full argv (binary included) that attaches a
+// caller's terminal to sandbox id — e.g. ["slicer", "vm", "shell",
+// "<id>"] for the slicer provider. It is the single source of truth for
+// that argv shape: List and Launch both build Handle.AttachCmd from it,
+// and callers that need to run the attach command themselves (e.g.
+// cmd/af sending it into a host tmux pane per issue #33 Fix 3) should
+// use it instead of reconstructing the shape by hand.
+func (provider Provider) AttachCommand(id string) []string {
+	return append([]string{provider.binary}, provider.attachArgs(id)...)
+}
+
 // IsHealthy reports whether a sandbox appears alive.
 func (provider Provider) IsHealthy(ctx context.Context, handle *Handle) (bool, error) {
 	_, err := provider.run(ctx, provider.healthArgs(handle.ID)...)
@@ -240,7 +251,7 @@ func (provider Provider) List(ctx context.Context) ([]Handle, error) {
 	ids := strings.Fields(string(output))
 	handles := make([]Handle, 0, len(ids))
 	for _, id := range ids {
-		handles = append(handles, Handle{ID: id, AttachCmd: provider.attachCommand(id)})
+		handles = append(handles, Handle{ID: id, AttachCmd: provider.AttachCommand(id)})
 	}
 	sort.Slice(handles, func(i, j int) bool { return handles[i].ID < handles[j].ID })
 
@@ -261,7 +272,7 @@ func (provider Provider) slicerWTLaunch(ctx context.Context, opts LaunchOpts) (*
 	return &Handle{
 		ID:        result.VM,
 		VMName:    result.VM,
-		AttachCmd: []string{provider.binary, "vm", "shell", result.VM},
+		AttachCmd: provider.AttachCommand(result.VM),
 	}, nil
 }
 
@@ -274,10 +285,6 @@ func wtTags(opts LaunchOpts) []string {
 	}
 	tags = append(tags, opts.Tags...)
 	return tags
-}
-
-func (provider Provider) attachCommand(id string) []string {
-	return append([]string{provider.binary}, provider.attachArgs(id)...)
 }
 
 func (provider Provider) attachArgs(id string) []string {

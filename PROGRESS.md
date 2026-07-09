@@ -3010,3 +3010,147 @@ and the same session-resolution chokepoint.
 None new. I16.13 (issue #7, Pages tombstone) remains an open owner
 decision from Session 43. Issue #19 (slicer stderr propagation) is
 explicitly out of scope here per the task brief — untouched.
+
+## 2026-07-09 — Session 47: attach path rework (issue #33)
+
+Issue #33 (CRITICAL) reported that the attach path shipped for issues
+#21/#23 never actually worked, and slicer sandbox sessions never landed
+the user inside the VM. Code inspection surfaced a fourth, hidden root
+cause the issue itself didn't name. Fixed all four.
+
+### What changed
+
+- **Fix 0 (hidden root cause, `internal/mux/mux.go`)**: `Tmux.Attach` ran
+  `tmux attach-session` through `ExecRunner.Run`, which uses
+  `cmd.CombinedOutput()` — stdin/stdout are pipes, so tmux failed
+  immediately with "open terminal failed" on every invocation, not just
+  from inside another tmux session. Added a new `InteractiveRunner`
+  capability (`RunInteractive(ctx, Command) error`), implemented by
+  `ExecRunner` with inherited stdin/stdout/stderr and no output
+  capture. `Tmux` now holds one alongside its normal captured `Runner`;
+  `NewTmux()` wires the real `ExecRunner{}` for both, `NewTmuxWithRunner`
+  keeps the old one-arg shape (interactive falls back to `ExecRunner{}`
+  too), and a new `NewTmuxWithRunners(runner, interactive)` lets tests
+  inject both independently. Added `RecordingInteractiveRunner` next to
+  the existing `RecordingRunner` so tests can assert which path ran
+  without ever touching a real tty.
+- **Fix 1 (`internal/mux/mux.go`)**: `Tmux.Attach` now calls
+  `tmux.InsideSession(ctx)` — the same `$TMUX` check `InsideSession`
+  already exposed, so there is exactly one source of truth for "am I
+  inside tmux" — and branches: inside tmux, it runs `switch-client -t
+  <name>` through the normal captured runner (no new terminal needed);
+  outside tmux, it runs `attach-session -t <name>` through the
+  `InteractiveRunner` and blocks until the user detaches (correct af
+  UX: af exits when the user detaches).
+- **Fix 2 (`internal/lifecycle/suspend_resume.go`,
+  `cmd/af/suspend_resume.go`)**: exported the existing
+  `maybeRespawnTmux` helper as `MaybeRespawnTmux` (behaviour unchanged:
+  no-op when bare/nil-mux/no-session-recorded/already-alive, otherwise
+  respawns via `CreateSession`). `af resume`'s already-active fast path
+  (`handleResumeAlreadyActive`, issue #23's regression pin) attached
+  directly with no respawn check at all — a workstream recorded active
+  in state.toml with a dead tmux session (server restarted, session
+  killed out-of-band) would attach into nothing. It now calls
+  `lifecycle.MaybeRespawnTmux` before `attachResumeSession`, reusing the
+  exact mechanism the suspended→active transition already ran instead
+  of inventing a second one. `af create` needs no equivalent —
+  `lifecycle.Create`'s `CreateSession` call just ran, which starts the
+  tmux server fresh.
+- **Fix 3 (`internal/sandbox/sandbox.go`, `internal/lifecycle/create.go`,
+  `cmd/af/create.go`)**: a `--sandbox` create was doubly wrong —
+  `lifecycle.Create` (via `deps.Agent`) `SendKeys`-launched the agent in
+  the *host* tmux pane, and `launchSandbox`'s `slicer wt push --launch`
+  *also* launched it inside the VM. The host pane never actually put you
+  in the sandbox.
+  - Exported `Provider.attachCommand` as `Provider.AttachCommand` (doc
+    comment added) and made `slicerWTLaunch` build `Handle.AttachCmd`
+    from it instead of a separately-hand-rolled inline slice, so
+    `List()`, `Attach()`, and `Launch()` all derive the attach argv from
+    one place.
+  - Added `CreateOptions.HostAgentless` to `internal/lifecycle/create.go`.
+    `validateCreateDeps` previously rejected `deps.Agent == nil` for any
+    non-bare create outright; `HostAgentless` opts a caller out of that
+    guard specifically (`af create --sandbox` sets it) without weakening
+    it for ordinary creates that forgot to pass an agent by accident.
+    **Agent-slot recording investigation**: `buildInitialState` already
+    records the primary agent slot from `opts.AgentName`, never from
+    `deps.Agent` — so state.toml's `Agents[0].Provider` was already
+    correct regardless of a nil `deps.Agent`. The only real gap was the
+    validation guard; no change was needed (or made) to state recording
+    itself. Added `TestCreate_HostAgentlessAllowsNilAgent` to pin both
+    halves (Create succeeds, state.toml still records the agent name).
+  - `cmd/af/create.go`'s `runCreate` now passes `Agent: nil` +
+    `HostAgentless: true` into `lifecycle.CreateDeps`/`CreateOptions`
+    whenever `--sandbox` is set (factored into `buildLifecycleCreateInputs`
+    to keep `runCreate` under the `cyclop` budget). After
+    `launchSandbox` succeeds, the new `attachSandboxShell` sends
+    `strings.Join(handle.AttachCmd, " ") + "\n"` into the host tmux pane
+    via `SendKeys` (`launchSandbox` now returns `(*sandbox.Handle,
+    error)` so the caller has the VM's attach argv, rather than
+    discarding it). Added a `newSandboxProvider` package-level test
+    seam (matching the existing `newResumeMux`/`newCreateContextOverride`
+    pattern) so cmd-layer tests inject `sandbox.Fake` instead of
+    shelling out to a real `slicer` binary.
+  - **Deviation from the issue's sketch**: no `--cwd` flag is passed to
+    `slicer vm shell`. Nothing in this codebase (docs, other call sites,
+    tests) indicates slicer supports one, and `slicer wt push` already
+    provisions the workspace inside the VM before the shell runs, so the
+    shell lands somewhere sensible on its own. Documented inline at
+    `attachSandboxShell`.
+  - **VM name source investigation**: the issue suggested re-reading
+    `state.SlicerWT.VM` after `launchSandbox`. That field is never
+    written anywhere in the create path today (only read, by
+    `af pull`/`af done`), so re-reading state would find nothing. Used
+    the in-memory `*sandbox.Handle` returned directly from
+    `launchSandbox`/`lifecycle.LaunchSandboxWorkstream` instead — it's
+    already available in `runCreate` right after the call and carries
+    the same VM name.
+
+### Tests (by fix)
+
+- Fix 0/1 — `internal/mux/tmux_test.go`:
+  `TestTmux_Attach_InsideTmux_UsesSwitchClientViaCapturedRunner`,
+  `TestTmux_Attach_OutsideTmux_UsesInteractiveRunner`,
+  `TestTmux_Attach_InsideTmux_SwitchClientFailureWraps`,
+  `TestTmux_Attach_OutsideTmux_InteractiveFailureWraps`. Removed the old
+  generic "attach session"/"attach" cases from
+  `TestTmux_CommandArgv`/`TestTmux_RunnerFailuresWrapSentinel` since
+  Attach's mechanism now depends on `$TMUX`, not just argv shape.
+- Fix 3 (mux-level seam) — `internal/mux/fake_test.go`:
+  `TestFakeMultiplexer_SentKeysRecordsCallsInOrder`,
+  `TestFakeMultiplexer_SentKeysMissingSessionReturnsNil` (new
+  `FakeMultiplexer.SentKeys` accessor).
+- Fix 2 — `internal/lifecycle/suspend_resume_test.go`:
+  `TestMaybeRespawnTmux_RespawnsWhenMissing`,
+  `TestMaybeRespawnTmux_NoOpWhenAlive`; `cmd/af/suspend_resume_test.go`:
+  `TestResume_ActiveSessionRespawnsDeadTmuxBeforeAttach`,
+  `TestResume_ActiveSessionLiveSessionSkipsRespawn`.
+- Fix 3 — `internal/sandbox/provider_test.go`:
+  `TestProvider_AttachCommandExported`,
+  `TestProvider_Launch_HandleAttachCmdMatchesAttachCommand`;
+  `internal/lifecycle/create_more_test.go`:
+  `TestCreate_HostAgentlessAllowsNilAgent`,
+  `TestCreate_NilAgentStillRejectedWithoutHostAgentless`;
+  `cmd/af/create_test.go`: `TestCreate_SandboxLandsHostPaneInVMShell`,
+  `TestCreate_NonSandboxStillLaunchesAgentOnHost`.
+
+### Verification
+
+`gofumpt -l cmd/ internal/` clean; `goimports -l cmd/ internal/` clean;
+`golangci-lint run` (v2.3.0, all linters) 0 issues (needed one factor-out,
+`buildLifecycleCreateInputs`/`launchAndAttachSandbox`, to keep
+`runCreate` under the `cyclop` complexity budget); `go test -race
+-count=1 ./...` green across every package.
+
+### Deferred / not done
+
+None on the four fixes themselves — all implemented and tested. One
+doc-pass instruction couldn't be carried out as written: the brief asked
+for a `docs/EXAMPLES.md` update (daily-driver attach note, sandbox
+recipe), but no such file exists anywhere in the v1 tree (checked
+`docs/`, repo root, and a full-tree `*.md` grep for "daily driver" —
+only `docs/v0/` mentions ADRs, no EXAMPLES.md at any path). Rather than
+inventing a new doc file that isn't part of the current documentation
+hierarchy, README.md's Lifecycle table absorbed the equivalent
+attach/sandbox behaviour notes instead (see the `af create`/`af resume`
+row updates above).

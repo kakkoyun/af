@@ -118,7 +118,7 @@ func ResumeWorkstream(ctx context.Context, deps ResumeDeps, opts ResumeOptions) 
 		return state, fmt.Errorf("resume: %w", transitionBlockedError("resume", State(state.Session.Status)))
 	}
 
-	maybeRespawnTmux(ctx, deps.Mux, state, opts.Bare)
+	MaybeRespawnTmux(ctx, deps.Mux, state, opts.Bare)
 
 	now := opts.Now
 	if now.IsZero() {
@@ -130,7 +130,15 @@ func ResumeWorkstream(ctx context.Context, deps ResumeDeps, opts ResumeOptions) 
 	return persistResume(state, opts, now)
 }
 
-func maybeRespawnTmux(ctx context.Context, multiplexer mux.Multiplexer, state session.State, bare bool) {
+// MaybeRespawnTmux re-creates state's tmux session via the multiplexer
+// when it is no longer alive (tmux server restarted, session killed
+// out-of-band, etc.), and is a no-op when bare is true, multiplexer is
+// nil, state has no tmux session recorded, or the session already
+// exists. It is exported so `af resume`'s already-active fast path
+// (issue #33 Fix 2) can reuse the exact respawn mechanism the
+// suspended-to-active transition already runs here, instead of
+// inventing a second one.
+func MaybeRespawnTmux(ctx context.Context, multiplexer mux.Multiplexer, state session.State, bare bool) {
 	if bare || multiplexer == nil || state.Execution.TmuxSession == "" {
 		return
 	}

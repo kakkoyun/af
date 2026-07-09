@@ -18,6 +18,7 @@ type fakeSession struct {
 	env      map[string]string
 	options  map[string]string
 	panes    []Pane
+	sentKeys []string
 	attached bool
 }
 
@@ -101,20 +102,38 @@ func (fake *FakeMultiplexer) Attach(ctx context.Context, name string) error {
 	return nil
 }
 
-// SendKeys accepts keys for a fake session.
-func (fake *FakeMultiplexer) SendKeys(ctx context.Context, session, _, _ string) error {
+// SendKeys accepts keys for a fake session, recording them so tests can
+// inspect what was sent via SentKeys (issue #33 Fix 3).
+func (fake *FakeMultiplexer) SendKeys(ctx context.Context, session, _, keys string) error {
 	err := ctx.Err()
 	if err != nil {
 		return fmt.Errorf("send fake mux keys to %s: %w", session, err)
 	}
-	fake.mu.RLock()
-	defer fake.mu.RUnlock()
-	_, err = fake.sessionLocked(session)
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	entry, err := fake.sessionLocked(session)
 	if err != nil {
 		return err
 	}
+	entry.sentKeys = append(entry.sentKeys, keys)
 
 	return nil
+}
+
+// SentKeys returns the keys recorded by SendKeys for session, in call
+// order. It returns nil for a session that never received SendKeys (or
+// never existed), so callers don't need a separate existence check.
+func (fake *FakeMultiplexer) SentKeys(session string) []string {
+	fake.mu.RLock()
+	defer fake.mu.RUnlock()
+	entry, ok := fake.sessions[session]
+	if !ok || len(entry.sentKeys) == 0 {
+		return nil
+	}
+	keys := make([]string, len(entry.sentKeys))
+	copy(keys, entry.sentKeys)
+
+	return keys
 }
 
 // SetEnv sets a fake session environment variable.
