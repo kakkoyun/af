@@ -242,7 +242,7 @@ af status --json | jq '.data'      # {"schema": 1, "data": ...}
 af note ghost --append hi
 echo $?                            # 66  (EX_NOINPUT: no such workstream)
 
-PATH=/usr/bin:/bin af pr --refresh; echo $?   # 69 (EX_UNAVAILABLE: gh missing)
+PATH=/usr/bin:/bin af pr fix-auth --title t; echo $?   # 69 (EX_UNAVAILABLE: gh missing)
 
 AF_LOCK_TIMEOUT=2s af note busy --append x    # 75 (EX_TEMPFAIL) instead of hanging
 ```

@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exit 1. Found while verifying the examples page's exit-code recipes
   against a real binary. The doctor self-smoke's
   `unknown-session-rejected` step now expects 66.
+- `af agent stop --remove-worktree` now clears the removed
+  sub-worktree/sub-branch from `state.toml`. Previously the paths were
+  left in state, so a later `af done` re-ran `git worktree remove` on
+  the already-removed path — real git fatals and the whole `done`
+  aborts. Found by executing every `docs/EXAMPLES.md` recipe against a
+  real binary (the add → stop → done sequence); existing tests missed
+  it because the done tests use the fake git runner, which tolerates
+  double removal.
 
 ### Added (examples page)
 

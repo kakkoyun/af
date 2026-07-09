@@ -267,6 +267,47 @@ func TestAgentStop_RemoveWorktreeRunsGitCleanup(t *testing.T) {
 	if !strings.Contains(commands, "branch -D demo--reviewer") {
 		t.Fatalf("missing branch delete; commands:\n%s", commands)
 	}
+
+	// The removed worktree/branch must also be cleared from state:
+	// a later `af done` iterates agents with SubWorktree != "" and
+	// re-runs `git worktree remove` — against real git that fatals on
+	// the already-removed path and aborts the whole done (found by the
+	// docs/EXAMPLES.md vet run: add → stop --remove-worktree → done).
+	state, err := session.ReadState(path)
+	if err != nil {
+		t.Fatalf("ReadState after stop: %v", err)
+	}
+	if state.Agents[0].SubWorktree != "" || state.Agents[0].SubBranch != "" {
+		t.Fatalf("SubWorktree/SubBranch not cleared after removal: %+v", state.Agents[0])
+	}
+}
+
+// TestAgentStop_WithoutRemoveWorktreeKeepsPaths pins the counterpart:
+// stopping WITHOUT --remove-worktree must keep the sub-worktree fields
+// so `af done` still knows to clean the surviving worktree up.
+func TestAgentStop_WithoutRemoveWorktreeKeepsPaths(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "wt", "demo--reviewer")
+	path := writeAgentTestState(t, dir, []session.AgentState{{
+		Slot: "reviewer", Provider: "claude", Status: "active",
+		SubWorktree: sub, SubBranch: "demo--reviewer",
+	}})
+
+	err := lifecycle.AgentStop(context.Background(), git.NewFakeRunner(), lifecycle.AgentStopOptions{
+		StatePath: path,
+		Slot:      "reviewer",
+	})
+	if err != nil {
+		t.Fatalf("AgentStop: %v", err)
+	}
+	state, err := session.ReadState(path)
+	if err != nil {
+		t.Fatalf("ReadState after stop: %v", err)
+	}
+	if state.Agents[0].SubWorktree != sub || state.Agents[0].SubBranch != "demo--reviewer" {
+		t.Fatalf("sub-worktree fields must survive a stop without removal: %+v", state.Agents[0])
+	}
 }
 
 func TestAgentStop_RemoveWorktreeGitFailure(t *testing.T) {
