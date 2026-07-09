@@ -39,6 +39,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   HEAD` (tracked changes only) instead of `git status --porcelain`,
   matching what `af version`'s `dirty` flag actually reflects.
 
+### Fixed (slicer diagnostics, issue #19)
+
+- **`af create --sandbox slicer` no longer swallows slicer's stderr.**
+  Every `slicer` invocation run through `sandbox.ExecRunner` now embeds a
+  trimmed (max 512 bytes, `…`-truncated) snippet of the failing command's
+  stderr in the returned error instead of a bare `exit status 1`. In
+  addition, `slicer wt push --launch` specifically detects the "Multiple
+  host groups present (N), specify --hostgroup" case when
+  `[sandbox.slicer] group` is empty and appends guidance to set it (e.g.
+  `group = "sbox"`). Defaulting the group to `"sbox"` automatically was
+  considered and deliberately deferred — that's a config-default change
+  for a future ADR-036 amendment, not this fix.
+
 ### Changed (lock windows, issue #3)
 
 - **PR-refresh flows no longer hold the session lock across the `gh`

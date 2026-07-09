@@ -805,6 +805,13 @@ test/CI coverage, docs-vs-reality). All executed on branch
       (including gitignored) files no longer flip the dirty warning or
       `af version`'s `dirty` flag.
 
+- [x] I16.22 (issue #19): `sandbox.ExecRunner` now embeds a trimmed,
+      truncated (512 bytes) stderr snippet in command-failure errors for
+      every slicer invocation, and `WTPush` adds guidance to set
+      `[sandbox.slicer] group` when slicer reports multiple host groups
+      and the group is unset; defaulting the group to `"sbox"`
+      automatically is deferred to a future ADR-036 amendment.
+
 ---
 
 ## Backlog (post-v1, unscheduled)
