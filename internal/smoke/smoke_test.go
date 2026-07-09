@@ -68,11 +68,11 @@ func compliantExec() *fakeExec {
 		"af create ../evil --bare":           "invalid session name",
 		"af stack smoke-ws --parent ../evil": "invalid session name",
 	} {
-		f.queue(key, fakeResult{stderr: msg, exit: 64})
+		f.queue(key, fakeResult{stderr: msg, exit: smoke.ExitUsageForTest})
 	}
 	f.queue("af sync smoke-ws", fakeResult{stderr: "sync requires Stack.ParentSession to be set", exit: 1})
 	// Unknown sessions exit 66 (EX_NOINPUT per ADR-068 §2).
-	f.queue("af info ghost-session-does-not-exist", fakeResult{stderr: "session directory missing", exit: 66})
+	f.queue("af info ghost-session-does-not-exist", fakeResult{stderr: "session directory missing", exit: smoke.ExitNoInputForTest})
 	return f
 }
 

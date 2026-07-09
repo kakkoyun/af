@@ -190,7 +190,7 @@ notes_vault  = "personal"
 notes_folder = "00 - af"
 
 [obsidian.vaults]
-personal = "/Users/you/Vaults/personal"
+personal = "/absolute/path/to/your/vault"
 ```
 
 See [`examples/obsidian/`](../examples/obsidian/README.md) for the full
