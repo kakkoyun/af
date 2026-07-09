@@ -1,6 +1,7 @@
 package session
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,13 @@ import (
 // LockFileName is the flock file kept beside state.toml that serializes
 // read-modify-write sequences on a session's state and ledger.
 const LockFileName = ".af.lock"
+
+// ErrSessionDirNotFound reports that a workstream's session directory
+// does not exist. cmd/af's resolution chokepoint (statePathForSessionName)
+// checks for this ahead of time so commands fail with a friendly
+// "session '<name>' not found" message (issue #24/#25); WithDirLock's own
+// check below is the same guard kept as defence-in-depth against races.
+var ErrSessionDirNotFound = errors.New("session directory not found")
 
 // WithLock runs fn while holding the exclusive flock at
 // <dir(statePath)>/.af.lock. Every command that reads state.toml,
@@ -35,7 +43,7 @@ func WithDirLock(dir string, fn func() error) error {
 	// ADR-069 collision check then treats as live.
 	_, err := os.Stat(dir)
 	if err != nil {
-		return fmt.Errorf("session lock: session directory %s: %w", dir, err)
+		return fmt.Errorf("session lock: session directory %s: %w: %w", dir, ErrSessionDirNotFound, err)
 	}
 	lockPath := filepath.Join(dir, LockFileName)
 	lock, err := LockFile(lockPath, LockExclusive)

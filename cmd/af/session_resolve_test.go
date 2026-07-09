@@ -94,6 +94,69 @@ func TestSessionResolution_NoInputReturnsHelpfulError(t *testing.T) {
 	}
 }
 
+// TestStatePathForSessionName_MissingDirHintsTmuxSessionName pins issue
+// #24 Option B: when the session directory doesn't exist and the given
+// name starts with "af-", the error suggests the corresponding
+// `af resume` invocation with the prefix stripped.
+func TestStatePathForSessionName_MissingDirHintsTmuxSessionName(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	_, _, err := executeCommand(t, newRootCmd(), "info", "af-demo")
+	if err == nil {
+		t.Fatal("info af-demo: error = nil, want not-found error")
+	}
+	if !strings.Contains(err.Error(), "session 'af-demo' not found") {
+		t.Fatalf("error = %v, want the friendly not-found lead", err)
+	}
+	if !strings.Contains(err.Error(), "did you mean: af resume demo") {
+		t.Fatalf("error = %v, want the did-you-mean hint", err)
+	}
+}
+
+// TestStatePathForSessionName_MissingDirWithDoubleDashSkipsDidYouMean
+// covers the fallback branch of issue #24 Option B: a stripped remainder
+// containing "--" (workstream.Sanitize's path-separator encoding) is
+// ambiguous to reverse, so the hint must not guess a workstream name —
+// it only points at `af list`.
+func TestStatePathForSessionName_MissingDirWithDoubleDashSkipsDidYouMean(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	_, _, err := executeCommand(t, newRootCmd(), "info", "af-team--feature")
+	if err == nil {
+		t.Fatal("info af-team--feature: error = nil, want not-found error")
+	}
+	if !strings.Contains(err.Error(), "session 'af-team--feature' not found") {
+		t.Fatalf("error = %v, want the friendly not-found lead", err)
+	}
+	if strings.Contains(err.Error(), "did you mean") {
+		t.Fatalf("error = %v, must not guess a did-you-mean for an ambiguous '--' remainder", err)
+	}
+	if !strings.Contains(err.Error(), "see 'af list'") {
+		t.Fatalf("error = %v, want the generic af-list hint", err)
+	}
+}
+
+// TestStatePathForSessionName_MissingDirWithoutAFPrefixHasNoHint checks
+// that ordinary workstream-name typos (no af- prefix) get the plain
+// not-found message without any tmux-session-name hint.
+func TestStatePathForSessionName_MissingDirWithoutAFPrefixHasNoHint(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	_, _, err := executeCommand(t, newRootCmd(), "info", "nope")
+	if err == nil {
+		t.Fatal("info nope: error = nil, want not-found error")
+	}
+	if !strings.Contains(err.Error(), "session 'nope' not found") {
+		t.Fatalf("error = %v, want the friendly not-found lead", err)
+	}
+	if strings.Contains(err.Error(), "hint:") {
+		t.Fatalf("error = %v, must not add a tmux-session-name hint for a plain workstream name", err)
+	}
+}
+
 // errFakeFzfExit simulates a non-zero fzf exit (e.g. Esc) in tests.
 var errFakeFzfExit = errors.New("exit status 130")
 

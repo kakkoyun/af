@@ -149,13 +149,62 @@ func noInputSessionError() error {
 // statePathForSessionName is the single chokepoint turning a session
 // name (positional arg, --session, AF_SESSION, picker selection, stack
 // parent) into an on-disk state path. Validation here keeps every
-// command's state access contained in the sessions root (ADR-069).
+// command's state access contained in the sessions root (ADR-069). Once
+// the name passes validation, the session directory itself must already
+// exist: every caller of this chokepoint targets an existing workstream
+// (af create resolves its own path separately), so a missing directory
+// is reported here with a friendly "not found" message rather than
+// surfacing later as a bare "no such file or directory" from whatever
+// happens to touch the path next (issue #24/#25).
 func statePathForSessionName(stateDir, name string) (string, error) {
 	err := workstream.ValidateSessionName(name)
 	if err != nil {
 		return "", fmt.Errorf("resolve state path: %w", err)
 	}
-	return filepath.Join(stateDir, name, "state.toml"), nil
+	dir := filepath.Join(stateDir, name)
+	_, statErr := os.Stat(dir)
+	if statErr != nil {
+		return "", sessionNotFoundError(name, statErr)
+	}
+	return filepath.Join(dir, "state.toml"), nil
+}
+
+// afTmuxPrefix is the tmux session naming convention af itself uses
+// (resolveCreateNames in internal/lifecycle/create.go: "af-" + sanitized
+// workstream name).
+const afTmuxPrefix = "af-"
+
+// sessionNotFoundError builds the resolution failure for a workstream
+// name whose session directory does not exist. When name looks like a
+// raw tmux session name (the af-<workstream> convention) rather than a
+// workstream name, it appends a hint pointing at the likely intended
+// `af resume` invocation instead of silently misresolving (issue #24,
+// Option B).
+func sessionNotFoundError(name string, cause error) error {
+	err := fmt.Errorf("session '%s' not found: %w: %w", name, session.ErrSessionDirNotFound, cause)
+	hint := tmuxSessionNameHint(name)
+	if hint == "" {
+		return err
+	}
+	return fmt.Errorf("%w\nhint: %s", err, hint)
+}
+
+// tmuxSessionNameHint returns a hint string when name looks like a tmux
+// session name (the af-<workstream> convention) instead of a bare
+// workstream name. It only strips the leading "af-" prefix — it never
+// attempts to reverse workstream.Sanitize's "--" path-separator
+// encoding, since that mapping is lossy. When the stripped remainder
+// still contains "--" (so the un-sanitized name is ambiguous), it falls
+// back to a generic pointer at `af list` instead of guessing wrong.
+func tmuxSessionNameHint(name string) string {
+	if !strings.HasPrefix(name, afTmuxPrefix) {
+		return ""
+	}
+	rest := strings.TrimPrefix(name, afTmuxPrefix)
+	if strings.Contains(rest, "--") {
+		return fmt.Sprintf("'%s' looks like a tmux session name — af commands take the workstream name, see 'af list'", name)
+	}
+	return fmt.Sprintf("'%s' looks like a tmux session name; did you mean: af resume %s", name, rest)
 }
 
 func rootSessionFlag(cmd *cobra.Command) string {
