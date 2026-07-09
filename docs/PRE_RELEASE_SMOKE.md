@@ -167,7 +167,7 @@ ai_model = ""
 
 [obsidian]
 notes_vault = "personal"
-notes_folder = "00 - af"
+notes_folder = "00 - workstreams"
 
 [obsidian.vaults]
 personal = "$HOME/Vaults/personal"

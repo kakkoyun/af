@@ -315,6 +315,11 @@ Key sections:
   writes `notes_vault = ""` (opt-in) and comments out example
   `[obsidian.vaults]` entries rooted at your real `$HOME` (issue #17) —
   uncomment and point one at a real vault to enable the integration.
+  Notes land at `<vault>/00 - workstreams/<repo>/<file>.md` by default
+  (issue #34): `notes_subfolder_mode = "repo"` nests notes under a
+  per-repo subfolder and sanitises the filename so a workstream name
+  never creates stray directories; set it to `"flat"` for the old
+  layout, one shared folder with no per-repo subfolder.
 - `[secret]` — keyring service name and extra redact keys.
 
 ## Caveats

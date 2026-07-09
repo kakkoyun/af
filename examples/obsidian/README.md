@@ -1,4 +1,4 @@
-# Obsidian examples (ADR-047)
+# Obsidian examples (ADR-047, issue #34)
 
 `af create` writes one note per workstream into the configured vault via
 the disk-backed note store. Configure the vault in
@@ -6,15 +6,26 @@ the disk-backed note store. Configure the vault in
 
 ```toml
 [obsidian]
-notes_vault  = "personal"       # key from [obsidian.vaults]
-notes_folder = "00 - af"        # subfolder inside the vault
+notes_vault          = "personal"          # key from [obsidian.vaults]
+notes_folder         = "00 - workstreams"  # subfolder inside the vault
+notes_subfolder_mode = "repo"              # "repo" (default) nests notes per-repo; "flat" is the pre-issue-#34 layout
 
 [obsidian.vaults]
 personal = "/Users/owner/Vaults/personal"
 ```
 
-With that config, `af create fix-parser` produces
-`/Users/owner/Vaults/personal/00 - af/fix-parser.md`:
+With that config and repo `github.com/owner/repo`, `af create fix-parser`
+produces `/Users/owner/Vaults/personal/00 - workstreams/repo/fix-parser.md` —
+notes nest under a subfolder named after the last path element of the
+repo slug (`repo`), so every project's notes stay separate and a
+workstream name can never create stray directories of its own (a
+session named `team/x` becomes the file `team-x.md`, not a `team/`
+subdirectory). Set `notes_subfolder_mode = "flat"` to go back to the
+pre-issue-#34 layout, where every note lands directly under
+`notes_folder` regardless of repo:
+`/Users/owner/Vaults/personal/00 - workstreams/fix-parser.md`.
+
+The note's frontmatter contract is unaffected by the layout change:
 
 ```markdown
 ---

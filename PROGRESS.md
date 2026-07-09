@@ -3134,12 +3134,90 @@ cause the issue itself didn't name. Fixed all four.
   `cmd/af/create_test.go`: `TestCreate_SandboxLandsHostPaneInVMShell`,
   `TestCreate_NonSandboxStillLaunchesAgentOnHost`.
 
+## 2026-07-09 — Session 48: Obsidian note layout (issue #34)
+
+Fixed the flat, path-separator-mangled Obsidian note layout: an
+auto-generated session name like
+`github.com/kakkoyun/dotfiles-20260709-085045` used to turn the `/`
+into real nested directories under the vault, and every repo shared
+one flat notes folder.
+
+### Implementation
+
+- `internal/obsidian/note.go`: new exported `NoteFileName(sessionName,
+  repoSlug string) string` — strips the `<repo-slug>-` auto-name
+  prefix when present, reformats an auto-name timestamp remainder
+  (`YYYYMMDD-HHMMSS` → `YYYY-MM-DD-HHMMSS`), then replaces every
+  remaining `/` with `-` so a session name can never create a real
+  subdirectory. New exported `ComposeNotePath(notesDir, mode, session,
+  repoSlug, gitRoot string) string` is the single function that turns
+  a resolved notes directory into the final note path, applying the
+  new per-repo subfolder rule (`SubfolderModeRepo`, default) or
+  skipping it (`SubfolderModeFlat`). `ResolveNotePath` now delegates to
+  `ComposeNotePath` after vault selection, so there is exactly one
+  place that understands the issue #34 layout rules.
+- `internal/lifecycle/create.go`: `writeWorkstreamNote` now calls
+  `obsidian.ComposeNotePath` instead of the old inline `filepath.Join(opts.NotesDir,
+  resolved.name+".md")`. New `CreateOptions.NotesSubfolderMode` field
+  threads the config value through; `resolved.repoSlug` and
+  `opts.GitRoot` were already available in the create flow's state, so
+  no new plumbing was needed beyond the one field. `CreateResult.NotePath`
+  and the actual `DirStore.Write` call now derive from the exact same
+  `notePath` value — the single composition point the issue asked for.
+- `cmd/af/create.go`: passes `cfg.Obsidian.NotesSubfolderMode` through
+  to `lifecycle.CreateOptions`; `resolveNotesDir` is unchanged (still
+  resolves vault + notes_folder, the on/off signal for the note step).
+- `internal/config/config.go`: new `ObsidianConfig.NotesSubfolderMode`
+  field, TOML key `notes_subfolder_mode`, compiled default `"repo"`;
+  any value other than `"repo"`/`"flat"` is a config validation error
+  (`errObsidianSubfolderMode`), matching how `sandbox.default_provider`
+  and friends report bad enum values. Compiled `notes_folder` default
+  renamed from `"00 - af"` to `"00 - workstreams"`.
+- `internal/config/render.go` / `template.go`: render and `af config
+  init` template updated for the new key and folder default.
+
+### Tests (red first)
+
+- `internal/obsidian/note_filename_test.go`: `TestNoteFileName` (plain
+  name, auto-name slug-prefix + timestamp reformat, nested user name,
+  slug-prefixed-but-non-timestamp remainder, empty repo slug) and
+  `TestComposeNotePath` (repo mode, empty-mode-defaults-to-repo, flat
+  mode, empty-repo-slug-falls-back-to-git-root, nested name creates no
+  subdirectory).
+- `internal/obsidian/note_test.go` /
+  `note_edge_test.go`: updated the pre-existing `ResolveNotePath`
+  callers for the new `(config, session, repoSlug, gitRoot)` signature;
+  added `TestResolveNotePath_RepoModeNestsUnderRepoSubfolder`.
+- `internal/lifecycle/create_notes_layout_test.go`: new
+  `TestCreate_NoteLayout_RepoModeNestsUnderRepoSubfolder`,
+  `TestCreate_NoteLayout_FlatModeSkipsRepoSubfolder`,
+  `TestCreate_NoteLayout_AutoNameReformatsTimestamp`,
+  `TestCreate_NoteLayout_NestedSessionNameCreatesNoSubdirectory` (uses a
+  real `obsidian.DirStore` and asserts the nested `team/` directory does
+  NOT exist while `team-x.md` does),
+  `TestCreate_NoteLayout_EmptyRepoSlugFallsBackToGitRootBasename`,
+  `TestCreate_NoteLayout_NoNotesDirSkipsNoteEntirely`.
+- `internal/config/config_test.go`:
+  `TestObsidianConfig_NotesSubfolderModeDefaultsToRepo`,
+  `TestObsidianConfig_NotesSubfolderModeAcceptsFlat`,
+  `TestObsidianConfig_RejectsBadNotesSubfolderMode`.
+
+### Docs
+
+Updated `CHANGELOG.md` (new `### Changed (Obsidian note layout, issue
+#34)` section at the top of `[Unreleased]`), `README.md`'s `[obsidian]`
+bullet, `examples/obsidian/README.md`, and `docs/PRE_RELEASE_SMOKE.md`'s
+Obsidian config snippet, all for the new tree, filename rules, and
+`notes_subfolder_mode` key.
+
 ### Verification
 
 `gofumpt -l cmd/ internal/` clean; `goimports -l cmd/ internal/` clean;
 `golangci-lint run` (v2.3.0, all linters) 0 issues (needed one factor-out,
 `buildLifecycleCreateInputs`/`launchAndAttachSandbox`, to keep
 `runCreate` under the `cyclop` complexity budget); `go test -race
+
+`golangci-lint run` (v2.3.0, all linters) 0 issues; `go test -race
 -count=1 ./...` green across every package.
 
 ### Deferred / not done
@@ -3154,3 +3232,15 @@ inventing a new doc file that isn't part of the current documentation
 hierarchy, README.md's Lifecycle table absorbed the equivalent
 attach/sandbox behaviour notes instead (see the `af create`/`af resume`
 row updates above).
+
+- `docs/EXAMPLES.md` does not exist in this repository (no such file
+  under `docs/`), so its Obsidian recipe could not be updated as the
+  task brief described; updated `docs/PRE_RELEASE_SMOKE.md`'s Obsidian
+  config snippet instead as the closest analog. Flagged for the owner
+  to confirm whether a `docs/EXAMPLES.md` should exist.
+- ADR-036 and ADR-047 (both `status: accepted`, `docs/adr/` is
+  append-only per CLAUDE.md §4) still describe the pre-issue-#34 flat
+  layout and the `"00 - af"` default. Left untouched rather than
+  editing a frozen ADR; a new ADR amendment would be the correct
+  vehicle for updating the historical record, but writing one was not
+  requested by the task brief.
