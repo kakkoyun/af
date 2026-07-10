@@ -832,6 +832,13 @@ test/CI coverage, docs-vs-reality). All executed on branch
       lifecycle transition errors, and new `Example:` blocks.
 - [x] I16.30 (issue #33): fixed attach running through captured (non-tty) stdio so it always failed, added the inside-tmux `switch-client` path, made `af resume` respawn a dead tmux session before attaching on the already-active fast path, and made `af create --sandbox slicer` land the host tmux pane as a VM shell instead of double-launching the agent.
 
+- [x] I16.31 (issue #34): Obsidian notes now nest under a per-repo
+      subfolder with a sanitised filename (`obsidian.ComposeNotePath` /
+      `obsidian.NoteFileName`), the compiled `notes_folder` default is
+      renamed to `"00 - workstreams"`, and a new
+      `notes_subfolder_mode = "flat"` config key opts back into the old
+      flat layout.
+
 ---
 
 ## Backlog (post-v1, unscheduled)

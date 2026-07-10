@@ -87,6 +87,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `sandbox.Provider.AttachCommand`); the agent still launches inside
   the VM only, unchanged.
 
+### Changed (Obsidian note layout, issue #34)
+
+- **`af create` no longer dumps every workstream note flat into one
+  folder with a path-separator-mangled filename.** A session named
+  `github.com/kakkoyun/dotfiles-20260709-085045` used to produce a
+  literal `github.com/kakkoyun/dotfiles-20260709-085045.md` path —
+  turning the "/" into real nested directories inside the vault. The
+  new default tree is:
+
+  ```
+  <vault>/00 - workstreams/<repo>/<file>.md
+  ```
+
+  where `<repo>` is the last path element of the workstream's repo
+  slug (`github.com/kakkoyun/af` → `af`), falling back to the git
+  root's basename when no remote is configured.
+- **Filename derivation** (`obsidian.NoteFileName`): (1) an
+  auto-generated session name (`<repo-slug>-YYYYMMDD-HHMMSS`, the
+  `af create` default when no name is given) has its repo-slug prefix
+  stripped and its timestamp reformatted, e.g.
+  `github.com/kakkoyun/dotfiles-20260709-085045` →
+  `2026-07-09-085045.md`; (2) any remaining `/` in the session name is
+  replaced with `-`, so a nested or user-chosen name (`team/x`) can
+  never create a real subdirectory under the notes folder — it becomes
+  `team-x.md`.
+- **Compiled default `[obsidian] notes_folder` renamed** from
+  `"00 - af"` to `"00 - workstreams"`. Existing configs that already
+  set `notes_folder` are unaffected.
+- **New `[obsidian] notes_subfolder_mode` config key.** Compiled
+  default `"repo"` (the new per-repo layout above); set it to `"flat"`
+  to opt back into the pre-issue-#34 layout, one shared folder with no
+  per-repo subfolder. Any other value is a config validation error.
+- The note path is now composed by exactly one function,
+  `obsidian.ComposeNotePath`, shared by the `af create` `note: <path>`
+  output line and the actual `DirStore` write.
+
 ### Fixed (owner smoke-test findings; issues #15, #16)
 
 - **A malformed `AF_SESSION` now fails every `af` invocation up front**

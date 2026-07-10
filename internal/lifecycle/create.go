@@ -40,6 +40,11 @@ type CreateOptions struct { //nolint:govet // Field grouping by semantic domain 
 	StateDir     string // ~/.local/share/af/v1/sessions
 	ArchiveDir   string // ~/.local/share/af/v1/archive; ADR-069 §3 collision check
 	NotesDir     string // optional; if non-empty, write an Obsidian note
+	// NotesSubfolderMode selects the issue #34 note layout passed to
+	// obsidian.ComposeNotePath: obsidian.SubfolderModeRepo (default,
+	// including "") nests notes per-repo under NotesDir;
+	// obsidian.SubfolderModeFlat keeps the pre-issue-#34 flat layout.
+	NotesSubfolderMode string
 	// Identity rules.
 	BranchPrefix string
 	// Behaviour switches.
@@ -407,7 +412,11 @@ func writeWorkstreamNote(ctx context.Context, store obsidian.Store, resolved res
 	if store == nil || opts.NotesDir == "" {
 		return "", nil
 	}
-	notePath := filepath.Join(opts.NotesDir, resolved.name+".md")
+	// obsidian.ComposeNotePath is the single function that produces a
+	// workstream note path (issue #34): the same notePath value feeds
+	// both this DirStore write and the printed "note: <path>" line via
+	// CreateResult.NotePath.
+	notePath := obsidian.ComposeNotePath(opts.NotesDir, opts.NotesSubfolderMode, resolved.name, resolved.repoSlug, opts.GitRoot)
 	note := obsidian.Note{
 		Frontmatter: obsidian.Frontmatter{
 			Schema:     1,

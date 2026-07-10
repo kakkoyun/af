@@ -62,8 +62,9 @@ image = ""                      # sbx default image override
 
 [obsidian]
 notes_vault    = ""             # vault key from [obsidian.vaults] below
-notes_folder   = "00 - af"
+notes_folder   = "00 - workstreams"
 notes_template = ""             # optional path to a markdown template
+notes_subfolder_mode = "repo"   # "repo" (default) nests notes per-repo; "flat" is the pre-issue-#34 layout
 
 [obsidian.vaults]
 # Map of vault-name -> absolute path on this machine. Multiple entries allowed.

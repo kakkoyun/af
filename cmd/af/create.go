@@ -169,20 +169,21 @@ func buildLifecycleCreateInputs(
 		deps.Agent = nil
 	}
 	createOpts := lifecycle.CreateOptions{
-		Name:             name,
-		FromBranch:       fromBranch,
-		GitRoot:          gitRoot,
-		RepoSlug:         repoSlug,
-		WorktreeRoot:     cfg.General.WorktreeRoot,
-		StateDir:         resolveStateDir(cc),
-		ArchiveDir:       resolveArchiveDir(),
-		NotesDir:         resolveNotesDir(cfg),
-		BranchPrefix:     cfg.Branch.Prefix,
-		PrefixOnForkOnly: cfg.Branch.PrefixOnForkOnly,
-		HasUpstream:      hasUpstream,
-		Bare:             opts.bare,
-		AgentName:        agentName,
-		HostAgentless:    hostAgentless,
+		Name:               name,
+		FromBranch:         fromBranch,
+		GitRoot:            gitRoot,
+		RepoSlug:           repoSlug,
+		WorktreeRoot:       cfg.General.WorktreeRoot,
+		StateDir:           resolveStateDir(cc),
+		ArchiveDir:         resolveArchiveDir(),
+		NotesDir:           resolveNotesDir(cfg),
+		NotesSubfolderMode: cfg.Obsidian.NotesSubfolderMode,
+		BranchPrefix:       cfg.Branch.Prefix,
+		PrefixOnForkOnly:   cfg.Branch.PrefixOnForkOnly,
+		HasUpstream:        hasUpstream,
+		Bare:               opts.bare,
+		AgentName:          agentName,
+		HostAgentless:      hostAgentless,
 	}
 	return deps, createOpts
 }

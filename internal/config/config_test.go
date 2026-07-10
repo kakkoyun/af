@@ -210,6 +210,87 @@ cmd = ["git", "diff"]
 	}
 }
 
+// wantNotesSubfolderModeRepo is the compiled [obsidian]
+// notes_subfolder_mode default (issue #34).
+const wantNotesSubfolderModeRepo = "repo"
+
+// TestObsidianConfig_NotesSubfolderModeDefaultsToRepo guards issue #34:
+// an absent notes_subfolder_mode key must resolve to the compiled
+// "repo" default, both with no user config at all and with a user
+// config that omits the key.
+func TestObsidianConfig_NotesSubfolderModeDefaultsToRepo(t *testing.T) {
+	home := t.TempDir()
+
+	cfg, err := config.LoadWithOptions(context.Background(), config.LoadOptions{
+		UserConfigPath: filepath.Join(home, ".config", "af", "missing.toml"),
+	})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if cfg.Obsidian.NotesSubfolderMode != wantNotesSubfolderModeRepo {
+		t.Fatalf("NotesSubfolderMode = %q, want repo (no config file)", cfg.Obsidian.NotesSubfolderMode)
+	}
+
+	userPath := filepath.Join(home, ".config", "af", "config.toml")
+	writeFile(t, userPath, `
+schema_version = 1
+
+[obsidian]
+notes_vault = "personal"
+`)
+	cfg, err = config.LoadWithOptions(context.Background(), config.LoadOptions{UserConfigPath: userPath})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if cfg.Obsidian.NotesSubfolderMode != wantNotesSubfolderModeRepo {
+		t.Fatalf("NotesSubfolderMode = %q, want repo (key absent from config)", cfg.Obsidian.NotesSubfolderMode)
+	}
+}
+
+// TestObsidianConfig_NotesSubfolderModeAcceptsFlat guards the issue #34
+// opt-out: an explicit "flat" value must round-trip unchanged.
+func TestObsidianConfig_NotesSubfolderModeAcceptsFlat(t *testing.T) {
+	home := t.TempDir()
+	userPath := filepath.Join(home, ".config", "af", "config.toml")
+	writeFile(t, userPath, `
+schema_version = 1
+
+[obsidian]
+notes_subfolder_mode = "flat"
+`)
+
+	cfg, err := config.LoadWithOptions(context.Background(), config.LoadOptions{UserConfigPath: userPath})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if cfg.Obsidian.NotesSubfolderMode != "flat" {
+		t.Fatalf("NotesSubfolderMode = %q, want flat", cfg.Obsidian.NotesSubfolderMode)
+	}
+}
+
+// TestObsidianConfig_RejectsBadNotesSubfolderMode guards issue #34: any
+// value other than "repo"/"flat" is a config validation error,
+// consistent with how the config package reports other bad enum
+// values (e.g. sandbox.default_provider).
+func TestObsidianConfig_RejectsBadNotesSubfolderMode(t *testing.T) {
+	home := t.TempDir()
+	userPath := filepath.Join(home, ".config", "af", "config.toml")
+	writeFile(t, userPath, `
+schema_version = 1
+
+[obsidian]
+notes_subfolder_mode = "nested"
+`)
+
+	_, err := config.LoadWithOptions(context.Background(), config.LoadOptions{UserConfigPath: userPath})
+	if err == nil {
+		t.Fatal("LoadWithOptions() error = nil, want error for bad notes_subfolder_mode")
+	}
+	if !strings.Contains(err.Error(), "notes_subfolder_mode") {
+		t.Fatalf("error %q does not mention notes_subfolder_mode", err)
+	}
+}
+
 func TestSandboxConfig_RejectsSBXProvider(t *testing.T) {
 	home := t.TempDir()
 	userCfgPath := filepath.Join(home, ".config", "af", "config.toml")

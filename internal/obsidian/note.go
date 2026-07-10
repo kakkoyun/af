@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -15,6 +16,22 @@ import (
 )
 
 const frontmatterMarker = "---\n"
+
+const (
+	// SubfolderModeRepo nests notes under a per-repo subfolder named
+	// after the last path element of the workstream's repo slug
+	// (issue #34). It is the implicit default whenever a caller leaves
+	// PathConfig.SubfolderMode / ComposeNotePath's mode argument empty.
+	SubfolderModeRepo = "repo"
+	// SubfolderModeFlat restores the pre-issue-#34 layout: every
+	// workstream note lands directly in the configured notes folder,
+	// regardless of repo.
+	SubfolderModeFlat = "flat"
+)
+
+// autoNameTimestampRe matches the timestamp suffix workstream.AutoSessionName
+// appends to auto-generated session names: "YYYYMMDD-HHMMSS".
+var autoNameTimestampRe = regexp.MustCompile(`^\d{8}-\d{6}$`)
 
 // ErrMissingFrontmatter reports a markdown note without a leading YAML block.
 var ErrMissingFrontmatter = errors.New("missing obsidian frontmatter")
@@ -99,10 +116,16 @@ type PathConfig struct {
 	Vaults      map[string]string
 	NotesVault  string
 	NotesFolder string
+	// SubfolderMode is "repo" (default, including "") or "flat"; see
+	// SubfolderModeRepo / SubfolderModeFlat.
+	SubfolderMode string
 }
 
-// ResolveNotePath returns the markdown path for session in the configured vault.
-func ResolveNotePath(config PathConfig, session string) (string, error) {
+// ResolveNotePath returns the markdown note path for session in the
+// configured vault. repoSlug and gitRoot drive the issue #34
+// repo-subfolder and filename rules (see ComposeNotePath); gitRoot is
+// only consulted as a fallback repo identity when repoSlug is empty.
+func ResolveNotePath(config PathConfig, session, repoSlug, gitRoot string) (string, error) {
 	vaultName, err := selectedVault(config)
 	if err != nil {
 		return "", err
@@ -112,13 +135,105 @@ func ResolveNotePath(config PathConfig, session string) (string, error) {
 		return "", fmt.Errorf("resolve obsidian note %s: %w", session, ErrVaultNotConfigured)
 	}
 
-	parts := []string{vaultPath}
+	notesDir := vaultPath
 	if config.NotesFolder != "" {
-		parts = append(parts, config.NotesFolder)
+		notesDir = filepath.Join(vaultPath, config.NotesFolder)
 	}
-	parts = append(parts, session+".md")
 
-	return filepath.Join(parts...), nil
+	return ComposeNotePath(notesDir, config.SubfolderMode, session, repoSlug, gitRoot), nil
+}
+
+// ComposeNotePath is the single function that turns an already-resolved
+// notes directory (a configured vault path, optionally joined with
+// notes_folder) into the final workstream note file path. It is the
+// one place `af create` composes a note path: both the DirStore write
+// and the printed "note: <path>" line reuse the exact string this
+// returns (issue #34).
+//
+// mode selects the issue #34 layout: SubfolderModeFlat keeps every
+// note directly under notesDir; any other value (including "", so
+// callers that predate the config key keep the new default) nests the
+// note under a per-repo subfolder derived from repoSlug (falling back
+// to gitRoot's basename when repoSlug is empty).
+func ComposeNotePath(notesDir, mode, session, repoSlug, gitRoot string) string {
+	parts := []string{notesDir}
+	if mode != SubfolderModeFlat {
+		if repo := repoSubfolder(repoSlug, gitRoot); repo != "" {
+			parts = append(parts, repo)
+		}
+	}
+	parts = append(parts, NoteFileName(session, repoSlug))
+
+	return filepath.Join(parts...)
+}
+
+// repoSubfolder returns the per-repo subfolder name used in
+// SubfolderModeRepo: the last path element of repoSlug (repo slugs are
+// always "/"-separated regardless of OS, e.g.
+// "github.com/kakkoyun/af"), or the basename of gitRoot when repoSlug
+// is empty (no remote configured). Returns "" when neither is available.
+func repoSubfolder(repoSlug, gitRoot string) string {
+	if repoSlug != "" {
+		return lastSlashSegment(repoSlug)
+	}
+	if gitRoot != "" {
+		return filepath.Base(gitRoot)
+	}
+
+	return ""
+}
+
+// lastSlashSegment returns the last "/"-separated segment of slug.
+// Repo slugs are always "/"-joined regardless of host OS (e.g.
+// "github.com/kakkoyun/af"), so this avoids pulling in the "path"
+// package purely for path.Base, which would collide with the "path"
+// parameter name used throughout this file's Store methods.
+func lastSlashSegment(slug string) string {
+	trimmed := strings.TrimRight(slug, "/")
+	if idx := strings.LastIndex(trimmed, "/"); idx >= 0 {
+		return trimmed[idx+1:]
+	}
+
+	return trimmed
+}
+
+// NoteFileName derives the markdown filename (including the ".md"
+// extension) for a workstream note from its session name and repo
+// slug, per issue #34:
+//
+//  1. When sessionName starts with "<repoSlug>-" (the
+//     workstream.AutoSessionName convention), that prefix is stripped.
+//  2. When the remainder matches the auto-name timestamp shape
+//     "YYYYMMDD-HHMMSS", it is reformatted to "YYYY-MM-DD-HHMMSS" for
+//     readability.
+//  3. Every remaining "/" is replaced with "-", so a session name can
+//     never create real subdirectories under the notes folder.
+func NoteFileName(sessionName, repoSlug string) string {
+	remainder := sessionName
+	if repoSlug != "" {
+		prefix := repoSlug + "-"
+		if rest, ok := strings.CutPrefix(sessionName, prefix); ok {
+			remainder = rest
+			if autoNameTimestampRe.MatchString(remainder) {
+				remainder = reformatAutoTimestamp(remainder)
+			}
+		}
+	}
+
+	// Both slash variants: "/" is the legal nested-name separator, and
+	// "\\" would still act as a path separator on Windows via
+	// filepath.Join — a note filename must never mint directories on
+	// any platform.
+	remainder = strings.ReplaceAll(remainder, "/", "-")
+	return strings.ReplaceAll(remainder, "\\", "-") + ".md"
+}
+
+// reformatAutoTimestamp turns a workstream.AutoSessionName timestamp
+// suffix "YYYYMMDD-HHMMSS" into "YYYY-MM-DD-HHMMSS". ts must already
+// match autoNameTimestampRe.
+func reformatAutoTimestamp(ts string) string {
+	date, clock, _ := strings.Cut(ts, "-")
+	return date[0:4] + "-" + date[4:6] + "-" + date[6:8] + "-" + clock
 }
 
 func selectedVault(config PathConfig) (string, error) {

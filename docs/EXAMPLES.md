@@ -191,11 +191,16 @@ To also get a per-workstream Obsidian note on `af create`, point
 ```toml
 [obsidian]
 notes_vault  = "personal"
-notes_folder = "00 - af"
+notes_folder = "00 - workstreams"
 
 [obsidian.vaults]
 personal = "/absolute/path/to/your/vault"
 ```
+
+Notes are grouped by repo — `<vault>/00 - workstreams/<repo>/<name>.md`,
+with auto-generated session names collapsed to their datestamp
+(`2026-07-09-085045.md`). Set `notes_subfolder_mode = "flat"` to keep
+everything in one folder instead.
 
 See [`examples/obsidian/`](../examples/obsidian/README.md) for the full
 worked example including the resulting note layout.

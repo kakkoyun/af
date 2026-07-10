@@ -23,6 +23,16 @@ const (
 )
 
 const (
+	// notesSubfolderModeRepo is the compiled default [obsidian]
+	// notes_subfolder_mode: notes nest under a per-repo subfolder
+	// (issue #34).
+	notesSubfolderModeRepo = "repo"
+	// notesSubfolderModeFlat opts out of the per-repo subfolder,
+	// restoring the pre-issue-#34 flat note layout.
+	notesSubfolderModeFlat = "flat"
+)
+
+const (
 	sectionGeneral  = "general"
 	sectionBranch   = "branch"
 	sectionEditor   = "editor"
@@ -51,6 +61,9 @@ var (
 	errInvalidCommand      = errors.New("invalid proxy command")
 	errTypeMismatch        = errors.New("config type mismatch")
 	errInvalidControlField = errors.New("invalid control field")
+	// errObsidianSubfolderMode reports an [obsidian] notes_subfolder_mode
+	// value other than "repo" or "flat" (issue #34).
+	errObsidianSubfolderMode = errors.New(`obsidian.notes_subfolder_mode must be "repo" or "flat"`)
 )
 
 // Config is the fully merged af configuration.
@@ -194,6 +207,12 @@ type ObsidianConfig struct {
 	NotesVault    string
 	NotesFolder   string
 	NotesTemplate string
+	// NotesSubfolderMode selects the issue #34 note layout: "repo"
+	// (compiled default) nests notes under a per-repo subfolder named
+	// after the last path element of the workstream's repo slug;
+	// "flat" keeps the pre-issue-#34 layout, one folder shared by every
+	// repo.
+	NotesSubfolderMode string
 }
 
 // DoctorConfig contains dependency-probe defaults.
@@ -308,8 +327,9 @@ func Defaults() Config {
 			SSHOptions: []string{"-o", "ServerAliveInterval=60"},
 		},
 		Obsidian: ObsidianConfig{
-			NotesFolder: "00 - af",
-			Vaults:      map[string]string{},
+			NotesFolder:        "00 - workstreams",
+			NotesSubfolderMode: notesSubfolderModeRepo,
+			Vaults:             map[string]string{},
 		},
 		Doctor: DoctorConfig{
 			ExtraTools: []string{},
@@ -404,10 +424,11 @@ type sandboxLayer struct {
 }
 
 type obsidianLayer struct {
-	NotesVault    *string
-	NotesFolder   *string
-	NotesTemplate *string
-	Vaults        map[string]string
+	NotesVault         *string
+	NotesFolder        *string
+	NotesTemplate      *string
+	NotesSubfolderMode *string
+	Vaults             map[string]string
 }
 
 type doctorLayer struct {
@@ -833,6 +854,18 @@ func parseObsidianSection(table map[string]any, path string, allowGlobalOnly boo
 	if err != nil {
 		return err
 	}
+	layer.Obsidian.NotesSubfolderMode, err = stringPointer(table, "notes_subfolder_mode", path)
+	if err != nil {
+		return err
+	}
+	if mode := layer.Obsidian.NotesSubfolderMode; mode != nil {
+		switch *mode {
+		case notesSubfolderModeRepo, notesSubfolderModeFlat:
+			// valid per issue #34
+		default:
+			return fmt.Errorf("config %s: %w: got %q", path, errObsidianSubfolderMode, *mode)
+		}
+	}
 	layer.Obsidian.Vaults, err = globalOnlyStringMap(table, fieldVaults, path, allowGlobalOnly, logger)
 	if err != nil {
 		return err
@@ -1141,6 +1174,7 @@ func mergeObsidian(cfg *ObsidianConfig, layer obsidianLayer) {
 	assignString(&cfg.NotesVault, layer.NotesVault)
 	assignString(&cfg.NotesFolder, layer.NotesFolder)
 	assignString(&cfg.NotesTemplate, layer.NotesTemplate)
+	assignString(&cfg.NotesSubfolderMode, layer.NotesSubfolderMode)
 	if layer.Vaults != nil {
 		cfg.Vaults = cloneStringMap(layer.Vaults)
 	}
